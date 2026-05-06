@@ -1,4 +1,4 @@
-# Vision
+# robot-ev-charging
 
 充电口视觉检测与位姿估计项目，包含三条主线：
 - 数据标注转换：`Labelme -> YOLO Detect`
@@ -8,7 +8,7 @@
 ## 1. 项目结构
 
 ```text
-Vision/
+robot-ev-charging/
 ├─ train/python/
 │  ├─ convert_labelme_to_yolo_detect.py
 │  └─ train_port.py
