@@ -1,0 +1,10 @@
+{
+  "model_file": "yolov8n.pt",
+  "data_file": "yolo_port/dataset.yaml",
+  "project_dir": "runs",
+  "run_name": "detect_retrain",
+  "epochs": 100,
+  "imgsz": 640,
+  "batch": 8,
+  "device": 0
+}

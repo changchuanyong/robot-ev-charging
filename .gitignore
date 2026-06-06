@@ -10,10 +10,12 @@ __pycache__/
 # YOLO training outputs and weights
 runs/
 *.pt
+*.cache
 
 # Live capture outputs and debug artifacts
 dataset/live/latest*.jpg
 dataset/live/latest*.json
+dataset/live/*.log
 dataset/live/recent_roi/
 dataset/live/debug_roi_enhance/
 

@@ -17,6 +17,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 ROI_META_PATH = ROOT_DIR / "dataset" / "live" / "latest_roi_meta.json"
 IMAGE_POINTS_JSON_PATH = ROOT_DIR / "dataset" / "live" / "latest_fitted_centers.json"
 MODEL_CSV_PATH = ROOT_DIR / "config" / "charging_port_model.csv"
+CAMERA_CONFIG_PATH = ROOT_DIR / "config" / "camera_intrinsics.json"
 FULL_IMAGE_PATH = ROOT_DIR / "dataset" / "live" / "latest.jpg"
 
 POSE_JSON_PATH = ROOT_DIR / "dataset" / "live" / "latest_pose.json"
@@ -25,17 +26,6 @@ POSE_VIS_PATH = ROOT_DIR / "dataset" / "live" / "latest_pose_vis.jpg"
 SHOW_WINDOW = os.environ.get("VISION_PIPELINE_MODE", "0") != "1"
 POINTS_ARE_IN_ROI = True
 AXIS_LEN_MM = 20.0
-
-# =========================================================
-# 相机内参：这里改成你自己的标定结果
-# =========================================================
-K = np.array([
-    [1000.0,    0.0, 960.0],
-    [   0.0, 1000.0, 540.0],
-    [   0.0,    0.0,   1.0],
-], dtype=np.float64)
-
-DIST_COEFFS = np.array([0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64).reshape(-1, 1)
 
 # =========================================================
 # 你的 layout_name -> 模型点 label 映射
@@ -59,6 +49,28 @@ def load_json(path: Path):
         raise FileNotFoundError(f"文件不存在: {path}")
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_camera_intrinsics(path: Path) -> Tuple[np.ndarray, np.ndarray, bool]:
+    data = load_json(path)
+
+    if "camera_matrix" not in data:
+        raise KeyError(f"camera intrinsics config missing camera_matrix: {path}")
+    if "dist_coeffs" not in data:
+        raise KeyError(f"camera intrinsics config missing dist_coeffs: {path}")
+
+    K = np.array(data["camera_matrix"], dtype=np.float64)
+    if K.shape != (3, 3):
+        raise ValueError(f"camera_matrix must be 3x3, got {K.shape}")
+
+    dist_coeffs = np.array(data["dist_coeffs"], dtype=np.float64).reshape(-1, 1)
+    if dist_coeffs.size not in (4, 5, 8, 12, 14):
+        raise ValueError(
+            "dist_coeffs must contain 4, 5, 8, 12, or 14 values, "
+            f"got {dist_coeffs.size}"
+        )
+
+    return K, dist_coeffs, bool(data.get("is_placeholder", False))
 
 
 def atomic_write_json(path: Path, data: dict) -> bool:
@@ -489,11 +501,15 @@ def main():
     roi_offset_x, roi_offset_y, _ = load_roi_offset(ROI_META_PATH)
     image_points_raw = parse_image_points(IMAGE_POINTS_JSON_PATH)
     object_points_dict = load_object_points_from_csv(MODEL_CSV_PATH)
+    camera_matrix, dist_coeffs, camera_is_placeholder = load_camera_intrinsics(CAMERA_CONFIG_PATH)
 
     print("===== Loaded Data =====")
     print(f"ROI offset: ({roi_offset_x:.3f}, {roi_offset_y:.3f})")
     print(f"Image points raw ({len(image_points_raw)}): {list(image_points_raw.keys())}")
     print(f"Model points ({len(object_points_dict)}): {list(object_points_dict.keys())}")
+    print(f"Camera config: {CAMERA_CONFIG_PATH}")
+    if camera_is_placeholder:
+        print("[WARN] camera_intrinsics.json still uses placeholder calibration values.")
 
     if POINTS_ARE_IN_ROI:
         image_points_full = roi_points_to_full_points(
@@ -511,8 +527,8 @@ def main():
     result = solve_target_pose(
         image_points_dict=image_points_full,
         object_points_dict=object_points_dict,
-        K=K,
-        dist_coeffs=DIST_COEFFS
+        K=camera_matrix,
+        dist_coeffs=dist_coeffs
     )
 
     rvec = result["rvec"]
@@ -541,6 +557,10 @@ def main():
             "x": float(roi_offset_x),
             "y": float(roi_offset_y)
         },
+        "camera_config": str(CAMERA_CONFIG_PATH),
+        "camera_intrinsics_placeholder": bool(camera_is_placeholder),
+        "camera_matrix": [[float(v) for v in row] for row in camera_matrix.tolist()],
+        "dist_coeffs": [float(x) for x in dist_coeffs.reshape(-1)],
         "rvec": [float(x) for x in rvec.reshape(-1)],
         "tvec": [float(x) for x in tvec.reshape(-1)],
         "R": [[float(v) for v in row] for row in R.tolist()],
@@ -571,8 +591,8 @@ def main():
         matched_names=result["matched_names"],
         rvec=rvec,
         tvec=tvec,
-        K=K,
-        dist_coeffs=DIST_COEFFS,
+        K=camera_matrix,
+        dist_coeffs=dist_coeffs,
         save_path=POSE_VIS_PATH,
         axis_len_mm=AXIS_LEN_MM,
         show_window=SHOW_WINDOW,

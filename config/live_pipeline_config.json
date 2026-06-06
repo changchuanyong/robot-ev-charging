@@ -1,0 +1,12 @@
+{
+  "kinect_exe": "live/cpp/kinect_live_capture_atomic.exe",
+  "python_exe": ".yolo_env/Scripts/python.exe",
+  "allow_no_camera_during_debug": true,
+  "key_windows_only": true,
+  "show_post_windows_in_pipeline": false,
+  "post_window_wait_ms": 700,
+  "start_delay": 2.0,
+  "post_roi_cooldown": 0.05,
+  "edge_wait_timeout": 3.0,
+  "poll_interval": 0.05
+}

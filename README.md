@@ -51,6 +51,14 @@ python -m venv .yolo_env
 pip install -r requirements.txt
 ```
 
+### 2.3 Windows 终端中文显示
+
+本仓库文本文件统一使用 UTF-8。若 PowerShell 中直接 `Get-Content README.md` 出现中文乱码，可改用：
+
+```powershell
+Get-Content -Encoding UTF8 README.md
+```
+
 ## 3. 从 0 到跑通（最短路径）
 
 ### 步骤 A：准备数据
@@ -70,6 +78,12 @@ pip install -r requirements.txt
 期望结果：
 - 生成 `yolo_port/labels/train/*.txt`、`yolo_port/labels/val/*.txt`
 - 更新 `yolo_port/dataset.yaml`
+
+训练前建议检查图片、Labelme JSON 和 YOLO 标签是否一致：
+
+```powershell
+.yolo_env\Scripts\python.exe train\python\check_yolo_dataset.py
+```
 
 ### 步骤 C：训练模型
 
@@ -100,6 +114,7 @@ pip install -r requirements.txt
 - 采集图：`dataset/live/latest.jpg`
 - 模型：`runs/detect_retrain/weights/best.pt`
 - PnP 模型点：`config/charging_port_model.csv`
+- 相机内参：`config/camera_intrinsics.json`
 
 ### 4.2 关键中间产物（按顺序）
 
@@ -124,18 +139,22 @@ pip install -r requirements.txt
 
 ### 5.1 `train/python/train_port.py`
 
-- `MODEL_FILE`：初始权重（默认 `yolov8n.pt`）
-- `DATA_FILE`：数据集配置（默认 `yolo_port/dataset.yaml`）
-- `EPOCHS`、`IMGSZ`、`BATCH`
-- `DEVICE`：`0` 表示首张 GPU，`cpu` 表示 CPU，`None` 自动
-- `RUN_NAME`：训练输出目录名
+训练参数统一放在 `config/train_config.json`：
+
+- `model_file`：初始权重（默认 `yolov8n.pt`）
+- `data_file`：数据集配置（默认 `yolo_port/dataset.yaml`）
+- `epochs`、`imgsz`、`batch`
+- `device`：`0` 表示首张 GPU，`cpu` 表示 CPU，`null` 自动
+- `run_name`：训练输出目录名
 
 ### 5.2 `live/python/launch_pipeline.py`
 
-- `KINECT_EXE`：采集程序路径
-- `PYTHON_EXE`：Python 解释器路径
-- `ALLOW_NO_CAMERA_DURING_DEBUG`：无相机时是否继续调试
-- `SHOW_POST_WINDOWS_IN_PIPELINE`：是否显示后处理窗口
+实时启动参数统一放在 `config/live_pipeline_config.json`：
+
+- `kinect_exe`：采集程序路径
+- `python_exe`：Python 解释器路径
+- `allow_no_camera_during_debug`：无相机时是否继续调试
+- `show_post_windows_in_pipeline`：是否显示后处理窗口
 
 ### 5.3 `live/python/roi.py`
 
@@ -145,7 +164,7 @@ pip install -r requirements.txt
 
 ### 5.4 `live/python/pnp2.py`
 
-- `K`、`DIST_COEFFS`：相机标定参数（必须替换成你的真实标定结果）
+- `config/camera_intrinsics.json`：相机标定参数（必须替换成你的真实标定结果，并将 `is_placeholder` 改为 `false`）
 - `MODEL_CSV_PATH`：3D 模型点 CSV
 - `LAYOUT_TO_MODEL_LABEL`：2D 点名到 3D 点名映射
 - `POINTS_ARE_IN_ROI`：输入点是否在 ROI 坐标系

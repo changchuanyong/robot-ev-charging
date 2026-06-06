@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import time
+import json
 from pathlib import Path
 
 # ===== 你改这里 =====
@@ -9,8 +10,8 @@ WORK_DIR = Path(__file__).resolve().parents[2]
 CPP_WORK_DIR = WORK_DIR / "live" / "cpp"
 PY_WORK_DIR = WORK_DIR / "live" / "python"
 LIVE_DIR = WORK_DIR / "dataset" / "live"
+CONFIG_PATH = WORK_DIR / "config" / "live_pipeline_config.json"
 
-KINECT_EXE = CPP_WORK_DIR / "kinect_live_capture_atomic.exe"
 ROI_WATCH_PY = PY_WORK_DIR / "roi.py"
 CANNY_WATCH_PY = PY_WORK_DIR / "Canny.py"
 ENHANCE_PY = PY_WORK_DIR / "enhance.py"
@@ -18,21 +19,46 @@ CONTOURS_PY = PY_WORK_DIR / "latest_candidate_contours.py"
 PNP_STEP_PY = PY_WORK_DIR / "pnp2.py"
 POST_VIS_WATCH_PY = PY_WORK_DIR / "post_vis_watch.py"
 
-PYTHON_EXE = WORK_DIR / ".yolo_env" / "Scripts" / "python.exe"
-START_DELAY = 2.0
-ALLOW_NO_CAMERA_DURING_DEBUG = True
-KEY_WINDOWS_ONLY = True
-SHOW_POST_WINDOWS_IN_PIPELINE = False
-POST_WINDOW_WAIT_MS = 700
-
 ROI_FILE = LIVE_DIR / "latest_roi.jpg"
 ENHANCED_FILE = LIVE_DIR / "latest_roi_enhanced.jpg"
 EDGES_FILE = LIVE_DIR / "latest_edges.jpg"
 
-POST_ROI_COOLDOWN = 0.05
-EDGE_WAIT_TIMEOUT = 3.0
-POLL_INTERVAL = 0.05
 # ===================
+
+
+def resolve_root_path(value) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return WORK_DIR / path
+
+
+def load_pipeline_config(path: Path) -> dict:
+    if not path.exists():
+        raise FileNotFoundError(f"实时流水线配置不存在: {path}")
+
+    with open(path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    required = [
+        "kinect_exe",
+        "python_exe",
+        "allow_no_camera_during_debug",
+        "key_windows_only",
+        "show_post_windows_in_pipeline",
+        "post_window_wait_ms",
+        "start_delay",
+        "post_roi_cooldown",
+        "edge_wait_timeout",
+        "poll_interval",
+    ]
+    missing = [name for name in required if name not in config]
+    if missing:
+        raise KeyError(f"实时流水线配置缺少字段: {missing}")
+
+    config["kinect_exe"] = resolve_root_path(config["kinect_exe"])
+    config["python_exe"] = resolve_root_path(config["python_exe"])
+    return config
 
 
 def start_process(cmd, cwd=None, name="process", env=None):
@@ -63,16 +89,18 @@ def wait_for_newer_file(path: Path, min_mtime: float, timeout_s: float, poll_s: 
 
 
 def main():
+    config = load_pipeline_config(CONFIG_PATH)
     processes = []
-    python_cmd = str(PYTHON_EXE) if PYTHON_EXE.exists() else sys.executable
+    python_exe = config["python_exe"]
+    python_cmd = str(python_exe) if python_exe.exists() else sys.executable
 
     child_env = os.environ.copy()
     child_env["VISION_PIPELINE_MODE"] = "1"
-    if KEY_WINDOWS_ONLY:
+    if config["key_windows_only"]:
         child_env["VISION_KEY_WINDOWS"] = "1"
-    if SHOW_POST_WINDOWS_IN_PIPELINE:
+    if config["show_post_windows_in_pipeline"]:
         child_env["VISION_SHOW_POST_WINDOWS"] = "1"
-    child_env["VISION_WINDOW_WAIT_MS"] = str(POST_WINDOW_WAIT_MS)
+    child_env["VISION_WINDOW_WAIT_MS"] = str(config["post_window_wait_ms"])
     child_env["VISION_SHOW_BASE_WINDOWS"] = "0"
     child_env["VISION_SHOW_ROI_WINDOW"] = "1"
     child_env["VISION_SHOW_CANNY_WINDOW"] = "0"
@@ -82,14 +110,14 @@ def main():
 
     try:
         p1 = start_process(
-            [str(KINECT_EXE)],
+            [str(config["kinect_exe"])],
             cwd=str(WORK_DIR),
             name="kinect_capture",
             env=child_env,
         )
         processes.append(("kinect_capture", p1))
 
-        time.sleep(START_DELAY)
+        time.sleep(config["start_delay"])
 
         p2 = start_process(
             [python_cmd, str(ROI_WATCH_PY)],
@@ -126,7 +154,7 @@ def main():
             for name, proc in list(processes):
                 ret = proc.poll()
                 if ret is not None:
-                    if name == "kinect_capture" and ALLOW_NO_CAMERA_DURING_DEBUG:
+                    if name == "kinect_capture" and config["allow_no_camera_during_debug"]:
                         print(
                             f"[WARN] {name} exited with code {ret}. "
                             "Camera may be disconnected; continuing in debug mode."
@@ -159,9 +187,9 @@ def main():
 
             edge_ok = wait_for_newer_file(
                 path=EDGES_FILE,
-                min_mtime=enhanced_mtime - POST_ROI_COOLDOWN,
-                timeout_s=EDGE_WAIT_TIMEOUT,
-                poll_s=POLL_INTERVAL,
+                min_mtime=enhanced_mtime - config["post_roi_cooldown"],
+                timeout_s=config["edge_wait_timeout"],
+                poll_s=config["poll_interval"],
             )
             if not edge_ok:
                 print("[WARN] latest_edges.jpg was not updated in time; continue with current edge file.")
