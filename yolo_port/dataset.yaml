@@ -1,4 +1,4 @@
-path: .
+path: yolo_port
 train: images/train
 val: images/val
 names:

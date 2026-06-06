@@ -134,7 +134,8 @@ def convert_split(split: str):
 
 
 def write_yaml():
-    yaml_text = f"""path: {OUT_DIR.as_posix()}
+    dataset_root = OUT_DIR.relative_to(ROOT_DIR).as_posix()
+    yaml_text = f"""path: {dataset_root}
 train: images/train
 val: images/val
 names:

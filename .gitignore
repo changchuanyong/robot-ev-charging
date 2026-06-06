@@ -13,11 +13,17 @@ runs/
 *.cache
 
 # Live capture outputs and debug artifacts
-dataset/live/latest*.jpg
-dataset/live/latest*.json
-dataset/live/*.log
+dataset/live/
+artifacts/
 dataset/live/recent_roi/
 dataset/live/debug_roi_enhance/
+
+# Local assistant/project notes
+.claude/
+CLAUDE.md
+
+# Local paper drafts
+*.docx
 
 # C/C++ build artifacts
 *.obj

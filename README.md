@@ -22,13 +22,19 @@ robot-ev-charging/
 │  └─ post_vis_watch.py
 ├─ live/cpp/
 │  └─ kinect_live_capture_atomic.cpp
+├─ docs/
+│  ├─ PROJECT_STRUCTURE.md
+│  └─ chapter3/
+│     ├─ chapter3_figures.py
+│     └─ figures/
 ├─ yolo_port/
 │  ├─ images/train, images/val
 │  ├─ labels/train, labels/val
 │  └─ dataset.yaml
 ├─ config/
 │  └─ charging_port_model.csv
-├─ dataset/live/
+├─ dataset/live/        # 运行时输出，Git 忽略
+├─ artifacts/           # 本地检查图/临时产物，Git 忽略
 └─ runs/
 ```
 
