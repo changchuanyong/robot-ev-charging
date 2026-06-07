@@ -26,6 +26,12 @@ POSE_VIS_PATH = ROOT_DIR / "dataset" / "live" / "latest_pose_vis.jpg"
 SHOW_WINDOW = os.environ.get("VISION_PIPELINE_MODE", "0") != "1"
 POINTS_ARE_IN_ROI = True
 AXIS_LEN_MM = 20.0
+RANSAC_REPROJ_ERROR_PX = 10.0
+RANSAC_CONFIDENCE = 0.99
+RANSAC_ITERATIONS = 500
+WARN_REPROJ_ERROR_PX = 5.0
+OUTLIER_SELECTION_PENALTY_PX = 1.5
+RANSAC_MIN_INLIER_RATIO = 0.70
 
 # =========================================================
 # 你的 layout_name -> 模型点 label 映射
@@ -333,6 +339,34 @@ def compute_reprojection_error(
     return float(np.mean(err))
 
 
+def compute_reprojection_errors(
+    object_points: np.ndarray,
+    image_points: np.ndarray,
+    rvec: np.ndarray,
+    tvec: np.ndarray,
+    K: np.ndarray,
+    dist_coeffs: np.ndarray,
+) -> np.ndarray:
+    proj, _ = cv2.projectPoints(object_points, rvec, tvec, K, dist_coeffs)
+    proj = proj.reshape(-1, 2)
+    return np.linalg.norm(proj - image_points, axis=1)
+
+
+def build_per_point_errors(
+    names: list[str],
+    object_points: np.ndarray,
+    image_points: np.ndarray,
+    rvec: np.ndarray,
+    tvec: np.ndarray,
+    K: np.ndarray,
+    dist_coeffs: np.ndarray,
+) -> dict[str, float]:
+    errors = compute_reprojection_errors(
+        object_points, image_points, rvec, tvec, K, dist_coeffs
+    )
+    return {name: float(err) for name, err in zip(names, errors)}
+
+
 def all_points_in_front(
     object_points: np.ndarray,
     rvec: np.ndarray,
@@ -343,7 +377,70 @@ def all_points_in_front(
     return bool(np.all(cam_pts[:, 2] > 0))
 
 
-def solve_target_pose(
+def solve_pnp_ransac_candidate(
+    object_points: np.ndarray,
+    image_points: np.ndarray,
+    K: np.ndarray,
+    dist_coeffs: np.ndarray,
+) -> dict | None:
+    if len(object_points) < 6:
+        return None
+
+    ok, rvec, tvec, inliers = cv2.solvePnPRansac(
+        object_points,
+        image_points,
+        K,
+        dist_coeffs,
+        iterationsCount=RANSAC_ITERATIONS,
+        reprojectionError=RANSAC_REPROJ_ERROR_PX,
+        confidence=RANSAC_CONFIDENCE,
+        flags=cv2.SOLVEPNP_ITERATIVE,
+    )
+    if not ok or inliers is None or len(inliers) < 4:
+        return None
+
+    inlier_idx = np.array(inliers, dtype=np.int32).reshape(-1)
+    min_inliers = int(np.ceil(RANSAC_MIN_INLIER_RATIO * len(object_points)))
+    if len(inlier_idx) < min_inliers:
+        return None
+
+    inlier_object = object_points[inlier_idx]
+    inlier_image = image_points[inlier_idx]
+
+    refined_ok, refined_rvec, refined_tvec = cv2.solvePnP(
+        inlier_object,
+        inlier_image,
+        K,
+        dist_coeffs,
+        rvec=rvec,
+        tvec=tvec,
+        useExtrinsicGuess=True,
+        flags=cv2.SOLVEPNP_ITERATIVE,
+    )
+    if refined_ok:
+        rvec, tvec = refined_rvec, refined_tvec
+
+    return {
+        "idx": 0,
+        "source": "RANSAC_ITERATIVE",
+        "rvec": rvec,
+        "tvec": tvec,
+        "reproj_error": compute_reprojection_error(
+            object_points, image_points, rvec, tvec, K, dist_coeffs
+        ),
+        "selection_error": (
+            compute_reprojection_error(
+                inlier_object, inlier_image, rvec, tvec, K, dist_coeffs
+            )
+            + OUTLIER_SELECTION_PENALTY_PX * (len(object_points) - len(inlier_idx))
+        ),
+        "all_in_front": all_points_in_front(object_points, rvec, tvec),
+        "inlier_indices": inlier_idx.tolist(),
+        "inlier_count": int(len(inlier_idx)),
+    }
+
+
+def solve_target_pose_legacy(
     image_points_dict: Dict[str, Tuple[float, float]],
     object_points_dict: Dict[str, Tuple[float, float, float]],
     K: np.ndarray,
@@ -426,6 +523,119 @@ def solve_target_pose(
         "reproj_error": err,
         "all_in_front": all_points_in_front(object_points, rvec, tvec),
         "candidate_count": 1,
+    }
+
+
+def solve_target_pose(
+    image_points_dict: Dict[str, Tuple[float, float]],
+    object_points_dict: Dict[str, Tuple[float, float, float]],
+    K: np.ndarray,
+    dist_coeffs: np.ndarray,
+):
+    names, object_points, image_points = build_correspondences(
+        object_points_dict=object_points_dict,
+        image_points_dict=image_points_dict
+    )
+
+    planar = is_planar_points(object_points)
+    candidates = []
+
+    if planar:
+        ok, rvecs, tvecs, _ = cv2.solvePnPGeneric(
+            object_points,
+            image_points,
+            K,
+            dist_coeffs,
+            flags=cv2.SOLVEPNP_IPPE
+        )
+
+        if not ok or rvecs is None or len(rvecs) == 0:
+            raise RuntimeError("IPPE solve failed")
+
+        for i in range(len(rvecs)):
+            rvec = rvecs[i]
+            tvec = tvecs[i]
+            candidates.append({
+                "idx": i,
+                "source": "IPPE",
+                "rvec": rvec,
+                "tvec": tvec,
+                "reproj_error": compute_reprojection_error(
+                    object_points, image_points, rvec, tvec, K, dist_coeffs
+                ),
+                "selection_error": compute_reprojection_error(
+                    object_points, image_points, rvec, tvec, K, dist_coeffs
+                ),
+                "all_in_front": all_points_in_front(object_points, rvec, tvec),
+                "inlier_indices": list(range(len(names))),
+                "inlier_count": len(names),
+            })
+    else:
+        ok, rvec, tvec = cv2.solvePnP(
+            object_points,
+            image_points,
+            K,
+            dist_coeffs,
+            flags=cv2.SOLVEPNP_EPNP
+        )
+        if not ok:
+            raise RuntimeError("EPNP solve failed")
+
+        candidates.append({
+            "idx": 0,
+            "source": "EPNP",
+            "rvec": rvec,
+            "tvec": tvec,
+            "reproj_error": compute_reprojection_error(
+                object_points, image_points, rvec, tvec, K, dist_coeffs
+            ),
+            "selection_error": compute_reprojection_error(
+                object_points, image_points, rvec, tvec, K, dist_coeffs
+            ),
+            "all_in_front": all_points_in_front(object_points, rvec, tvec),
+            "inlier_indices": list(range(len(names))),
+            "inlier_count": len(names),
+        })
+
+    ransac_candidate = solve_pnp_ransac_candidate(
+        object_points=object_points,
+        image_points=image_points,
+        K=K,
+        dist_coeffs=dist_coeffs,
+    )
+    if ransac_candidate is not None:
+        candidates.append(ransac_candidate)
+
+    candidates.sort(
+        key=lambda c: (
+            0 if c["all_in_front"] else 1,
+            c["selection_error"],
+            -c["inlier_count"],
+        )
+    )
+    best = candidates[0]
+    inlier_indices = set(int(i) for i in best["inlier_indices"])
+    inlier_names = [name for i, name in enumerate(names) if i in inlier_indices]
+    outlier_names = [name for i, name in enumerate(names) if i not in inlier_indices]
+    per_point_errors = build_per_point_errors(
+        names, object_points, image_points, best["rvec"], best["tvec"], K, dist_coeffs
+    )
+
+    return {
+        "method": best["source"],
+        "matched_names": names,
+        "inlier_names": inlier_names,
+        "outlier_names": outlier_names,
+        "object_points": object_points,
+        "image_points": image_points,
+        "rvec": best["rvec"],
+        "tvec": best["tvec"],
+        "reproj_error": best["reproj_error"],
+        "selection_error": best["selection_error"],
+        "per_point_errors_px": per_point_errors,
+        "all_in_front": best["all_in_front"],
+        "candidate_count": len(candidates),
+        "inlier_count": best["inlier_count"],
     }
 
 
@@ -538,9 +748,18 @@ def main():
     print("===== Pose Solve Done =====")
     print(f"method           : {result['method']}")
     print(f"matched_names    : {result['matched_names']}")
+    print(f"inlier_names     : {result['inlier_names']}")
+    print(f"outlier_names    : {result['outlier_names']}")
     print(f"candidate_count  : {result['candidate_count']}")
+    print(f"inlier_count     : {result['inlier_count']}")
     print(f"all_in_front     : {result['all_in_front']}")
+    print(f"selection_error  : {result['selection_error']:.6f}")
     print(f"reproj_error(px) : {result['reproj_error']:.6f}")
+    if result["reproj_error"] > WARN_REPROJ_ERROR_PX:
+        print(f"[WARN] reprojection error is above {WARN_REPROJ_ERROR_PX:.1f}px.")
+    print("per_point_errors(px):")
+    for name, err in result["per_point_errors_px"].items():
+        print(f"  {name}: {err:.3f}")
     print("rvec:")
     print(rvec.reshape(-1))
     print("tvec:")
@@ -551,7 +770,15 @@ def main():
     pose_json = {
         "method": result["method"],
         "matched_names": result["matched_names"],
+        "inlier_names": result["inlier_names"],
+        "outlier_names": result["outlier_names"],
+        "inlier_count": int(result["inlier_count"]),
+        "selection_error_px": float(result["selection_error"]),
         "reproj_error_px": float(result["reproj_error"]),
+        "per_point_errors_px": {
+            name: float(err)
+            for name, err in result["per_point_errors_px"].items()
+        },
         "all_in_front": bool(result["all_in_front"]),
         "roi_offset": {
             "x": float(roi_offset_x),

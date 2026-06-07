@@ -38,6 +38,10 @@ BILATERAL_D = 5
 BILATERAL_SIGMA_COLOR = 50
 BILATERAL_SIGMA_SPACE = 50
 
+# 边缘方法：canny / morph / hybrid
+# 默认使用 canny；hybrid 会补齐小孔边缘，但在当前样张上容易把大孔与外圈粘连。
+EDGE_METHOD = os.environ.get("VISION_EDGE_METHOD", "canny").strip().lower()
+
 # 自适应 Canny 参数
 # 推荐先用这个范围：
 # HIGH_PCT 80~90
@@ -45,9 +49,18 @@ BILATERAL_SIGMA_SPACE = 50
 HIGH_PCT = 90
 LOW_RATIO = 0.35
 
+# 形态学梯度用于补充孔位闭合轮廓
+MORPH_GRAD_KERNEL = 5
+MORPH_GRAD_PCT = 82
+
 # 形态学
 CLOSE_KERNEL = 6
 CLOSE_ITER = 1
+
+# 结构区域掩膜：抑制桌面、外框边缘，保留中心孔位区域
+ENABLE_STRUCTURE_MASK = True
+STRUCTURE_MASK_RX_RATIO = 0.48
+STRUCTURE_MASK_RY_RATIO = 0.42
 
 # 小连通域去除
 MIN_COMPONENT_AREA = 20
@@ -81,6 +94,18 @@ def remove_small_components(binary_img: np.ndarray, min_area: int) -> np.ndarray
             out[labels == i] = 255
 
     return out
+
+
+def build_structure_mask(shape: tuple[int, int]) -> np.ndarray:
+    h_img, w_img = shape[:2]
+    mask = np.zeros((h_img, w_img), dtype=np.uint8)
+    center = (int(w_img / 2), int(h_img / 2))
+    axes = (
+        max(1, int(STRUCTURE_MASK_RX_RATIO * w_img)),
+        max(1, int(STRUCTURE_MASK_RY_RATIO * h_img)),
+    )
+    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+    return mask
 
 
 def preprocess(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -121,28 +146,67 @@ def compute_adaptive_thresholds(img_gray: np.ndarray) -> tuple[int, int, np.ndar
     return low, high, mag_u8
 
 
+def morph_gradient_edges(img_gray: np.ndarray) -> tuple[np.ndarray, int]:
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (MORPH_GRAD_KERNEL, MORPH_GRAD_KERNEL),
+    )
+    grad = cv2.morphologyEx(img_gray, cv2.MORPH_GRADIENT, kernel)
+
+    valid = grad[grad > 0]
+    if valid.size < 50:
+        thresh = 20
+    else:
+        thresh = int(np.percentile(valid, MORPH_GRAD_PCT))
+        thresh = max(12, min(180, thresh))
+
+    _, edges = cv2.threshold(grad, thresh, 255, cv2.THRESH_BINARY)
+    return edges, thresh
+
+
 def adaptive_canny_pipeline(roi_bgr: np.ndarray):
     gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
 
     enhanced, smooth = preprocess(gray)
     low, high, grad_mag = compute_adaptive_thresholds(smooth)
 
-    edges = cv2.Canny(
+    canny_edges = cv2.Canny(
         smooth,
         threshold1=low,
         threshold2=high,
         L2gradient=True
     )
 
+    method = EDGE_METHOD.lower()
+    if method not in {"canny", "morph", "hybrid"}:
+        method = "canny"
+
+    morph_thresh = 0
+    if method in {"morph", "hybrid"}:
+        morph_edges, morph_thresh = morph_gradient_edges(smooth)
+    else:
+        morph_edges = None
+
+    if method == "morph" and morph_edges is not None:
+        edges = morph_edges
+    elif method == "hybrid" and morph_edges is not None:
+        edges = cv2.bitwise_or(canny_edges, morph_edges)
+    else:
+        edges = canny_edges
+
+    if ENABLE_STRUCTURE_MASK:
+        structure_mask = build_structure_mask(edges.shape)
+        edges = cv2.bitwise_and(edges, structure_mask)
+
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (CLOSE_KERNEL, CLOSE_KERNEL))
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=CLOSE_ITER)
 
     edges = remove_small_components(edges, MIN_COMPONENT_AREA)
 
-    return gray, enhanced, smooth, grad_mag, edges, low, high
+    return gray, enhanced, smooth, grad_mag, edges, low, high, morph_thresh
 
 
-def build_vis(roi_bgr: np.ndarray, edges: np.ndarray, low: int, high: int) -> np.ndarray:
+def build_vis(roi_bgr: np.ndarray, edges: np.ndarray, low: int, high: int, morph_thresh: int) -> np.ndarray:
     vis = roi_bgr.copy()
 
     # 红色叠加边缘
@@ -150,7 +214,7 @@ def build_vis(roi_bgr: np.ndarray, edges: np.ndarray, low: int, high: int) -> np
 
     cv2.putText(
         vis,
-        f"Adaptive Canny  low={low} high={high}",
+        f"{EDGE_METHOD}  canny={low}/{high} morph={morph_thresh}",
         (20, 30),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.7,
@@ -159,7 +223,7 @@ def build_vis(roi_bgr: np.ndarray, edges: np.ndarray, low: int, high: int) -> np
     )
     cv2.putText(
         vis,
-        f"HIGH_PCT={HIGH_PCT} LOW_RATIO={LOW_RATIO:.2f}",
+        f"HIGH_PCT={HIGH_PCT} LOW_RATIO={LOW_RATIO:.2f} MASK={int(ENABLE_STRUCTURE_MASK)}",
         (20, 60),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.65,
@@ -220,8 +284,8 @@ def main():
 
         last_mtime = mtime
 
-        gray, enhanced, smooth, grad_mag, edges, low, high = adaptive_canny_pipeline(frame)
-        vis = build_vis(frame, edges, low, high)
+        gray, enhanced, smooth, grad_mag, edges, low, high, morph_thresh = adaptive_canny_pipeline(frame)
+        vis = build_vis(frame, edges, low, high, morph_thresh)
 
         atomic_imwrite(EDGES_PATH, edges)
         atomic_imwrite(VIS_PATH, vis)

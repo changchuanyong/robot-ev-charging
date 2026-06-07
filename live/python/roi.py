@@ -39,6 +39,12 @@ KEY_WINDOWS_ONLY = os.environ.get("VISION_KEY_WINDOWS", "0") == "1"
 SAVE_RECENT = False      # 这里只做单独 ROI，默认关掉缓存
 KEEP_RECENT = 100
 RECENT_DIR = OUT_DIR / "recent_roi"
+
+ENABLE_CROP_SMOOTHING = True
+CROP_SMOOTH_IOU_MIN = 0.45
+CROP_SMOOTH_ALPHA = 0.65
+CROP_MAX_CENTER_SHIFT_RATIO = 0.35
+CROP_MAX_SIZE_CHANGE_RATIO = 0.45
 # ======================
 
 
@@ -85,6 +91,77 @@ def compute_padding(x1: int, y1: int, x2: int, y2: int) -> int:
     bw = max(1, x2 - x1)
     bh = max(1, y2 - y1)
     return max(MIN_PADDING, int(max(bw, bh) * PAD_RATIO))
+
+
+def bbox_iou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
+    ax1, ay1, ax2, ay2 = a
+    bx1, by1, bx2, by2 = b
+
+    ix1 = max(ax1, bx1)
+    iy1 = max(ay1, by1)
+    ix2 = min(ax2, bx2)
+    iy2 = min(ay2, by2)
+    iw = max(0, ix2 - ix1)
+    ih = max(0, iy2 - iy1)
+
+    inter = iw * ih
+    area_a = max(0, ax2 - ax1) * max(0, ay2 - ay1)
+    area_b = max(0, bx2 - bx1) * max(0, by2 - by1)
+    union = area_a + area_b - inter
+    if union <= 0:
+        return 0.0
+    return inter / union
+
+
+def bbox_center_size(bbox: tuple[int, int, int, int]) -> tuple[float, float, float, float]:
+    x1, y1, x2, y2 = bbox
+    w = max(1.0, float(x2 - x1))
+    h = max(1.0, float(y2 - y1))
+    return x1 + w / 2.0, y1 + h / 2.0, w, h
+
+
+def is_crop_jump(
+    prev_bbox: tuple[int, int, int, int],
+    curr_bbox: tuple[int, int, int, int],
+) -> bool:
+    prev_cx, prev_cy, prev_w, prev_h = bbox_center_size(prev_bbox)
+    curr_cx, curr_cy, curr_w, curr_h = bbox_center_size(curr_bbox)
+
+    ref_dim = max(prev_w, prev_h, 1.0)
+    center_shift = np.hypot(curr_cx - prev_cx, curr_cy - prev_cy) / ref_dim
+    size_change = max(
+        abs(curr_w - prev_w) / prev_w,
+        abs(curr_h - prev_h) / prev_h,
+    )
+    return (
+        center_shift > CROP_MAX_CENTER_SHIFT_RATIO
+        or size_change > CROP_MAX_SIZE_CHANGE_RATIO
+    )
+
+
+def smooth_crop_bbox(
+    prev_bbox: tuple[int, int, int, int] | None,
+    curr_bbox: tuple[int, int, int, int],
+    image_shape: tuple[int, int],
+) -> tuple[tuple[int, int, int, int], str, float]:
+    if not ENABLE_CROP_SMOOTHING or prev_bbox is None:
+        return curr_bbox, "raw", 0.0
+
+    iou = bbox_iou(prev_bbox, curr_bbox)
+    if iou < CROP_SMOOTH_IOU_MIN or is_crop_jump(prev_bbox, curr_bbox):
+        return curr_bbox, "reset", iou
+
+    h, w = image_shape[:2]
+    values = []
+    for prev_v, curr_v in zip(prev_bbox, curr_bbox):
+        value = CROP_SMOOTH_ALPHA * curr_v + (1.0 - CROP_SMOOTH_ALPHA) * prev_v
+        values.append(int(round(value)))
+
+    x1 = clamp(values[0], 0, w - 1)
+    y1 = clamp(values[1], 0, h - 1)
+    x2 = clamp(values[2], x1 + 1, w)
+    y2 = clamp(values[3], y1 + 1, h)
+    return (x1, y1, x2, y2), "smoothed", iou
 
 
 def extract_best_roi(
@@ -196,6 +273,7 @@ def main():
 
     last_mtime = 0
     last_valid_roi = None
+    last_crop_bbox = None
     recent_files = deque(sorted(RECENT_DIR.glob("*.jpg"))) if RECENT_DIR.exists() else deque()
 
     while len(recent_files) > KEEP_RECENT:
@@ -250,7 +328,15 @@ def main():
 
         if roi is not None and det_bbox is not None and crop_bbox is not None and score is not None and pad is not None:
             det_x1, det_y1, det_x2, det_y2 = det_bbox
+            raw_crop_bbox = crop_bbox
+            crop_bbox, crop_stabilization, crop_iou = smooth_crop_bbox(
+                prev_bbox=last_crop_bbox,
+                curr_bbox=raw_crop_bbox,
+                image_shape=frame.shape,
+            )
             crop_x1, crop_y1, crop_x2, crop_y2 = crop_bbox
+            roi = frame[crop_y1:crop_y2, crop_x1:crop_x2]
+            last_crop_bbox = crop_bbox
 
             # 画原始检测框（绿色）
             cv2.rectangle(vis, (det_x1, det_y1), (det_x2, det_y2), (0, 255, 0), 2)
@@ -270,7 +356,7 @@ def main():
 
             cv2.putText(
                 vis,
-                f"pad={pad}",
+                f"pad={pad} {crop_stabilization}",
                 (crop_x1, min(crop_y2 + 25, h - 10)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
@@ -292,6 +378,8 @@ def main():
                 "confidence_threshold": float(CONF_THRES),
                 "score": float(score),
                 "padding": int(pad),
+                "crop_stabilization": crop_stabilization,
+                "crop_iou_with_previous": float(crop_iou),
 
                 # 原始检测框
                 "det_bbox_xyxy": {
@@ -299,6 +387,12 @@ def main():
                     "y1": int(det_y1),
                     "x2": int(det_x2),
                     "y2": int(det_y2)
+                },
+                "raw_crop_bbox_xyxy": {
+                    "x1": int(raw_crop_bbox[0]),
+                    "y1": int(raw_crop_bbox[1]),
+                    "x2": int(raw_crop_bbox[2]),
+                    "y2": int(raw_crop_bbox[3])
                 },
 
                 # 实际裁切框（这个最重要）
@@ -332,7 +426,7 @@ def main():
             print("===== ROI Updated =====")
             print(f"score     : {score:.4f}")
             print(f"det_bbox  : {det_bbox}")
-            print(f"crop_bbox : {crop_bbox}")
+            print(f"crop_bbox : {crop_bbox} ({crop_stabilization}, prev_iou={crop_iou:.3f})")
             print(f"roi_size  : {crop_x2 - crop_x1} x {crop_y2 - crop_y1}")
         else:
             status_text = "No target - keep last ROI"
