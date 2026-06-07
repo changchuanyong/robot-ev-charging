@@ -1,55 +1,55 @@
 # robot-ev-charging
 
-充电口视觉检测与位姿估计项目，包含三条主线：
-- 数据标注转换：`Labelme -> YOLO Detect`
-- 目标检测训练：Ultralytics YOLO
-- 实时流水线：采集 -> ROI -> 增强 -> 边缘 -> 候选点 -> PnP
+电动车充电口视觉检测与位姿估计项目。
 
-## 1. 项目结构
+项目包含三条主线：
+
+- Labelme 标注转换为 YOLO 检测数据集
+- 使用 Ultralytics YOLO 训练充电口检测模型
+- 实时视觉流水线：采集 -> ROI -> 增强 -> 边缘 -> 孔位中心 -> PnP 位姿
+
+## 项目结构
 
 ```text
 robot-ev-charging/
-├─ train/python/
-│  ├─ convert_labelme_to_yolo_detect.py
-│  └─ train_port.py
-├─ live/python/
-│  ├─ launch_pipeline.py
-│  ├─ roi.py
-│  ├─ enhance.py
-│  ├─ Canny.py
-│  ├─ latest_candidate_contours.py
-│  ├─ pnp2.py
-│  └─ post_vis_watch.py
-├─ live/cpp/
-│  └─ kinect_live_capture_atomic.cpp
-├─ docs/
-│  ├─ PROJECT_STRUCTURE.md
-│  └─ chapter3/
-│     ├─ chapter3_figures.py
-│     └─ figures/
+├─ config/
+│  ├─ camera_intrinsics.json
+│  ├─ charging_port_model.csv
+│  ├─ live_pipeline_config.json
+│  └─ train_config.json
+├─ train/
+│  ├─ python/
+│  │  ├─ convert_labelme_to_yolo_detect.py
+│  │  ├─ check_yolo_dataset.py
+│  │  └─ train_port.py
+│  └─ cpp/
+├─ live/
+│  ├─ cpp/
+│  │  └─ kinect_live_capture_atomic.cpp
+│  └─ python/
+│     ├─ launch_pipeline.py
+│     ├─ roi.py
+│     ├─ enhance.py
+│     ├─ Canny.py
+│     ├─ latest_candidate_contours.py
+│     ├─ candidate_types.py
+│     ├─ layout_prior.py
+│     ├─ center_fit.py
+│     ├─ pnp2.py
+│     └─ post_vis_watch.py
 ├─ yolo_port/
 │  ├─ images/train, images/val
 │  ├─ labels/train, labels/val
 │  └─ dataset.yaml
-├─ config/
-│  └─ charging_port_model.csv
-├─ dataset/live/        # 运行时输出，Git 忽略
-├─ artifacts/           # 本地检查图/临时产物，Git 忽略
-└─ runs/
+├─ dataset/live/        # 运行时输入输出，Git 忽略
+├─ artifacts/           # 本地验证图和临时产物，Git 忽略
+├─ runs/                # YOLO 训练输出，Git 忽略
+└─ docs/
 ```
 
-## 2. 环境准备
+## 环境准备
 
-推荐 Python 3.9+，Windows 下运行（当前脚本按 Windows 路径与进程管理实现）。
-
-### 2.1 已验证依赖版本（来自本仓库 `.yolo_env`）
-
-- `ultralytics==8.4.31`
-- `torch==2.11.0+cu126`
-- `opencv-python==4.13.0.92`
-- `numpy==2.4.3`
-
-### 2.2 安装
+推荐 Windows + Python 3.9+。当前项目主要在 `.yolo_env` 虚拟环境中运行。
 
 ```powershell
 python -m venv .yolo_env
@@ -57,156 +57,170 @@ python -m venv .yolo_env
 pip install -r requirements.txt
 ```
 
-### 2.3 Windows 终端中文显示
+已验证过的关键依赖包括：
 
-本仓库文本文件统一使用 UTF-8。若 PowerShell 中直接 `Get-Content README.md` 出现中文乱码，可改用：
+- `ultralytics`
+- `torch`
+- `opencv-python`
+- `numpy`
 
-```powershell
-Get-Content -Encoding UTF8 README.md
+## 数据集与训练
+
+Labelme 标注文件和图片放在：
+
+```text
+yolo_port/images/train
+yolo_port/images/val
 ```
 
-## 3. 从 0 到跑通（最短路径）
+每张图片对应一个同名 `.json` 标注文件。
 
-### 步骤 A：准备数据
-
-将 Labelme 标注数据放到：
-- `yolo_port/images/train`
-- `yolo_port/images/val`
-
-每张图对应一个同名 `.json`（Labelme）。
-
-### 步骤 B：转换标注
+转换为 YOLO 标签：
 
 ```powershell
 .yolo_env\Scripts\python.exe train\python\convert_labelme_to_yolo_detect.py
 ```
 
-期望结果：
-- 生成 `yolo_port/labels/train/*.txt`、`yolo_port/labels/val/*.txt`
-- 更新 `yolo_port/dataset.yaml`
-
-训练前建议检查图片、Labelme JSON 和 YOLO 标签是否一致：
+检查数据集：
 
 ```powershell
 .yolo_env\Scripts\python.exe train\python\check_yolo_dataset.py
 ```
 
-### 步骤 C：训练模型
+训练模型：
 
 ```powershell
 .yolo_env\Scripts\python.exe train\python\train_port.py
 ```
 
-期望结果：
-- 训练目录：`runs/detect_retrain`
-- 权重：`runs/detect_retrain/weights/best.pt`
+训练输出默认在：
 
-### 步骤 D：实时流水线
+```text
+runs/detect_retrain/weights/best.pt
+```
 
-先确保：
-- `live/cpp/kinect_live_capture_atomic.exe` 已存在
-- `runs/detect_retrain/weights/best.pt` 已存在
+## 实时流水线
 
-启动：
+启动整条实时流水线：
 
 ```powershell
 .yolo_env\Scripts\python.exe live\python\launch_pipeline.py
 ```
 
-## 4. 流水线输入输出说明
+流水线配置在：
 
-### 4.1 关键输入
+```text
+config/live_pipeline_config.json
+```
 
-- 采集图：`dataset/live/latest.jpg`
-- 模型：`runs/detect_retrain/weights/best.pt`
-- PnP 模型点：`config/charging_port_model.csv`
-- 相机内参：`config/camera_intrinsics.json`
+启动后主要步骤如下：
 
-### 4.2 关键中间产物（按顺序）
+1. `roi.py`
+   使用 YOLO 检测充电口并裁剪 ROI。
 
-- `roi.py`
-  - `dataset/live/latest_roi.jpg`
-  - `dataset/live/latest_roi_meta.json`
-  - `dataset/live/latest_vis.jpg`
-- `enhance.py`
-  - `dataset/live/latest_roi_enhanced.jpg`
-- `Canny.py`
-  - `dataset/live/latest_edges.jpg`
-  - `dataset/live/latest_edges_vis.jpg`
+2. `enhance.py`
+   对 ROI 做灰度增强、滤波和轻锐化。
+
+3. `Canny.py`
+   生成边缘图。默认使用稳定的 Canny；可通过环境变量 `VISION_EDGE_METHOD=hybrid` 试验形态学补边。
+
+4. `latest_candidate_contours.py`
+   读取边缘图，筛选孔位候选，应用布局先验，输出孔位中心。
+
+5. `pnp2.py`
+   将 ROI 坐标映射回原图，结合 3D 模型点计算 PnP 位姿。
+
+## 候选点模块拆分
+
+孔位候选处理原本集中在 `latest_candidate_contours.py`，现在拆为几块：
+
+- `candidate_types.py`
+  定义 `CandidateContour` 和 `LayoutModel`。
+
+- `layout_prior.py`
+  负责标准孔位布局、主孔锚点、layout 匹配、面积先验和候选排序。
+
+- `center_fit.py`
+  负责椭圆拟合、拟合中心漂移保护和中心 JSON 导出。
+
 - `latest_candidate_contours.py`
-  - `dataset/live/latest_candidate_contours.jpg`
-  - `dataset/live/latest_fitted_centers.jpg`
-  - `dataset/live/latest_fitted_centers.json`
-- `pnp2.py`
-  - `dataset/live/latest_pose.json`
-  - `dataset/live/latest_pose_vis.jpg`
+  保留入口、基础轮廓过滤、可视化和文件读写。
 
-## 5. 关键配置项（建议先看）
+这样拆分后，后续调孔位规则时主要改 `layout_prior.py`，调中心拟合时主要改 `center_fit.py`。
 
-### 5.1 `train/python/train_port.py`
+## 运行时输出
 
-训练参数统一放在 `config/train_config.json`：
+关键运行时文件都在 `dataset/live/` 下：
 
-- `model_file`：初始权重（默认 `yolov8n.pt`）
-- `data_file`：数据集配置（默认 `yolo_port/dataset.yaml`）
-- `epochs`、`imgsz`、`batch`
-- `device`：`0` 表示首张 GPU，`cpu` 表示 CPU，`null` 自动
-- `run_name`：训练输出目录名
+```text
+latest.jpg                       # 原始采集帧
+latest_vis.jpg                   # YOLO 检测可视化
+latest_roi.jpg                   # 裁剪 ROI
+latest_roi_meta.json             # ROI 元数据
+latest_roi_enhanced.jpg          # 增强后的 ROI
+latest_edges.jpg                 # 边缘图
+latest_edges_vis.jpg             # 边缘叠加可视化
+latest_candidate_contours.jpg    # 候选轮廓可视化
+latest_fitted_centers.jpg        # 孔位中心拟合可视化
+latest_fitted_centers.json       # 孔位中心数据
+latest_pose.json                 # PnP 位姿数据
+latest_pose_vis.jpg              # PnP 位姿可视化
+```
 
-### 5.2 `live/python/launch_pipeline.py`
+这些文件属于运行产物，不提交到 Git。
 
-实时启动参数统一放在 `config/live_pipeline_config.json`：
+## 关键配置
 
-- `kinect_exe`：采集程序路径
-- `python_exe`：Python 解释器路径
-- `allow_no_camera_during_debug`：无相机时是否继续调试
-- `show_post_windows_in_pipeline`：是否显示后处理窗口
+### `config/train_config.json`
 
-### 5.3 `live/python/roi.py`
+控制训练模型、数据集、epoch、batch、device 和 run name。
 
-- `MODEL_PATH`：实时检测模型路径
-- `CONF_THRES`：检测置信度阈值
-- `MIN_PADDING` / `PAD_RATIO`：ROI 外扩策略
+### `config/live_pipeline_config.json`
 
-### 5.4 `live/python/pnp2.py`
+控制实时流水线中的 Kinect exe、Python 解释器、窗口显示和等待超时。
 
-- `config/camera_intrinsics.json`：相机标定参数（必须替换成你的真实标定结果，并将 `is_placeholder` 改为 `false`）
-- `MODEL_CSV_PATH`：3D 模型点 CSV
-- `LAYOUT_TO_MODEL_LABEL`：2D 点名到 3D 点名映射
-- `POINTS_ARE_IN_ROI`：输入点是否在 ROI 坐标系
+### `config/charging_port_model.csv`
 
-## 6. `charging_port_model.csv` 说明
+定义充电口 3D 模型点。当前推荐字段：
 
-支持的列名组合（至少要有点名、x、y）：
-- 点名列：`name` / `point_name` / `id` / `label`
-- X 列：`x` / `x_mm` / `model_x`
-- Y 列：`y` / `y_mm` / `model_y`
-- Z 列：`z` / `z_mm` / `model_z`（可选，不填默认 `0`）
+```csv
+label,x_mm,y_mm,z_mm
+```
 
-建议统一使用：`label,x_mm,y_mm,z_mm`
+### `config/camera_intrinsics.json`
 
-## 7. 常见问题（FAQ）
+相机内参配置。当前文件如果 `is_placeholder` 为 `true`，说明还不是实际标定结果。PnP 的绝对位姿精度会受这个限制。
 
-### 7.1 找不到 `best.pt`
+## 当前已知限制
 
-先训练，或检查 `roi.py` 的 `MODEL_PATH` 是否和训练输出一致。
+- `camera_intrinsics.json` 仍需要替换为真实相机标定结果。
+- 右侧主大孔在某些图像中可能和外圈边缘粘连，目前中心基本可用，但后续还可以继续做内圈分离。
+- 当前验证主要基于已有 live 样张；新角度、新光照下建议再做实拍回归。
 
-### 7.2 找不到 `kinect_live_capture_atomic.exe`
+## 常用检查命令
 
-先编译 `live/cpp/kinect_live_capture_atomic.cpp`，并把产物放到 `live/cpp/`。
+语法检查：
 
-### 7.3 PnP 结果漂移/翻转
+```powershell
+.yolo_env\Scripts\python.exe -m py_compile live\python\latest_candidate_contours.py live\python\layout_prior.py live\python\center_fit.py live\python\pnp2.py
+```
 
-- 优先检查 `pnp2.py` 的 `K` 和 `DIST_COEFFS`
-- 检查 `LAYOUT_TO_MODEL_LABEL` 的左右极性是否正确
-- 检查 `charging_port_model.csv` 的点名是否和 `latest_fitted_centers.json` 对齐
+单独跑候选点与 PnP：
 
-### 7.4 流水线运行但无更新
+```powershell
+$env:VISION_PIPELINE_MODE='1'
+.yolo_env\Scripts\python.exe live\python\latest_candidate_contours.py
+.yolo_env\Scripts\python.exe live\python\pnp2.py
+```
 
-按顺序检查是否有文件持续更新：
-- `latest.jpg` -> `latest_roi.jpg` -> `latest_roi_enhanced.jpg` -> `latest_edges.jpg`
+## Git 忽略策略
 
-## 8. 版本与忽略规则
+以下内容不提交：
 
-- 运行产物（如 `runs/`、`*.pt`、`dataset/live/latest*.jpg/json`）已在 `.gitignore` 忽略。
-- 如果你希望多人复现一致环境，优先使用 `requirements.txt`。
+- `dataset/live/`
+- `artifacts/`
+- `runs/`
+- `*.pt`
+- Python 缓存和 YOLO cache
+
+源码、配置、数据集图片和标签按需提交。
