@@ -39,8 +39,8 @@ PRIOR_RX_RATIO = 0.40
 PRIOR_RY_RATIO = 0.33
 PRIOR_VALUE_MAX = 0.90
 
-DUP_CENTER_DIST = 8
-MAX_KEEP = 16
+DUP_CENTER_DIST = 4
+MAX_KEEP = 40
 
 MAX_SHOW_W = 1000
 MAX_SHOW_H = 800
@@ -227,7 +227,8 @@ def keep_log(tag: str, feat: CandidateContour) -> None:
 
 def filter_candidate_contours(
     edges: np.ndarray,
-    roi_bgr: np.ndarray
+    roi_bgr: np.ndarray,
+    apply_layout: bool = True,
 ) -> tuple[list[CandidateContour], list[np.ndarray], LayoutModel | None]:
     h_img, w_img = roi_bgr.shape[:2]
     roi_area = h_img * w_img
@@ -301,6 +302,9 @@ def filter_candidate_contours(
 
         if len(kept) >= MAX_KEEP:
             break
+
+    if not apply_layout:
+        return kept, contours, None
 
     kept_layout, layout_model = apply_standard_layout_prior(kept, roi_bgr.shape)
     return kept_layout, contours, layout_model
