@@ -23,6 +23,8 @@ CENTER_VIS_PATH = OUT_DIR / "latest_fitted_centers.jpg"
 CENTER_JSON_PATH = OUT_DIR / "latest_fitted_centers.json"
 
 SHOW_WINDOW = os.environ.get("VISION_PIPELINE_MODE", "0") != "1"
+WAIT_FOR_KEY = os.environ.get("VISION_WAIT_FOR_KEY", "0") == "1"
+WINDOW_WAIT_MS = max(1, int(os.environ.get("VISION_WINDOW_WAIT_MS", "700")))
 SHOW_RAW_CENTER = True
 
 MIN_CONTOUR_AREA = 60
@@ -512,8 +514,12 @@ def main():
         show_keep_ratio("edges", edges_bin)
         show_keep_ratio("candidate_contours", cand_vis)
         show_keep_ratio("fitted_centers", center_vis)
-        print("Press any key to exit...")
-        cv2.waitKey(0)
+        if WAIT_FOR_KEY:
+            print("Press any key to exit...")
+            cv2.waitKey(0)
+        else:
+            print(f"Windows close automatically after {WINDOW_WAIT_MS} ms.")
+            cv2.waitKey(WINDOW_WAIT_MS)
         cv2.destroyAllWindows()
 
 

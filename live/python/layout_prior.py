@@ -28,9 +28,9 @@ TOP_BACKUP_MIN_NEG_V = -0.22
 ENABLE_LAYOUT_AREA_PRIOR = True
 LAYOUT_AREA_PRIOR = {
     "top_mid": (0.0010, 0.0200),
-    "center": (0.0010, 0.0200),
-    "bottom_left": (0.0010, 0.0200),
-    "bottom_right": (0.0010, 0.0200),
+    "center": (0.0010, 0.0600),
+    "bottom_left": (0.0010, 0.0700),
+    "bottom_right": (0.0010, 0.0700),
     "top_left": (0.0100, 0.0900),
     "top_right": (0.0100, 0.0900),
     "bottom_mid": (0.0300, 0.2400),

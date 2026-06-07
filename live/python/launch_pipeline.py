@@ -17,6 +17,7 @@ CANNY_WATCH_PY = PY_WORK_DIR / "Canny.py"
 ENHANCE_PY = PY_WORK_DIR / "enhance.py"
 CONTOURS_PY = PY_WORK_DIR / "latest_candidate_contours.py"
 PNP_STEP_PY = PY_WORK_DIR / "pnp2.py"
+QUALITY_PY = PY_WORK_DIR / "pipeline_quality.py"
 POST_VIS_WATCH_PY = PY_WORK_DIR / "post_vis_watch.py"
 
 ROI_FILE = LIVE_DIR / "latest_roi.jpg"
@@ -146,7 +147,7 @@ def main():
         print("\nAll processes started.")
         print("Press Ctrl+C to stop all.\n")
         print(f"PnP step script: {PNP_STEP_PY.name}")
-        print("Pipeline order: roi -> enhance -> canny -> latest_candidate_contours -> pnp")
+        print("Pipeline order: roi -> enhance -> canny -> latest_candidate_contours -> pnp -> quality")
 
         last_roi_mtime = 0.0
 
@@ -202,7 +203,8 @@ def main():
             ):
                 continue
 
-            run_once([python_cmd, str(PNP_STEP_PY)], cwd=str(WORK_DIR), name=PNP_STEP_PY.stem, env=child_env)
+            if run_once([python_cmd, str(PNP_STEP_PY)], cwd=str(WORK_DIR), name=PNP_STEP_PY.stem, env=child_env):
+                run_once([python_cmd, str(QUALITY_PY)], cwd=str(WORK_DIR), name=QUALITY_PY.stem, env=child_env)
 
     except KeyboardInterrupt:
         print("\nStopping all processes...")

@@ -1,9 +1,14 @@
 {
-  "description": "Replace these placeholder values with the calibrated camera intrinsics.",
+  "description": "Temporary Kinect v2 RGB camera intrinsics for 1920x1080 color frames. Replace with per-device calibration when available.",
+  "camera": "kinect_v2_color",
+  "image_width": 1920,
+  "image_height": 1080,
   "is_placeholder": true,
+  "is_approximate": true,
+  "source": "Common Kinect v2 RGB approximation from community calibration; principal point set to image center.",
   "camera_matrix": [
-    [1000.0, 0.0, 960.0],
-    [0.0, 1000.0, 540.0],
+    [1081.37, 0.0, 959.5],
+    [0.0, 1081.37, 539.5],
     [0.0, 0.0, 1.0]
   ],
   "dist_coeffs": [0.0, 0.0, 0.0, 0.0, 0.0]

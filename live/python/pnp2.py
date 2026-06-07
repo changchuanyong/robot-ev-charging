@@ -24,6 +24,8 @@ POSE_JSON_PATH = ROOT_DIR / "dataset" / "live" / "latest_pose.json"
 POSE_VIS_PATH = ROOT_DIR / "dataset" / "live" / "latest_pose_vis.jpg"
 
 SHOW_WINDOW = os.environ.get("VISION_PIPELINE_MODE", "0") != "1"
+WAIT_FOR_KEY = os.environ.get("VISION_WAIT_FOR_KEY", "0") == "1"
+WINDOW_WAIT_MS = max(1, int(os.environ.get("VISION_WINDOW_WAIT_MS", "700")))
 POINTS_ARE_IN_ROI = True
 AXIS_LEN_MM = 20.0
 RANSAC_REPROJ_ERROR_PX = 10.0
@@ -703,7 +705,12 @@ def draw_pose_result(
         cv2.namedWindow("pose_vis", cv2.WINDOW_NORMAL)
         cv2.imshow("pose_vis", img)
         print("按任意键关闭窗口...")
-        cv2.waitKey(0)
+        if WAIT_FOR_KEY:
+            print("Press any key to close window...")
+            cv2.waitKey(0)
+        else:
+            print(f"Window closes automatically after {WINDOW_WAIT_MS} ms.")
+            cv2.waitKey(WINDOW_WAIT_MS)
         cv2.destroyAllWindows()
 
 
