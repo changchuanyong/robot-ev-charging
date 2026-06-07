@@ -22,6 +22,8 @@ ROI 经过自适应增强后生成边缘图。当前边缘阶段使用自适应�
 
 轮廓会经过几何特征、重复中心距离和标准孔位布局先验筛选。最终保留的候选点会进一步做椭圆拟合，输出孔位中心。
 
+![Contact sheet](docs/assets/readme/candidate_contact_sheet.jpg)
+
 ### PnP 位姿结果
 
 ![PnP pose result](docs/assets/readme/pose_result.jpg)
@@ -218,6 +220,8 @@ yolo_port/images/train
 ```powershell
 .yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --image-dir path\to\images --max-images 30
 ```
+
+![Batch eval overview](docs/assets/readme/batch_eval_overview.png)
 
 输出目录：
 
