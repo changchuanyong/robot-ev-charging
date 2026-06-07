@@ -218,6 +218,22 @@ live\cpp\read_kinect_intrinsics.exe
 
 Depth intrinsics are not RGB intrinsics. The current PnP pipeline uses RGB image points, so depth intrinsics should not be copied into `camera_intrinsics.json`.
 
+## Depth Probe
+
+`live/cpp/kinect_depth_probe.cpp` is a standalone depth-path smoke test. It does not change the RGB/PnP pipeline.
+
+```powershell
+live\cpp\kinect_depth_probe.exe
+```
+
+When a Kinect v2 is connected, it waits for one depth frame and writes:
+
+```text
+dataset/live/latest_depth_status.json
+```
+
+The report includes frame size, valid depth count, valid ratio, and min/mean/max depth in millimeters. If no camera is connected, the tool exits cleanly and writes `status: no_frame`, which makes it safe to run during offline testing.
+
 ## Useful Commands
 
 Run candidate extraction and PnP once without blocking OpenCV windows:
