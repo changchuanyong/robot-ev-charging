@@ -1,15 +1,15 @@
 {
-  "description": "Temporary Kinect v2 RGB camera intrinsics for 1920x1080 color frames. Replace with per-device calibration when available.",
+  "description": "Kinect v2 RGB camera intrinsics — Kim et al. (2016) calibration for 1920x1080. Replace with per-device calibration when available.",
   "camera": "kinect_v2_color",
   "image_width": 1920,
   "image_height": 1080,
   "is_placeholder": true,
   "is_approximate": true,
-  "source": "Common Kinect v2 RGB approximation from community calibration; principal point set to image center.",
+  "source": "Kim et al. (2016) 'Color and Depth Image Correspondence for Kinect v2', Springer LNEE vol.354. Distortion model: plumb_bob (OpenCV standard 5-param).",
   "camera_matrix": [
-    [1081.37, 0.0, 959.5],
-    [0.0, 1081.37, 539.5],
+    [1053.62, 0.0, 950.39],
+    [0.0, 1047.51, 527.34],
     [0.0, 0.0, 1.0]
   ],
-  "dist_coeffs": [0.0, 0.0, 0.0, 0.0, 0.0]
+  "dist_coeffs": [0.0042, -0.0019, -0.0038, -0.0026, 0.0]
 }

@@ -183,14 +183,12 @@ latest_pipeline_quality.json     # 流水线质量报告
 - 候选点数量、布局距离和拟合中心漂移
 - PnP 重投影误差和相机内参状态
 
-当前样例结果大致为：
+当前 79 张样张（hybrid 边缘模式）评估结果：
 
 ```text
-overall      : warn
-roi          : ok
-edges        : ok
-candidates   : ok count=9
-pose         : warn reproj≈10.8px
+OK: 29 (36.7%)   Warn: 49   Fail: 1
+中位数重投影: 17.0 px
+主要问题: layout_incomplete(24), pnp_point_matching_unstable(23)
 ```
 
 ## 批量评估
@@ -198,6 +196,13 @@ pose         : warn reproj≈10.8px
 不要只用单张样例调参数。可以用批量评估脚本一次性跑 20-50 张原图，统计每张图的 ROI、边缘、候选孔位、布局完整性和 PnP 误差：
 
 ```powershell
+.yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --max-images 50
+```
+
+推荐使用 hybrid 边缘模式以获得更好的小孔召回率：
+
+```powershell
+$env:VISION_EDGE_METHOD='hybrid'
 .yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --max-images 50
 ```
 
@@ -254,16 +259,17 @@ artifacts/batch_eval/YYYYMMDD_HHMMSS/
 
 ## 相机内参
 
-`config/camera_intrinsics.json` 当前填入的是 Kinect v2 RGB 相机 1920x1080 的临时近似内参：
+`config/camera_intrinsics.json` 当前使用 Kim et al. (2016) 的 Kinect v2 RGB 相机 1920x1080 标定值：
 
 ```text
-fx = 1081.37
-fy = 1081.37
-cx = 959.5
-cy = 539.5
+fx = 1053.62, fy = 1047.51
+cx = 950.39,  cy = 527.34
+dist = [0.0042, -0.0019, -0.0038, -0.0026, 0.0]
 ```
 
-这个配置仍然标记为近似值。要获得可靠的绝对位姿，后续应替换为当前 Kinect v2 彩色相机的实际标定结果。
+来源：Kim et al. "Color and Depth Image Correspondence for Kinect v2", Springer LNEE vol.354。畸变模型为 OpenCV 标准 plumb_bob 5 参数模型。
+
+这个配置仍标记为近似值，每台 Kinect v2 出厂参数略有差异。要获得可靠的绝对位姿，后续应替换为当前设备的实际棋盘格标定结果。
 
 注意：PnP 使用的是原图坐标。ROI 内检测到的中心点会先映射回 1920x1080 原图坐标，再参与 PnP，因此 `camera_intrinsics.json` 必须对应原始 RGB 图像，而不是裁剪后的 ROI。
 
