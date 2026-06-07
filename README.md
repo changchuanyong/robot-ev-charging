@@ -1,14 +1,34 @@
 # robot-ev-charging
 
-电动车充电口视觉检测与位姿估计项目。
+Electric vehicle charging-port vision pipeline. The project covers dataset preparation, YOLO-based port detection, ROI post-processing, pin-hole center extraction, and PnP pose estimation for robotic EV charging experiments.
 
-项目包含三条主线：
+## Visual Overview
 
-- Labelme 标注转换为 YOLO 检测数据集
-- 使用 Ultralytics YOLO 训练充电口检测模型
-- 实时视觉流水线：采集 -> ROI -> 增强 -> 边缘 -> 孔位中心 -> PnP 位姿
+### YOLO ROI Detection
 
-## 项目结构
+![YOLO ROI detection](docs/assets/readme/roi_detection.jpg)
+
+The live RGB frame is processed by YOLO to locate the charging port. The green box is the detector output and the yellow box is the padded ROI used by the downstream pipeline.
+
+### Edge Extraction
+
+![Edge overlay](docs/assets/readme/edge_overlay.jpg)
+
+The ROI is enhanced and converted into an edge map. The current edge stage uses adaptive thresholds and a structure mask to keep the port area while suppressing unrelated outer edges.
+
+### Candidate Pin Centers
+
+![Candidate contours](docs/assets/readme/candidate_contours.jpg)
+
+Contours are filtered by geometry, duplicate distance, and the standard charging-port layout prior. The final candidates are fitted to center points for PnP.
+
+### PnP Pose Result
+
+![PnP pose result](docs/assets/readme/pose_result.jpg)
+
+The ROI points are mapped back to the original 1920x1080 image coordinates before solving PnP with the configured RGB camera intrinsics.
+
+## Project Structure
 
 ```text
 robot-ev-charging/
@@ -25,7 +45,8 @@ robot-ev-charging/
 │  └─ cpp/
 ├─ live/
 │  ├─ cpp/
-│  │  └─ kinect_live_capture_atomic.cpp
+│  │  ├─ kinect_live_capture_atomic.cpp
+│  │  └─ read_kinect_intrinsics.cpp
 │  └─ python/
 │     ├─ launch_pipeline.py
 │     ├─ roi.py
@@ -36,20 +57,20 @@ robot-ev-charging/
 │     ├─ layout_prior.py
 │     ├─ center_fit.py
 │     ├─ pnp2.py
+│     ├─ pipeline_quality.py
 │     └─ post_vis_watch.py
 ├─ yolo_port/
 │  ├─ images/train, images/val
 │  ├─ labels/train, labels/val
 │  └─ dataset.yaml
-├─ dataset/live/        # 运行时输入输出，Git 忽略
-├─ artifacts/           # 本地验证图和临时产物，Git 忽略
-├─ runs/                # YOLO 训练输出，Git 忽略
-└─ docs/
+├─ dataset/live/        # runtime inputs/outputs, ignored by Git
+├─ docs/
+└─ runs/                # YOLO training output, ignored by Git
 ```
 
-## 环境准备
+## Environment
 
-推荐 Windows + Python 3.9+。当前项目主要在 `.yolo_env` 虚拟环境中运行。
+Recommended environment: Windows, Python 3.9+, Kinect SDK v2 if live capture is needed.
 
 ```powershell
 python -m venv .yolo_env
@@ -57,155 +78,149 @@ python -m venv .yolo_env
 pip install -r requirements.txt
 ```
 
-已验证过的关键依赖包括：
+Main Python dependencies:
 
 - `ultralytics`
 - `torch`
 - `opencv-python`
 - `numpy`
 
-## 数据集与训练
+## Dataset And Training
 
-Labelme 标注文件和图片放在：
+Labelme images and annotations live under:
 
 ```text
 yolo_port/images/train
 yolo_port/images/val
 ```
 
-每张图片对应一个同名 `.json` 标注文件。
-
-转换为 YOLO 标签：
+Convert Labelme annotations to YOLO labels:
 
 ```powershell
 .yolo_env\Scripts\python.exe train\python\convert_labelme_to_yolo_detect.py
 ```
 
-检查数据集：
+Check the YOLO dataset:
 
 ```powershell
 .yolo_env\Scripts\python.exe train\python\check_yolo_dataset.py
 ```
 
-训练模型：
+Train the detector:
 
 ```powershell
 .yolo_env\Scripts\python.exe train\python\train_port.py
 ```
 
-训练输出默认在：
+Default trained weight path:
 
 ```text
 runs/detect_retrain/weights/best.pt
 ```
 
-## 实时流水线
+## Live Pipeline
 
-启动整条实时流水线：
+Start the full live pipeline:
 
 ```powershell
 .yolo_env\Scripts\python.exe live\python\launch_pipeline.py
 ```
 
-流水线配置在：
+Pipeline configuration:
 
 ```text
 config/live_pipeline_config.json
 ```
 
-启动后主要步骤如下：
+Main stages:
 
 1. `roi.py`
-   使用 YOLO 检测充电口并裁剪 ROI。
-
+   Detects the charging port and crops a padded ROI.
 2. `enhance.py`
-   对 ROI 做灰度增强、滤波和轻锐化。
-
+   Applies adaptive gamma, illumination normalization, controlled CLAHE, denoising, and limited sharpening.
 3. `Canny.py`
-   生成边缘图。默认使用稳定的 Canny；可通过环境变量 `VISION_EDGE_METHOD=hybrid` 试验形态学补边。
-
+   Generates the edge image. `VISION_EDGE_METHOD` can be set to `canny`, `morph`, or `hybrid`.
 4. `latest_candidate_contours.py`
-   读取边缘图，筛选孔位候选，应用布局先验，输出孔位中心。
-
+   Filters contours, applies the layout prior, fits centers, and exports center data.
 5. `pnp2.py`
-   将 ROI 坐标映射回原图，结合 3D 模型点计算 PnP 位姿。
+   Maps ROI points back to the original image and solves PnP.
+6. `pipeline_quality.py`
+   Writes a quality report for ROI, edges, candidates, and PnP.
 
-## 候选点模块拆分
+## Runtime Outputs
 
-孔位候选处理原本集中在 `latest_candidate_contours.py`，现在拆为几块：
-
-- `candidate_types.py`
-  定义 `CandidateContour` 和 `LayoutModel`。
-
-- `layout_prior.py`
-  负责标准孔位布局、主孔锚点、layout 匹配、面积先验和候选排序。
-
-- `center_fit.py`
-  负责椭圆拟合、拟合中心漂移保护和中心 JSON 导出。
-
-- `latest_candidate_contours.py`
-  保留入口、基础轮廓过滤、可视化和文件读写。
-
-这样拆分后，后续调孔位规则时主要改 `layout_prior.py`，调中心拟合时主要改 `center_fit.py`。
-
-## 运行时输出
-
-关键运行时文件都在 `dataset/live/` 下：
+Runtime files are written to `dataset/live/` and are ignored by Git:
 
 ```text
-latest.jpg                       # 原始采集帧
-latest_vis.jpg                   # YOLO 检测可视化
-latest_roi.jpg                   # 裁剪 ROI
-latest_roi_meta.json             # ROI 元数据
-latest_roi_enhanced.jpg          # 增强后的 ROI
-latest_edges.jpg                 # 边缘图
-latest_edges_vis.jpg             # 边缘叠加可视化
-latest_candidate_contours.jpg    # 候选轮廓可视化
-latest_fitted_centers.jpg        # 孔位中心拟合可视化
-latest_fitted_centers.json       # 孔位中心数据
-latest_pose.json                 # PnP 位姿数据
-latest_pose_vis.jpg              # PnP 位姿可视化
+latest.jpg                       # captured RGB frame
+latest_vis.jpg                   # YOLO/ROI visualization
+latest_roi.jpg                   # cropped ROI
+latest_roi_meta.json             # ROI metadata and original-image offset
+latest_roi_enhanced.jpg          # enhanced ROI
+latest_roi_enhance_metrics.json  # enhancement statistics
+latest_edges.jpg                 # edge image
+latest_edges_vis.jpg             # edge overlay
+latest_candidate_contours.jpg    # contour/layout visualization
+latest_fitted_centers.jpg        # fitted center visualization
+latest_fitted_centers.json       # fitted center data
+latest_pose.json                 # PnP pose result
+latest_pose_vis.jpg              # PnP visualization
+latest_pipeline_quality.json     # pipeline quality summary
 ```
 
-这些文件属于运行产物，不提交到 Git。
+## Quality Report
 
-## 关键配置
-
-### `config/train_config.json`
-
-控制训练模型、数据集、epoch、batch、device 和 run name。
-
-### `config/live_pipeline_config.json`
-
-控制实时流水线中的 Kinect exe、Python 解释器、窗口显示和等待超时。
-
-### `config/charging_port_model.csv`
-
-定义充电口 3D 模型点。当前推荐字段：
-
-```csv
-label,x_mm,y_mm,z_mm
-```
-
-### `config/camera_intrinsics.json`
-
-相机内参配置。当前文件如果 `is_placeholder` 为 `true`，说明还不是实际标定结果。PnP 的绝对位姿精度会受这个限制。
-
-## 当前已知限制
-
-- `camera_intrinsics.json` 仍需要替换为真实相机标定结果。
-- 右侧主大孔在某些图像中可能和外圈边缘粘连，目前中心基本可用，但后续还可以继续做内圈分离。
-- 当前验证主要基于已有 live 样张；新角度、新光照下建议再做实拍回归。
-
-## 常用检查命令
-
-语法检查：
+Run the quality checker after the pipeline has produced outputs:
 
 ```powershell
-.yolo_env\Scripts\python.exe -m py_compile live\python\latest_candidate_contours.py live\python\layout_prior.py live\python\center_fit.py live\python\pnp2.py
+.yolo_env\Scripts\python.exe live\python\pipeline_quality.py
 ```
 
-单独跑候选点与 PnP：
+It reports:
+
+- ROI detection score and crop size
+- edge density
+- candidate count, layout distance, and fit shift
+- PnP reprojection error and camera-intrinsics status
+
+Example current result:
+
+```text
+overall      : warn
+roi          : ok
+edges        : ok
+candidates   : ok count=9
+pose         : warn reproj≈10.8px
+```
+
+## Camera Intrinsics
+
+`config/camera_intrinsics.json` currently contains a temporary Kinect v2 RGB 1920x1080 approximation:
+
+```text
+fx = 1081.37
+fy = 1081.37
+cx = 959.5
+cy = 539.5
+```
+
+This is still marked as approximate. For accurate pose estimation, replace it with per-device RGB camera calibration.
+
+Important detail: PnP uses original-image coordinates. ROI center points are mapped back to the 1920x1080 frame before calling PnP, so `camera_intrinsics.json` must describe the original RGB image, not the cropped ROI.
+
+## Kinect Intrinsics Tool
+
+`live/cpp/read_kinect_intrinsics.cpp` can read Kinect v2 depth intrinsics through Microsoft Kinect SDK v2:
+
+```powershell
+live\cpp\read_kinect_intrinsics.exe
+```
+
+Depth intrinsics are not RGB intrinsics. The current PnP pipeline uses RGB image points, so depth intrinsics should not be copied into `camera_intrinsics.json`.
+
+## Useful Commands
+
+Run candidate extraction and PnP once without blocking OpenCV windows:
 
 ```powershell
 $env:VISION_PIPELINE_MODE='1'
@@ -213,14 +228,33 @@ $env:VISION_PIPELINE_MODE='1'
 .yolo_env\Scripts\python.exe live\python\pnp2.py
 ```
 
-## Git 忽略策略
+Keep debug windows open manually:
 
-以下内容不提交：
+```powershell
+$env:VISION_WAIT_FOR_KEY='1'
+.yolo_env\Scripts\python.exe live\python\pnp2.py
+```
+
+Syntax check:
+
+```powershell
+.yolo_env\Scripts\python.exe -m py_compile live\python\latest_candidate_contours.py live\python\layout_prior.py live\python\center_fit.py live\python\pnp2.py
+```
+
+## Known Limitations
+
+- RGB camera intrinsics still need real per-device calibration.
+- The current validation is mainly based on existing live samples; new lighting and viewpoints should be tested.
+- Kinect v2 depth data can help as a distance sanity check, but it is not used as the main pin-center detection signal.
+- Some legacy source comments may still contain encoding artifacts and can be cleaned later.
+
+## Git Ignore Policy
+
+The following are not committed:
 
 - `dataset/live/`
 - `artifacts/`
 - `runs/`
 - `*.pt`
-- Python 缓存和 YOLO cache
-
-源码、配置、数据集图片和标签按需提交。
+- Python cache and YOLO cache
+- C/C++ build outputs such as `*.exe`, `*.obj`, `*.pdb`, `*.ilk`
