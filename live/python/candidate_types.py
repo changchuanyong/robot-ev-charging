@@ -33,6 +33,17 @@ class CandidateContour:
     fit_method: str = "none"
     ellipse_axes: tuple[float, float] | None = None
     ellipse_angle: float | None = None
+    ellipse_area: float | None = None
+    fit_valid: bool = False
+    fit_residual_px: float | None = None
+    fit_coverage: float = 0.0
+    fit_reject_reason: str = "not_fitted"
+    contour_index: int = -1
+    contour_parent: int = -1
+    contour_source: str = "canny"
+    hole_group_id: int = -1
+    aperture_diameter_px: float | None = None
+    aperture_center: tuple[float, float] | None = None
 
 
 @dataclass

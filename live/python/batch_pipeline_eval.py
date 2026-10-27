@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
-import dataclasses
+import hashlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -23,10 +24,9 @@ if str(PY_DIR) not in sys.path:
 import Canny  # noqa: E402
 import enhance  # noqa: E402
 import latest_candidate_contours as contours_step  # noqa: E402
-import layout_prior  # noqa: E402
 import pnp2  # noqa: E402
+from pose_correspondence import select_correspondences  # noqa: E402
 import roi as roi_step  # noqa: E402
-from center_fit import export_fitted_centers, fit_ellipse_on_kept_candidates  # noqa: E402
 
 
 DEFAULT_MODEL_PATH = ROOT_DIR / "runs" / "detect_retrain" / "weights" / "best.pt"
@@ -59,7 +59,6 @@ EDGE_TOO_SPARSE = 0.006
 EDGE_TOO_NOISY = 0.350
 PNP_WARN_REPROJ_PX = 16.0
 PNP_FAIL_REPROJ_PX = 20.0
-PNP_LAYOUT_MAX_HYPOTHESES = 8
 
 
 def list_images(image_dirs: list[Path], max_images: int) -> list[Path]:
@@ -79,7 +78,7 @@ def atomic_write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.stem + "_tmp" + path.suffix)
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2, allow_nan=False)
     if path.exists():
         path.unlink()
     tmp.replace(path)
@@ -90,6 +89,10 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = [
         "image",
         "status",
+        "legacy_status",
+        "split",
+        "pose_quality_ok",
+        "pose_rejection_reasons",
         "failure_categories",
         "roi_score",
         "roi_area_ratio",
@@ -99,6 +102,8 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "layout_variant",
         "layout_variant_count",
         "pnp_reproj_error_px",
+        "pnp_reproj_rms_px",
+        "pnp_max_error_px",
         "pnp_inlier_count",
         "pnp_method",
     ]
@@ -107,244 +112,6 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writeheader()
         for row in rows:
             writer.writerow({name: row.get(name, "") for name in fieldnames})
-
-
-def layout_name_to_model_name(layout_name: str) -> str:
-    return pnp2.LAYOUT_TO_MODEL_LABEL.get(layout_name, layout_name)
-
-
-def build_image_points_from_centers(
-    centers: list[dict[str, Any]],
-    offset_x: float,
-    offset_y: float,
-) -> dict[str, tuple[float, float]]:
-    points: dict[str, tuple[float, float]] = {}
-    for item in centers:
-        layout_name = str(item.get("layout_name", ""))
-        if layout_name == "":
-            continue
-
-        center = item.get("fitted_center") or item.get("raw_center")
-        if not isinstance(center, list) or len(center) < 2:
-            continue
-
-        model_name = layout_name_to_model_name(layout_name)
-        points[model_name] = (
-            float(center[0]) + float(offset_x),
-            float(center[1]) + float(offset_y),
-        )
-    return points
-
-
-def reset_candidate_layout(candidate):
-    candidate.layout_name = ""
-    candidate.layout_group = ""
-    candidate.layout_u = 0.0
-    candidate.layout_v = 0.0
-    candidate.layout_dist = 999.0
-    candidate.layout_score = 0.0
-    candidate.layout_accept_dist = 999.0
-    candidate.is_main_anchor = False
-    candidate.is_top_backup = False
-    candidate.fitted_center = None
-    candidate.fit_method = "none"
-    candidate.ellipse_axes = None
-    candidate.ellipse_angle = None
-
-
-def clone_candidates(candidates):
-    clones = [dataclasses.replace(c) for c in candidates]
-    for clone in clones:
-        reset_candidate_layout(clone)
-    return clones
-
-
-def candidate_index(candidates, target) -> int | None:
-    for idx, candidate in enumerate(candidates):
-        if candidate is target:
-            return idx
-    return None
-
-
-def build_layout_variant_from_assignment(
-    raw_candidates,
-    left_anchor,
-    right_anchor,
-    assignment,
-    model,
-    variant_name: str,
-):
-    clones = clone_candidates(raw_candidates)
-    left_idx = candidate_index(raw_candidates, left_anchor)
-    right_idx = candidate_index(raw_candidates, right_anchor)
-    if left_idx is None or right_idx is None:
-        return None
-
-    left_clone = clones[left_idx]
-    right_clone = clones[right_idx]
-    left_clone.is_main_anchor = True
-    right_clone.is_main_anchor = True
-    left_clone.layout_name = "main_left"
-    right_clone.layout_name = "main_right"
-    left_clone.layout_group = "anchor"
-    right_clone.layout_group = "anchor"
-    left_clone.layout_u, left_clone.layout_v = -0.5, 0.0
-    right_clone.layout_u, right_clone.layout_v = 0.5, 0.0
-    left_clone.layout_dist = 0.0
-    right_clone.layout_dist = 0.0
-    left_clone.layout_score = left_clone.score
-    right_clone.layout_score = right_clone.score
-    left_clone.layout_accept_dist = 0.0
-    right_clone.layout_accept_dist = 0.0
-
-    kept = [left_clone, right_clone]
-    used_indices = {left_idx, right_idx}
-
-    for zone_name in [z[0] for z in layout_prior.STANDARD_LAYOUT_ZONES]:
-        if zone_name not in assignment:
-            continue
-        cand, u, v, dist, accept_dist, zone_group, score = assignment[zone_name]
-        idx = candidate_index(raw_candidates, cand)
-        if idx is None or idx in used_indices:
-            continue
-        clone = clones[idx]
-        layout_prior.assign_candidate_to_zone(clone, zone_name, zone_group, u, v, dist, accept_dist)
-        clone.layout_score = score
-        kept.append(clone)
-        used_indices.add(idx)
-
-    def sort_key(c):
-        if c.is_main_anchor:
-            return (-10.0, c.center[0])
-        return (c.layout_v, c.layout_u)
-
-    kept.sort(key=sort_key)
-    return {
-        "name": variant_name,
-        "kept": kept,
-        "model": model,
-    }
-
-
-def generate_layout_variants(raw_candidates, roi_shape):
-    variants = []
-    pair_hypotheses = layout_prior.find_main_big_hole_pair_hypotheses(raw_candidates, roi_shape)
-    if not pair_hypotheses:
-        return variants
-
-    best_pair_score = pair_hypotheses[0][0]
-    for rank, (pair_score, i, j) in enumerate(pair_hypotheses[:PNP_LAYOUT_MAX_HYPOTHESES], start=1):
-        if pair_score < best_pair_score * layout_prior.MAIN_PAIR_RELATIVE_SCORE_MIN:
-            continue
-
-        c1 = raw_candidates[i]
-        c2 = raw_candidates[j]
-        if c1.center[0] <= c2.center[0]:
-            left_anchor, right_anchor = c1, c2
-        else:
-            left_anchor, right_anchor = c2, c1
-
-        model = layout_prior.build_layout_model(left_anchor, right_anchor)
-        if model is None:
-            continue
-
-        global_assignment, _global_score, _global_coverage = layout_prior.build_global_layout_assignment(
-            raw_candidates,
-            left_anchor,
-            right_anchor,
-            model,
-        )
-        global_variant = build_layout_variant_from_assignment(
-            raw_candidates,
-            left_anchor,
-            right_anchor,
-            global_assignment,
-            model,
-            f"global_pair_{rank}",
-        )
-        if global_variant is not None:
-            variants.append(global_variant)
-
-        nearest_assignment, _nearest_score, _nearest_coverage = layout_prior.build_nearest_layout_assignment(
-            raw_candidates,
-            left_anchor,
-            right_anchor,
-            model,
-        )
-        nearest_variant = build_layout_variant_from_assignment(
-            raw_candidates,
-            left_anchor,
-            right_anchor,
-            nearest_assignment,
-            model,
-            f"nearest_pair_{rank}",
-        )
-        if nearest_variant is not None:
-            variants.append(nearest_variant)
-
-    return variants
-
-
-def score_pose_variant(
-    variant,
-    crop_x1,
-    crop_y1,
-    object_points,
-    camera_matrix,
-    dist_coeffs,
-    verbose: bool,
-):
-    if verbose:
-        fitted_candidates = fit_ellipse_on_kept_candidates(variant["kept"])
-    else:
-        with open(Path("nul"), "w", encoding="utf-8") as devnull:
-            with contextlib.redirect_stdout(devnull):
-                fitted_candidates = fit_ellipse_on_kept_candidates(variant["kept"])
-
-    centers = export_fitted_centers(fitted_candidates)
-    layout_names = {str(item.get("layout_name", "")) for item in centers}
-    missing_layouts = sorted(EXPECTED_LAYOUTS - layout_names)
-    image_points = build_image_points_from_centers(centers, offset_x=crop_x1, offset_y=crop_y1)
-
-    pose = None
-    pnp_error = None
-    try:
-        pose = pnp2.solve_target_pose(
-            image_points_dict=image_points,
-            object_points_dict=object_points,
-            K=camera_matrix,
-            dist_coeffs=dist_coeffs,
-        )
-    except Exception as exc:
-        pnp_error = str(exc)
-
-    reproj = float(pose["reproj_error"]) if pose is not None else 9999.0
-    inliers = int(pose["inlier_count"]) if pose is not None else 0
-    count = len(centers)
-    missing_count = len(missing_layouts)
-
-    selection_score = (
-        80.0 * count
-        - 120.0 * missing_count
-        + 12.0 * inliers
-        - 8.0 * reproj
-    )
-    if pose is None:
-        selection_score -= 500.0
-
-    return {
-        "variant_name": variant["name"],
-        "score": selection_score,
-        "candidates": fitted_candidates,
-        "centers": centers,
-        "layout_names": layout_names,
-        "missing_layouts": missing_layouts,
-        "pose": pose,
-        "pnp_error": pnp_error,
-        "candidate_count": count,
-        "reproj": reproj,
-        "inliers": inliers,
-    }
 
 
 def classify_result(result: dict[str, Any]) -> list[str]:
@@ -399,7 +166,9 @@ def evaluate_one_image(
     camera_matrix: np.ndarray,
     dist_coeffs: np.ndarray,
     verbose: bool,
+    visualization_dir: Path | None = None,
 ) -> dict[str, Any]:
+    started = time.perf_counter()
     frame = cv2.imread(str(image_path))
     if frame is None or frame.size == 0:
         return {
@@ -414,6 +183,8 @@ def evaluate_one_image(
         "status": "ok",
         "roi_ok": False,
         "pnp_ok": False,
+        "split": image_path.parent.name if image_path.parent.name in {"train", "val", "test"} else "unknown",
+        "image_sha256": hashlib.sha256(image_path.read_bytes()).hexdigest(),
     }
 
     roi_img, det_bbox, crop_bbox, score, _pad = roi_step.extract_best_roi(
@@ -454,6 +225,7 @@ def evaluate_one_image(
         }
     )
 
+    contour_diagnostics: dict = {}
     old_reject_log = contours_step.PRINT_REJECT_LOG
     contours_step.PRINT_REJECT_LOG = verbose
     try:
@@ -462,39 +234,38 @@ def evaluate_one_image(
                 edges,
                 enhanced_bgr,
                 apply_layout=False,
+                diagnostics=contour_diagnostics,
+                gray_source=roi_img,
             )
         else:
-            with open(Path("nul"), "w", encoding="utf-8") as devnull:
+            with open(os.devnull, "w", encoding="utf-8") as devnull:
                 with contextlib.redirect_stdout(devnull):
                     raw_candidates, _all_contours, _layout_model = contours_step.filter_candidate_contours(
                         edges,
                         enhanced_bgr,
                         apply_layout=False,
+                        diagnostics=contour_diagnostics,
+                        gray_source=roi_img,
                     )
     finally:
         contours_step.PRINT_REJECT_LOG = old_reject_log
 
-    variants = generate_layout_variants(raw_candidates, enhanced_bgr.shape)
-    scored_variants = [
-        score_pose_variant(
-            variant,
-            crop_x1=crop_x1,
-            crop_y1=crop_y1,
-            object_points=object_points,
-            camera_matrix=camera_matrix,
-            dist_coeffs=dist_coeffs,
-            verbose=verbose,
-        )
-        for variant in variants
-    ]
-    scored_variants.sort(key=lambda item: item["score"], reverse=True)
+    selection = select_correspondences(raw_candidates, enhanced_bgr.shape, object_points,
+                                       camera_matrix, dist_coeffs, (crop_x1, crop_y1))
+    scored_variants = [selection["best"]] if selection["best"] is not None else []
+    result["contour_diagnostics"] = contour_diagnostics
+    result["correspondence_diagnostics"] = selection["diagnostics"]
+    result["pose_hypotheses"] = selection["hypotheses"]
+    result["raw_candidate_count"] = len(raw_candidates)
+    result["raw_candidate_centers_full"] = [[float(c.center[0]+crop_x1), float(c.center[1]+crop_y1)]
+                                             for c in raw_candidates]
 
     if scored_variants:
         best_variant = scored_variants[0]
         fitted_candidates = best_variant["candidates"]
         centers = best_variant["centers"]
         result["layout_variant"] = best_variant["variant_name"]
-        result["layout_variant_count"] = len(scored_variants)
+        result["layout_variant_count"] = len(selection["hypotheses"])
     else:
         fitted_candidates = []
         centers = []
@@ -518,6 +289,11 @@ def evaluate_one_image(
                 "pnp_ok": True,
                 "pnp_method": pose["method"],
                 "pnp_reproj_error_px": round(float(pose["reproj_error"]), 6),
+                "pnp_reproj_rms_px": round(float(pose["reproj_rms_error"]), 6),
+                "pnp_max_error_px": round(float(pose["max_reproj_error"]), 6),
+                "pnp_fit_count": int(pose["fit_count"]),
+                "pnp_all_in_front": bool(pose["all_in_front"]),
+                "pnp_inlier_ratio": float(pose["inlier_ratio"]),
                 "pnp_selection_error_px": round(float(pose["selection_error"]), 6),
                 "pnp_inlier_count": int(pose["inlier_count"]),
                 "pnp_outlier_names": pose["outlier_names"],
@@ -527,20 +303,74 @@ def evaluate_one_image(
                 },
             }
         )
+        result["image_points_full"] = {name: list(point) for name, point in
+                                        scored_variants[0]["image_points"].items()}
+        projected, _ = cv2.projectPoints(pose["object_points"], pose["rvec"], pose["tvec"],
+                                         camera_matrix, dist_coeffs)
+        result["projected_points_full"] = dict(zip(pose["matched_names"], projected.reshape(-1, 2).tolist()))
     else:
         result["pnp_error"] = scored_variants[0]["pnp_error"] if scored_variants else "no_layout_variant"
 
     categories = classify_result(result)
     result["failure_categories"] = ";".join(categories)
-    if categories:
-        result["status"] = "warn" if result.get("pnp_ok") and "pnp_failed" not in categories else "fail"
+    result["legacy_status"] = ("warn" if result.get("pnp_ok") else "fail") if categories else "ok"
+    reasons = pose_rejection_reasons(result)
+    result["pose_quality_ok"] = not reasons
+    result["pose_rejection_reasons"] = reasons
+    result["status"] = "fail" if reasons else result["legacy_status"]
+    result["processing_ms"] = round((time.perf_counter() - started) * 1000, 3)
+    if visualization_dir is not None:
+        save_diagnostic_image(frame, result, visualization_dir / (image_path.stem + ".jpg"))
 
     return result
 
 
+def pose_rejection_reasons(row: dict) -> list[str]:
+    """Offline geometric gate only; camera calibration is a separate control requirement."""
+    if not row.get("pnp_ok"):
+        return ["pnp_failed"]
+    reasons = []
+    if not row.get("pnp_all_in_front", False):
+        reasons.append("invalid_depth")
+    if not np.isfinite(float(row.get("pnp_reproj_error_px", float("inf")))):
+        reasons.append("nonfinite_residual")
+    elif float(row["pnp_reproj_error_px"]) > PNP_FAIL_REPROJ_PX:
+        reasons.append("all_point_mean_exceeds_20px")
+    if int(row.get("pnp_inlier_count", 0)) < 4:
+        reasons.append("fewer_than_four_10px_inliers")
+    if row.get("correspondence_diagnostics", {}).get("ambiguous", False):
+        reasons.append("ambiguous_correspondences")
+    if row.get("correspondence_diagnostics", {}).get("selection_quality_ok") is False:
+        reasons.append("correspondence_quality_rejected")
+    return reasons
+
+
+def save_diagnostic_image(frame: np.ndarray, row: dict, path: Path) -> None:
+    canvas = frame.copy()
+    for point in row.get("raw_candidate_centers_full", []):
+        cv2.circle(canvas, tuple(np.rint(point).astype(int)), 3, (150, 150, 150), 1)
+    for name, point in row.get("image_points_full", {}).items():
+        center = tuple(np.rint(point).astype(int))
+        cv2.circle(canvas, center, 5, (0, 220, 0), 2)
+        cv2.putText(canvas, name, (center[0]+6, center[1]-6), cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 220, 0), 1)
+        projected = row.get("projected_points_full", {}).get(name)
+        if projected is not None:
+            end = tuple(np.rint(projected).astype(int))
+            cv2.line(canvas, center, end, (0, 0, 255), 2)
+            cv2.drawMarker(canvas, end, (0, 0, 255), cv2.MARKER_CROSS, 10, 2)
+    label = f"{row['status']} | points={row.get('candidate_count', 0)} | mean={row.get('pnp_reproj_error_px')} px"
+    cv2.putText(canvas, label, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, .8, (255, 255, 255), 2)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not cv2.imwrite(str(path), canvas):
+        raise OSError(f"Cannot save diagnostic image: {path}")
+
+
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     category_counts: dict[str, int] = {}
+    rejection_counts: dict[str, int] = {}
     for row in rows:
+        for reason in row.get("pose_rejection_reasons", []):
+            rejection_counts[reason] = rejection_counts.get(reason, 0) + 1
         for category in str(row.get("failure_categories", "")).split(";"):
             if not category:
                 continue
@@ -558,9 +388,19 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "warn": sum(1 for row in rows if row.get("status") == "warn"),
         "fail": sum(1 for row in rows if row.get("status") == "fail"),
         "category_counts": dict(sorted(category_counts.items())),
+        "pose_rejection_counts": dict(sorted(rejection_counts.items())),
         "mean_reproj_error_px": round(float(np.mean(reproj_values)), 6) if reproj_values else None,
         "median_reproj_error_px": round(float(np.median(reproj_values)), 6) if reproj_values else None,
         "max_reproj_error_px": round(float(np.max(reproj_values)), 6) if reproj_values else None,
+        "solver_success_count": sum(bool(row.get("pnp_ok")) for row in rows),
+        "pose_quality_ok_count": sum(bool(row.get("pose_quality_ok")) for row in rows),
+        "full_nine_point_count": sum(row.get("candidate_count") == 9 for row in rows),
+        "mean_matched_point_count": round(float(np.mean([row.get("candidate_count", 0) for row in rows])), 6) if rows else None,
+        "legacy_status_counts": {status: sum(row.get("legacy_status", row.get("status")) == status for row in rows)
+                                 for status in ("ok", "warn", "fail")},
+        "residual_population": "all returned poses, including rejected poses; all matched points",
+        "median_processing_ms": round(float(np.median([r["processing_ms"] for r in rows if "processing_ms" in r])), 3)
+        if any("processing_ms" in r for r in rows) else None,
     }
 
 
@@ -577,6 +417,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--verbose", action="store_true", help="Print contour/layout debug logs for every image.")
     parser.add_argument("--strict-exit", action="store_true", help="Return non-zero when any image fails.")
+    parser.add_argument("--save-visualizations", action="store_true", help="Save observed/projected point overlays.")
     return parser.parse_args()
 
 
@@ -613,6 +454,7 @@ def main() -> int:
             camera_matrix=camera_matrix,
             dist_coeffs=dist_coeffs,
             verbose=args.verbose,
+            visualization_dir=run_dir / "visualizations" if args.save_visualizations else None,
         )
         rows.append(row)
         print(
@@ -625,9 +467,26 @@ def main() -> int:
         )
 
     summary = summarize(rows)
+    provenance = {
+        "weights": str(args.model.resolve()),
+        "weights_sha256": hashlib.sha256(args.model.read_bytes()).hexdigest(),
+        "camera_config_sha256": hashlib.sha256(pnp2.CAMERA_CONFIG_PATH.read_bytes()).hexdigest(),
+        "model_points_sha256": hashlib.sha256(pnp2.MODEL_CSV_PATH.read_bytes()).hexdigest(),
+        "camera_is_placeholder": camera_is_placeholder,
+        "independent_test_set": False,
+        "evaluation_note": "Existing train/val development images; validation was used for model selection and inspected during development.",
+        "thresholds_px": {"legacy_warn_mean": PNP_WARN_REPROJ_PX, "quality_fail_mean": PNP_FAIL_REPROJ_PX,
+                           "inlier": pnp2.RANSAC_REPROJ_ERROR_PX},
+        "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
+                          [Path(__file__), PY_DIR / "pnp2.py", PY_DIR / "layout_prior.py",
+                           PY_DIR / "pose_correspondence.py", PY_DIR / "latest_candidate_contours.py",
+                           PY_DIR / "center_fit.py", PY_DIR / "candidate_types.py"]},
+    }
+    report = {"summary": summary, "by_split": {split: summarize([r for r in rows if r.get("split") == split])
+              for split in sorted({r.get("split", "unknown") for r in rows})}, "provenance": provenance, "rows": rows}
     write_csv(run_dir / "summary.csv", rows)
-    atomic_write_json(run_dir / "details.json", {"summary": summary, "rows": rows})
-    atomic_write_json(args.output_dir / "latest_details.json", {"summary": summary, "rows": rows})
+    atomic_write_json(run_dir / "details.json", report)
+    atomic_write_json(args.output_dir / "latest_details.json", report)
 
     failed_rows = [row for row in rows if row.get("status") != "ok"]
     write_csv(run_dir / "failures.csv", failed_rows)

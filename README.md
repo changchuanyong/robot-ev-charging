@@ -1,5 +1,18 @@
 # robot-ev-charging
 
+已增加面向 **RM75 六维力版 + D435 眼在手 + Windows/Python** 的力觉–视觉插装程序：同帧视觉、手眼标定、六维力处理、工程风险、GRU 纠偏、协同动作约束、导纳控制、状态机、模拟、日志回放及 A–F 实验工具。
+
+完整使用说明见 [控制与实验运行说明](docs/control_usage.md)，D435 和手眼标定见 [视觉模块说明](vision/README.md)。当前代码与离线验证可运行；实际设备标定、载荷限值和真实力觉模型仍需实验验收，默认配置不会连接或驱动机器人。
+
+快速运行离线演示（在项目根目录）：
+
+```powershell
+.venv\Scripts\python.exe -m control.simulate --scenario nominal
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+下方保留原 Kinect 视觉程序说明；新控制程序消费 `dataset/live/latest_control_pose.json`。
+
 电动汽车充电口视觉检测与位姿估计项目。项目覆盖数据集整理、YOLO 充电口检测、ROI 后处理、孔位中心提取，以及面向机器人充电实验的 PnP 位姿估计。
 
 ## 效果概览

@@ -1,0 +1,23 @@
+{
+  "description": "D435 eye-in-hand RGB pipeline. Set exact serial and validate calibration before robot use. Pixel gates are provisional analysis settings.",
+  "serial": null,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "timeout_ms": 2000,
+  "max_frame_age_s": 0.5,
+  "intrinsics_validated": false,
+  "intrinsics_sha256": null,
+  "calibration_version": null,
+  "weights": "runs/detect_retrain/weights/best.pt",
+  "model_points": "config/charging_port_model.csv",
+  "target_id": "connector_1",
+  "target_class": 0,
+  "target_window": null,
+  "confidence": 0.25,
+  "min_inliers": 7,
+  "max_reprojection_rms_px": 8.0,
+  "max_point_error_px": 15.0,
+  "visual_budget": null,
+  "output": "dataset/live/latest_control_pose.json"
+}

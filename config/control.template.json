@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "version": "UNCONFIGURED",
+  "simulation_only": false,
+  "method": "A",
+  "target_id": null,
+  "period": null,
+  "timing": {
+    "max_sample_age": null,
+    "max_vision_age": null,
+    "max_period": null,
+    "future_tolerance": null,
+    "max_pose_skew": null,
+    "timeout": null
+  },
+  "calibration": {
+    "version": null,
+    "validated": false,
+    "expected_camera_version": null,
+    "expected_budget_version": null,
+    "expected_camera_serial": null,
+    "R_target_task": null,
+    "insertion_axis_verified": false,
+    "T_flange_camera": null,
+    "T_flange_tool": null,
+    "T_target_plug": null,
+    "position_budget": null,
+    "rotation_budget": null
+  },
+  "vision": {
+    "max_rms_px": null,
+    "max_error_px": null,
+    "min_inliers": null
+  },
+  "wrench": {
+    "version": null,
+    "T_tool_sensor": null,
+    "external_compensated": true,
+    "bias": null,
+    "bias_frozen": true,
+    "filter_tau": null,
+    "max_gap": null
+  },
+  "limits": {
+    "wrench": null,
+    "workspace_min": null,
+    "workspace_max": null,
+    "velocity": null,
+    "acceleration": null,
+    "step": null,
+    "tracking_error": null,
+    "total_offset": null
+  },
+  "task": {
+    "pre_distance": null,
+    "pre_position_tolerance": null,
+    "pre_angle_tolerance": null,
+    "approach_speed": null,
+    "insert_speed": null,
+    "contact_enter": null,
+    "contact_exit": null,
+    "contact_duration": null,
+    "release_duration": null,
+    "confirm_duration": null,
+    "depth": null,
+    "depth_tolerance": null,
+    "attitude_tolerance": null,
+    "complete_hold": null,
+    "complete_velocity": null,
+    "complete_depth_range": null,
+    "handover_velocity": null,
+    "max_approach_travel": null,
+    "max_insert_travel": null,
+    "stall_window": null,
+    "stall_min_progress": null,
+    "stall_load": null,
+    "max_pause": null,
+    "max_attempts": 1,
+    "retreat_enabled": false,
+    "retreat_distance": null,
+    "retreat_stop_velocity": null,
+    "retreat_stationary_duration": null,
+    "retreat_speed": null,
+    "retreat_load_limit": null
+  },
+  "admittance": {
+    "mass": null,
+    "stiffness": null,
+    "damping_min": null,
+    "damping_max": null,
+    "damping_rate": null,
+    "dt_margin": null
+  },
+  "risk": {
+    "version": null,
+    "calibrated": false,
+    "scale": null,
+    "A": null,
+    "b": null,
+    "reference": null
+  },
+  "scheduling": {
+    "load_scales": null,
+    "low": null,
+    "high": null
+  },
+  "learning": {
+    "window_size": null,
+    "sample_period": null,
+    "max_gap": null,
+    "max_age": null,
+    "confidence": null,
+    "consistent_windows": null,
+    "min_hold_s": null,
+    "max_hold_s": null,
+    "model_path": null,
+    "bias_rate": null,
+    "bias_budget": null
+  },
+  "synergy": {
+    "validated": false,
+    "max_offset": null,
+    "action_step": null,
+    "pins": [],
+    "force_response": null
+  },
+  "hardware": {
+    "host": null,
+    "port": 8080,
+    "controller_version": null,
+    "controller_version_confirmed": false,
+    "expected_sdk_version": "1.1.6",
+    "expected_software": {},
+    "expected_arm_model": "RM_75",
+    "expected_force_type": null,
+    "tcp_name": null,
+    "work_frame_name": null,
+    "udp": {
+      "ip": null,
+      "port": null,
+      "cycle": null
+    },
+    "follow": false,
+    "trajectory_mode": 0,
+    "command_period": null,
+    "max_sample_age": null,
+    "command_gap_timeout": null,
+    "max_translation_step": null,
+    "max_rotation_step": null,
+    "transport_latency_bound_s": null,
+    "acceptance_record": null,
+    "stop_feedback_timeout": null,
+    "stop_tolerance": {
+      "joint_speed_rad_s": null,
+      "linear_speed_m_s": null,
+      "angular_speed_rad_s": null,
+      "hold_s": null
+    }
+  }
+}

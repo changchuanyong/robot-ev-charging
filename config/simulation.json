@@ -1,0 +1,623 @@
+{
+  "schema_version": 1,
+  "version": "synthetic-fixture-v1",
+  "simulation_only": true,
+  "method": "B",
+  "target_id": "demo-port",
+  "period": 0.01,
+  "timing": {
+    "max_sample_age": 0.035,
+    "max_vision_age": 0.25,
+    "max_period": 0.03,
+    "future_tolerance": 0.002,
+    "max_pose_skew": 0.012,
+    "timeout": 18.0
+  },
+  "calibration": {
+    "version": "synthetic-v1",
+    "validated": true,
+    "expected_camera_version": "synthetic-v1",
+    "expected_budget_version": "synthetic-v1",
+    "expected_camera_serial": "SIMULATED",
+    "R_target_task": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+    "insertion_axis_verified": true,
+    "T_flange_camera": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "T_flange_tool": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "T_target_plug": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "position_budget": [
+      0.004,
+      0.004,
+      0.02
+    ],
+    "rotation_budget": [
+      0.08,
+      0.08,
+      0.03
+    ]
+  },
+  "vision": {
+    "max_rms_px": 3.0,
+    "max_error_px": 6.0,
+    "min_inliers": 7
+  },
+  "wrench": {
+    "version": "synthetic-v1",
+    "T_tool_sensor": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "external_compensated": true,
+    "bias": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "bias_frozen": true,
+    "filter_tau": 0.025,
+    "max_gap": 0.04
+  },
+  "limits": {
+    "wrench": [
+      10.0,
+      10.0,
+      12.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "workspace_min": [
+      -0.03,
+      -0.03,
+      -0.03
+    ],
+    "workspace_max": [
+      0.03,
+      0.03,
+      0.05
+    ],
+    "velocity": [
+      0.012,
+      0.012,
+      0.008,
+      0.08,
+      0.08,
+      0.08
+    ],
+    "acceleration": [
+      0.2,
+      0.2,
+      0.2,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "step": [
+      0.001,
+      0.001,
+      0.001,
+      0.005,
+      0.005,
+      0.005
+    ],
+    "tracking_error": [
+      0.005,
+      0.005,
+      0.005,
+      0.08,
+      0.08,
+      0.08
+    ],
+    "total_offset": [
+      0.005,
+      0.005,
+      0.02,
+      0.1,
+      0.1,
+      0.03
+    ]
+  },
+  "task": {
+    "pre_distance": 0.003,
+    "pre_position_tolerance": 0.0001,
+    "pre_angle_tolerance": 0.01,
+    "approach_speed": 0.002,
+    "insert_speed": 0.003,
+    "contact_enter": [
+      0.15,
+      0.4,
+      0.08
+    ],
+    "contact_exit": [
+      0.07,
+      0.2,
+      0.04
+    ],
+    "contact_duration": 0.05,
+    "release_duration": 0.1,
+    "confirm_duration": 0.08,
+    "depth": 0.006,
+    "depth_tolerance": 0.00015,
+    "attitude_tolerance": 0.04,
+    "complete_hold": 0.15,
+    "complete_velocity": [
+      0.0005,
+      0.0005,
+      0.0005,
+      0.01,
+      0.01,
+      0.01
+    ],
+    "complete_depth_range": 0.0002,
+    "handover_velocity": [
+      0.001,
+      0.001,
+      0.001,
+      0.01,
+      0.01,
+      0.01
+    ],
+    "max_approach_travel": 0.012,
+    "max_insert_travel": 0.016,
+    "stall_window": 1.5,
+    "stall_min_progress": 0.00012,
+    "stall_load": 0.2,
+    "max_pause": 3.0,
+    "max_attempts": 1,
+    "retreat_enabled": false,
+    "retreat_distance": 0.003,
+    "retreat_stop_velocity": [
+      0.0001,
+      0.0001,
+      0.0001,
+      0.001,
+      0.001,
+      0.001
+    ],
+    "retreat_stationary_duration": 0.1,
+    "retreat_speed": 0.001,
+    "retreat_load_limit": [
+      1.0,
+      1.0,
+      2.0,
+      0.2,
+      0.2,
+      0.2
+    ]
+  },
+  "admittance": {
+    "mass": [
+      2.0,
+      2.0,
+      2.0,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "stiffness": [
+      80.0,
+      80.0,
+      800.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "damping_min": [
+      12.0,
+      12.0,
+      30.0,
+      0.8,
+      0.8,
+      0.8
+    ],
+    "damping_max": [
+      30.0,
+      30.0,
+      50.0,
+      2.0,
+      2.0,
+      2.0
+    ],
+    "damping_rate": [
+      30.0,
+      30.0,
+      30.0,
+      3.0,
+      3.0,
+      3.0
+    ],
+    "dt_margin": 0.75
+  },
+  "risk": {
+    "version": "synthetic-box-v1",
+    "calibrated": true,
+    "scale": [
+      5.0,
+      5.0,
+      6.0,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "A": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      [
+        -1.0,
+        -0.0,
+        -0.0,
+        -0.0,
+        -0.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        -1.0,
+        -0.0,
+        -0.0,
+        -0.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        -0.0,
+        -1.0,
+        -0.0,
+        -0.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        -0.0,
+        -0.0,
+        -1.0,
+        -0.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        -0.0,
+        -0.0,
+        -0.0,
+        -1.0,
+        -0.0
+      ],
+      [
+        -0.0,
+        -0.0,
+        -0.0,
+        -0.0,
+        -0.0,
+        -1.0
+      ]
+    ],
+    "b": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "reference": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "scheduling": {
+    "load_scales": [
+      6.0,
+      5.0,
+      0.5,
+      0.5
+    ],
+    "low": 0.35,
+    "high": 0.85
+  },
+  "learning": {
+    "window_size": 8,
+    "sample_period": 0.01,
+    "max_gap": 0.035,
+    "max_age": 0.05,
+    "confidence": 0.8,
+    "consistent_windows": 3,
+    "min_hold_s": 0.05,
+    "max_hold_s": 3.0,
+    "model_path": null,
+    "bias_rate": [
+      0.0002,
+      0.0002,
+      0.0,
+      0.004,
+      0.004,
+      0.0
+    ],
+    "bias_budget": [
+      0.001,
+      0.001,
+      0.0,
+      0.02,
+      0.02,
+      0.0
+    ]
+  },
+  "synergy": {
+    "validated": true,
+    "max_offset": [
+      0.004,
+      0.004,
+      0.02,
+      0.08,
+      0.08,
+      0.03
+    ],
+    "action_step": [
+      1e-05,
+      1e-05,
+      0.0,
+      0.0002,
+      0.0002,
+      0.0
+    ],
+    "pins": [
+      {
+        "point_m": [
+          -0.017,
+          0.0,
+          0.0
+        ],
+        "clearance_m": 0.006,
+        "engagement_m": 0.01
+      },
+      {
+        "point_m": [
+          0.017,
+          0.0,
+          0.0
+        ],
+        "clearance_m": 0.006,
+        "engagement_m": 0.01
+      },
+      {
+        "point_m": [
+          0.0,
+          0.021,
+          0.0
+        ],
+        "clearance_m": 0.006,
+        "engagement_m": 0.01
+      }
+    ],
+    "force_response": {
+      "calibrated": true,
+      "version": "synthetic-zero-response",
+      "risk_version": "synthetic-box-v1",
+      "action_step": [
+        1e-05,
+        1e-05,
+        0.0,
+        0.0002,
+        0.0002,
+        0.0
+      ],
+      "delta_wrench": [
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    }
+  },
+  "hardware": null
+}

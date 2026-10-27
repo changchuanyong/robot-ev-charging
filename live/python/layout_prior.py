@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import math
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -11,9 +13,8 @@ from candidate_types import CandidateContour, LayoutModel
 ENABLE_LAYOUT_PRIOR = True
 
 MAIN_PAIR_MIN_DIST_RATIO = 0.18
-MAIN_PAIR_MIN_HORIZONTAL = 0.55
-MAIN_PAIR_MAX_LEVEL_DIFF_RATIO = 0.45
 MAIN_PAIR_MIN_AREA_SIM = 0.18
+MAIN_HOLE_MIN_DIAMETER_ROI_RATIO = 0.07
 
 LAYOUT_SCORE_WEIGHT = 0.55
 RAW_SCORE_WEIGHT = 0.45
@@ -44,7 +45,7 @@ LAYOUT_AREA_PRIOR = {
     "bottom_mid": (0.0003, 0.3600),
 }
 
-STANDARD_LAYOUT_ZONES = [
+_LAYOUT_ZONE_DEFAULTS = [
     # name,         u,      v,      tol_u, tol_v, group,   accept_dist
     ("top_left",    -0.30, -0.56,   0.38,  0.32, "top",    1.75),
     ("top_mid",      0.00, -0.54,   0.32,  0.30, "top",    1.62),
@@ -56,6 +57,46 @@ STANDARD_LAYOUT_ZONES = [
     ("bottom_mid",   0.00,  0.62,   0.22,  0.22, "bottom", 1.25),
     ("bottom_right", 0.28,  0.44,   0.24,  0.22, "bottom", 1.22),
 ]
+
+LAYOUT_TO_MODEL_LABEL = {
+    "top_left": "S_neg", "top_mid": "CC2", "top_right": "S_pos",
+    "center": "CC1", "main_left": "DC_neg", "main_right": "DC_pos",
+    "bottom_left": "A_neg", "bottom_mid": "PE", "bottom_right": "A_pos",
+}
+
+
+def normalized_model_points(object_points: dict) -> dict[str, np.ndarray]:
+    """Use the same configured geometry as PnP, with image y pointing down."""
+    left = np.asarray(object_points["DC_neg"], dtype=float)
+    right = np.asarray(object_points["DC_pos"], dtype=float)
+    scale = float(right[0] - left[0])
+    if scale <= 0 or not np.allclose(left[1:], right[1:]):
+        raise ValueError("model_requires_horizontal_DC_anchor_axis")
+    origin = (left + right) / 2
+    result = {}
+    for layout_name, label in LAYOUT_TO_MODEL_LABEL.items():
+        point = np.asarray(object_points[label], dtype=float)
+        if point.shape != (3,) or not np.isfinite(point).all():
+            raise ValueError("invalid_model_point")
+        result[layout_name] = (point[:2] - origin[:2]) / [scale, -scale]
+    return result
+
+
+def layout_zones_from_model(object_points: dict) -> list:
+    points = normalized_model_points(object_points)
+    return [(name, float(points[name][0]), float(points[name][1]), *rest)
+            for name, _u, _v, *rest in _LAYOUT_ZONE_DEFAULTS]
+
+
+def _default_layout_zones() -> list:
+    path = Path(__file__).resolve().parents[2] / "config" / "charging_port_model.csv"
+    with path.open(encoding="utf-8-sig", newline="") as stream:
+        model = {row["label"]: tuple(float(row[key]) for key in ("x_mm", "y_mm", "z_mm"))
+                 for row in csv.DictReader(stream)}
+    return layout_zones_from_model(model)
+
+
+STANDARD_LAYOUT_ZONES = _default_layout_zones()
 
 
 def is_duplicate_candidate(c1: CandidateContour, c2: CandidateContour, center_dist_thresh: float) -> bool:
@@ -104,26 +145,30 @@ def score_main_big_hole_pair(
     if dist < MAIN_PAIR_MIN_DIST_RATIO * min_dim:
         return None
 
-    horizontal = abs(dx) / (dist + 1e-6)
-    if horizontal < MAIN_PAIR_MIN_HORIZONTAL:
-        return None
-
-    level_diff_ratio = abs(dy) / (dist + 1e-6)
-    if level_diff_ratio > MAIN_PAIR_MAX_LEVEL_DIFF_RATIO:
-        return None
-
-    area_sim = min(c1.area, c2.area) / (max(c1.area, c2.area) + 1e-6)
+    # A DC anchor is a large observed aperture, not a distant small noise blob.
+    # Use ellipse dimensions: open Canny arcs can have almost zero contour area.
+    effective_areas = []
+    for candidate in (c1, c2):
+        if candidate.ellipse_axes is not None:
+            minor, major = sorted(candidate.ellipse_axes)
+        else:
+            minor, major = sorted(candidate.bbox[2:])
+        if not (0.12 <= major / dist <= 0.90 and minor / dist >= 0.035
+                and math.sqrt(minor * major) >= MAIN_HOLE_MIN_DIAMETER_ROI_RATIO * min_dim):
+            return None
+        effective_areas.append(math.pi * minor * major / 4)
+    area_sim = min(effective_areas) / (max(effective_areas) + 1e-6)
     if area_sim < MAIN_PAIR_MIN_AREA_SIM:
         return None
 
-    area_sum_norm = min(1.0, (c1.area + c2.area) / (0.05 * roi_area + 1e-6))
+    area_sum_norm = min(1.0, sum(effective_areas) / (0.05 * roi_area + 1e-6))
     center_prior = 1.0 - min(1.0, (c1.prior_value + c2.prior_value) / 2.0)
 
     return (
         0.45 * area_sum_norm +
         0.20 * area_sim +
-        0.20 * horizontal +
-        0.10 * (1.0 - level_diff_ratio) +
+        0.20 * (c1.score + c2.score) / 2.0 +
+        0.10 * min(1.0, dist / (0.5 * min_dim)) +
         0.05 * center_prior
     )
 

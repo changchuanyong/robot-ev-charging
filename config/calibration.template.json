@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "mount": "eye_in_hand",
+  "translation_unit": "m",
+  "version": null,
+  "validated": false,
+  "source": "unconfigured",
+  "camera_serial": null,
+  "T_flange_camera": null,
+  "T_flange_tool": null,
+  "T_tool_sensor": null,
+  "tool_calibration_validated": false,
+  "force_reference_validated": false,
+  "note": "Camera, plug TCP and force-sensor reference transforms require separate measurements. Null is intentional; an identity matrix is not a calibration."
+}
