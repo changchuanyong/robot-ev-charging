@@ -32,8 +32,10 @@ def calibrated_visual_budget(spec: dict | None, camera: dict, rms_px: float,
         depth_range = np.asarray(spec["depth_range_m"], dtype=float)
         max_rms = float(spec["max_reprojection_rms_px"])
         matches = (spec["camera_intrinsics_sha256"] == intrinsics_signature(camera)
+                   and spec.get("axes") == ["x", "y", "Rx", "Ry"]
+                   and spec.get("rules_version") == "finite-trial-v2"
                    and bool(spec["version"]) and bool(spec["source"]))
-        if (values.shape != (6,) or not np.isfinite(values).all() or np.any(values <= 0)
+        if (values.shape != (4,) or not np.isfinite(values).all() or np.any(values <= 0)
                 or depth_range.shape != (2,) or not np.isfinite(depth_range).all()
                 or depth_range[0] <= 0 or depth_range[0] >= depth_range[1]
                 or not np.isfinite(max_rms) or max_rms <= 0
@@ -102,14 +104,25 @@ class PosePipeline:
             if not weights.is_file():
                 raise FileNotFoundError(f"YOLO weights missing: {weights}")
             detector = YOLO(str(weights))
-        model_path = Path(self.config["model_points"])
-        if not model_path.is_absolute():
-            model_path = ROOT / model_path
-        with model_path.open(encoding="utf-8-sig", newline="") as stream:
-            headers = csv.DictReader(stream).fieldnames or []
-        if not {"x_mm", "y_mm", "z_mm"}.issubset(headers):
-            raise ValueError("control_model_requires_explicit_mm_columns")
-        self.model = modules["pnp2"].load_object_points_from_csv(model_path)
+        self.geometry_source = None
+        if self.config.get("geometry_reference"):
+            from .geometry_reference import load_geometry_reference
+            model_path = Path(self.config["geometry_reference"])
+            if not model_path.is_absolute():
+                model_path = ROOT / model_path
+            reference = load_geometry_reference(model_path)
+            self.model = reference["points_mm"]
+            self.geometry_source = {key: reference[key] for key in
+                                    ("version", "status", "validated", "source_sha256")}
+        else:
+            model_path = Path(self.config["model_points"])
+            if not model_path.is_absolute():
+                model_path = ROOT / model_path
+            with model_path.open(encoding="utf-8-sig", newline="") as stream:
+                headers = csv.DictReader(stream).fieldnames or []
+            if not {"x_mm", "y_mm", "z_mm"}.issubset(headers):
+                raise ValueError("control_model_requires_explicit_mm_columns")
+            self.model = modules["pnp2"].load_object_points_from_csv(model_path)
         if not np.isfinite(np.asarray(list(self.model.values()), dtype=float)).all():
             raise ValueError("nonfinite_model_points")
         self.observed_prior = None
@@ -220,6 +233,7 @@ class PosePipeline:
                 "method": result["method"], "per_point_error_px": dict(zip(ordered_labels, errors.tolist())),
                 "intrinsic_source": packet.camera.get("source"),
                 "intrinsic_calibration_version": packet.camera.get("version"),
+                "geometry_reference": getattr(self, "geometry_source", None),
             }
             budget, budget_version = calibrated_visual_budget(
                 self.config.get("visual_budget"), packet.camera,
@@ -238,6 +252,9 @@ class PosePipeline:
                 reasons.append("correspondence_quality_rejected")
             if not calibrated:
                 reasons.append("intrinsics_not_independently_validated")
+            if (self.config.get("geometry_reference") and
+                    not (self.geometry_source["status"] == "measured_print" and self.geometry_source["validated"])):
+                reasons.append("print_geometry_not_measured_and_validated")
             if quality["inlier_count"] < int(self.config["min_inliers"]):
                 reasons.append("insufficient_inliers")
             if quality["reprojection_rms_px"] > float(self.config["max_reprojection_rms_px"]):

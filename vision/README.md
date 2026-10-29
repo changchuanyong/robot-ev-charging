@@ -36,7 +36,8 @@
 | `quality.reprojection_rms_px` | 原始彩色图像像素中的全部匹配点 RMS，不与平均欧氏误差混用 |
 | `quality.camera_calibrated` | 当前彩色流内参验证状态 |
 | `calibration_version` | 内参版本；与手眼外参版本分别记录 |
-| `quality.visual_budget` | 六维视觉纠偏预算，前三项 m、后三项 rad；未标定为 null |
+| `quality.visual_budget` | `finite-trial-v2` 的四维视觉纠偏预算 `{x,y,Rx,Ry}`，单位 m、m、rad、rad；未标定为 null |
+| `quality.geometry_reference` | 显式几何文件的版本、状态、验收标记及 SHA256；旧 CSV 为 null |
 
 D435 的 modified/inverse Brown 与 OpenCV Brown 模型不直接混用：孔位先按 SDK 投影模型反求理想像素，再使用零畸变 PnP；最终残差重新投影回原始彩色图像计算。测试将这套投影与已安装 RealSense SDK 的投影结果比较。尚未实现的畸变模型直接拒绝。
 
@@ -48,15 +49,19 @@ D435 的 modified/inverse Brown 与 OpenCV Brown 模型不直接混用：孔位�
 
 ```text
 validated: true
+rules_version: finite-trial-v2
+axes: [x, y, Rx, Ry]
 version: 预算校准版本
 source: 独立验证记录的位置或批次
 camera_intrinsics_sha256: 对应彩色流参数指纹
-budget_m_rad: 六个正值，前三个为 m、后三个为 rad
+budget_m_rad: 四个正值，顺序为 x、y、Rx、Ry，单位为 m、m、rad、rad
 depth_range_m: 验证覆盖的正深度范围 [min, max]
 max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 ```
 
 只有参数指纹、深度范围与残差范围都匹配，输出中才附带预算。程序不把像素误差直接换算为位置误差，也不把这些预算称为 PnP 统计协方差。实际预算如何由独立测量确定，需要随版本保留实验依据。
+
+新相机检查、schema 2 误差对照与已验收内参覆盖见 [相机与几何诊断](../docs/camera_geometry_diagnostics.md)。`geometry_reference` 可指向 `geometry_reference.template.json` 填写后的实测副本，优先于旧 `model_points` CSV；配置为标称或未验收几何时保留诊断位姿但不放行。正式实验控制器进一步核对该几何与当前样件冻结的版本和哈希。
 
 ## 手眼标定
 

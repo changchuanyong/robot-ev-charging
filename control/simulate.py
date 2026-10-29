@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+from collections import deque
 
 import numpy as np
 
@@ -12,7 +13,8 @@ from .state_machine import InsertionController
 from .types import RobotSample
 
 
-SCENARIOS = ("nominal", "blocked", "overload", "stale", "disconnect", "no_contact", "bad_vision", "risk_outside")
+SCENARIOS = ("nominal", "blocked", "overload", "stale", "disconnect", "no_contact", "bad_vision", "risk_outside",
+             "feedback_lag", "period_jitter", "trial_timeout", "observation_drift", "confirmation_blocked")
 
 
 class SimulatedRobot:
@@ -27,8 +29,12 @@ class SimulatedRobot:
         self.seq = 0
         self.stopped = False
         self.sent = 0
+        self.pending = deque()
+        self.trial_phase = None
 
     def read(self, now):
+        if self.scenario == "feedback_lag" and len(self.pending) >= 3:
+            self.pose = self.pending.popleft()
         self.seq += 1
         wrench = np.zeros(6)
         if self.pose[2, 3] >= 0 and self.scenario != "no_contact":
@@ -59,7 +65,7 @@ class SimulatedRobot:
             "T_camera_target": invert(sample.pose).tolist(), "calibration_version": "synthetic-v1",
             "quality": {"reprojection_rms_px": .2, "max_error_px": .5, "inlier_count": 9,
                         "all_in_front": True, "camera_calibrated": True,
-                        "visual_budget": [.004, .004, .02, .08, .08, .03],
+                        "visual_budget": [.004, .004, .08, .08],
                         "budget_version": "synthetic-v1"},
         }
 
@@ -67,9 +73,19 @@ class SimulatedRobot:
         if self.stopped:
             raise RuntimeError("command after stop")
         self.sent += 1
+        if self.scenario == "feedback_lag":
+            self.pending.append(target.copy())
+            return
+        previous = self.pose.copy()
         self.pose = target.copy()
         if self.scenario == "blocked":
             self.pose[2, 3] = min(self.pose[2, 3], .001)
+        if self.scenario == "confirmation_blocked" and self.trial_phase == "CONFIRM":
+            self.pose[2, 3] = previous[2, 3]
+        if self.scenario == "trial_timeout":
+            self.pose[0, 3] = previous[0, 3]
+        if self.scenario == "observation_drift" and self.trial_phase == "OBSERVE":
+            self.pose[0, 3] += .00002
 
     def stop(self):
         self.stopped = True
@@ -87,15 +103,16 @@ def make_policy(config):
     return policy
 
 
-def run_simulation(config=None, scenario="nominal", output=None, max_steps=10000):
+def run_simulation(config=None, scenario="nominal", output=None, max_steps=10000, policy=None):
     config = config or simulation_config()
-    controller = InsertionController(config, make_policy(config))
+    controller = InsertionController(config, policy if policy is not None else make_policy(config))
     robot = SimulatedRobot(config, scenario)
     logger = TaskLog(output, config, "simulation") if output else None
     decisions = []
     try:
+        now = 0.
         for k in range(max_steps):
-            now = k * config["period"]
+            dt = config["period"] * ((.6, 1.4, .8, 1.2)[k % 4] if scenario == "period_jitter" else 1.)
             sample = robot.read(now)
             observation = robot.observation(sample) if controller.state == "VISION" else None
             decision = controller.step(sample, now, observation)
@@ -108,9 +125,11 @@ def run_simulation(config=None, scenario="nominal", output=None, max_steps=10000
                 robot.stop()
                 controller.acknowledge_stop()
             elif decision.command is not None:
-                robot.command(decision.command, config["period"])
+                robot.trial_phase = controller.trial.phase if controller.trial else None
+                robot.command(decision.command, dt)
             if decision.finished:
                 break
+            now += dt
         else:
             robot.stop()
             raise RuntimeError("simulation exceeded max_steps without a terminal decision")

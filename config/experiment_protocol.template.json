@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "kind": "printed_insertion_protocol",
+  "status": "draft",
+  "protocol_version": null,
+  "rules_version": "finite-trial-v2",
+  "scope": "printed mechanical insertion only",
+  "seed": 20261029,
+  "methods": [
+    "A",
+    "B",
+    "C",
+    "F"
+  ],
+  "method_aliases": {
+    "E": "C"
+  },
+  "repeats_per_cell": 10,
+  "offset_axes": [
+    "x",
+    "y",
+    "Rx",
+    "Ry"
+  ],
+  "offset_units": [
+    "m",
+    "m",
+    "rad",
+    "rad"
+  ],
+  "offset_amplitudes": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "setup_tolerance": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "geometry_version": null,
+  "geometry_references": {},
+  "pilot_evidence": null,
+  "specimens": [
+    {
+      "specimen_id": "test-01",
+      "printing_batch_id": null
+    },
+    {
+      "specimen_id": "test-02",
+      "printing_batch_id": null
+    }
+  ],
+  "method_config_sha256": {},
+  "frozen_configuration_files": {},
+  "source_sha256": null,
+  "model_sha256": null,
+  "note": "Fill measured amplitudes and setup tolerances after independent pilot trials; freeze binds validated hardware configurations. No physical result is generated."
+}

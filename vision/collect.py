@@ -1,4 +1,4 @@
-"""Collect original D415 color images for training, with per-session provenance."""
+"""Collect original D415/D435 color images with per-session provenance."""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +15,7 @@ from .contracts import intrinsics_signature, validate_camera
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WINDOW = "D415 data collection"
+WINDOW = "RealSense RGB data collection"
 
 
 def list_devices(rs=None) -> list[dict]:
@@ -28,10 +28,10 @@ def list_devices(rs=None) -> list[dict]:
 
 
 def validate_config(config: dict) -> None:
-    if config.get("device_model") != "D415":
-        raise ValueError("数据采集配置的 device_model 必须为 D415")
+    if config.get("device_model") not in {"D415", "D435"}:
+        raise ValueError("数据采集配置的 device_model 必须明确为 D415 或 D435")
     if not isinstance(config.get("serial"), str) or not config["serial"].strip():
-        raise ValueError("请用 --serial 指定 D415 序列号；--list-devices 可查看设备")
+        raise ValueError("请用 --serial 指定完整序列号；--list-devices 可查看设备")
     for name in ("width", "height", "fps", "timeout_ms", "warmup_frames"):
         value = config.get(name)
         minimum = 0 if name == "warmup_frames" else 1
@@ -39,7 +39,7 @@ def validate_config(config: dict) -> None:
             raise ValueError(f"无效采集参数: {name}")
 
 
-class D415ColorCamera:
+class CaptureColorCamera:
     """Independent data acquisition; never publishes a robot pose."""
     def __init__(self, config: dict):
         validate_config(config)
@@ -52,8 +52,9 @@ class D415ColorCamera:
         matches = [device for device in list_devices(rs) if device["serial"] == serial]
         if len(matches) != 1:
             raise ValueError("未找到指定序列号的相机，请检查 USB 连接和 --list-devices")
-        if matches[0]["name"].split()[-1] != "D415":
-            raise ValueError("该序列号不是 D415，数据采集入口拒绝启动其他型号")
+        model = self.config["device_model"]
+        if matches[0]["name"].split()[-1] != model:
+            raise ValueError(f"该序列号不是指定的 {model}，数据采集入口拒绝启动")
         config = rs.config()
         config.enable_device(serial)
         config.enable_stream(rs.stream.color, self.config["width"], self.config["height"],
@@ -64,15 +65,15 @@ class D415ColorCamera:
             device = profile.get_device()
             actual_serial = device.get_info(rs.camera_info.serial_number)
             name = device.get_info(rs.camera_info.name)
-            if actual_serial != serial or name.split()[-1] != "D415":
-                raise ValueError("启动后的相机身份与指定 D415 不一致")
+            if actual_serial != serial or name.split()[-1] != model:
+                raise ValueError("启动后的相机身份与指定型号/序列号不一致")
             color = profile.get_stream(rs.stream.color).as_video_stream_profile()
             intrinsics = color.get_intrinsics()
             if (intrinsics.width, intrinsics.height, color.fps(), color.format()) != (
                     self.config["width"], self.config["height"], self.config["fps"], rs.format.bgr8):
                 raise ValueError("实际彩色流配置与请求的分辨率、帧率或格式不一致")
             self.camera = {
-                "stream": "color", "serial": actual_serial, "device_name": name,
+                "stream": "color", "serial": actual_serial, "device_name": name, "device_model": model,
                 "image_width": intrinsics.width, "image_height": intrinsics.height,
                 "fps": color.fps(), "pixel_format": "bgr8",
                 "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx],
@@ -92,12 +93,12 @@ class D415ColorCamera:
 
     def read(self) -> tuple[np.ndarray, dict]:
         if self.pipeline is None:
-            raise RuntimeError("D415 尚未启动")
+            raise RuntimeError("采集相机尚未启动")
         frames = self.pipeline.wait_for_frames(self.config["timeout_ms"])
         received_at = datetime.now(timezone.utc).isoformat()
         color = frames.get_color_frame()
         if not color:
-            raise ValueError("D415 没有返回彩色帧")
+            raise ValueError("采集相机没有返回彩色帧")
         image = np.asanyarray(color.get_data()).copy()
         return image, {"frame_number": color.get_frame_number(),
                        "device_timestamp_ms": color.get_timestamp(),
@@ -114,6 +115,10 @@ class D415ColorCamera:
 
     def __exit__(self, *_):
         self.close()
+
+
+# Keep the previous import working; model identity still comes from explicit config.
+D415ColorCamera = CaptureColorCamera
 
 
 def collect(camera, session, interval: float = 0, max_images: int = 0) -> int:
@@ -154,13 +159,19 @@ def collect(camera, session, interval: float = 0, max_images: int = 0) -> int:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="D415 原始彩色数据采集：空格/S 保存，Q/ESC 结束")
+    parser = argparse.ArgumentParser(description="D415/D435 原始彩色数据采集：空格/S 保存，Q/ESC 结束")
     parser.add_argument("--config", type=Path, default=ROOT / "config/data_capture_d415.json")
     parser.add_argument("--list-devices", action="store_true", help="只列出型号和序列号，不启动图像流")
-    parser.add_argument("--serial", help="D415 完整序列号，覆盖采集配置")
+    parser.add_argument("--device-model", choices=("D415", "D435"), help="明确选择采集型号，覆盖配置")
+    parser.add_argument("--serial", help="完整序列号，覆盖采集配置")
     parser.add_argument("--batch", help="同一拍摄批次的名称；同批图片保持在同一数据分区")
     parser.add_argument("--split", choices=("train", "val", "test", "unknown"), default="train")
     parser.add_argument("--notes", default="", help="记录光照、距离、角度、遮挡等采集条件")
+    parser.add_argument("--specimen", help="唯一样件编号")
+    parser.add_argument("--printing-batch", help="打印批次编号；同批不跨数据分区")
+    parser.add_argument("--geometry-version", help="本次所对应的几何版本")
+    parser.add_argument("--source-kind", choices=("printed_connector", "real_connector", "unknown"), default="unknown")
+    parser.add_argument("--conditions", type=Path, help="JSON 工况：distance/tilt/image_position 等分层字段")
     parser.add_argument("--output-root", type=Path, help="项目内的数据目录，默认 artifacts/captures")
     parser.add_argument("--interval", type=float, default=0, help="自动保存间隔秒数；默认 0 为手动")
     parser.add_argument("--max-images", type=int, default=0, help="保存指定张数后结束；0 为按键结束")
@@ -176,6 +187,8 @@ def main(argv=None) -> int:
             print(json.dumps(list_devices(), ensure_ascii=False, indent=2))
             return 0
         config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+        if args.device_model is not None:
+            config["device_model"] = args.device_model
         if args.serial is not None:
             config["serial"] = args.serial
         output = args.output_root or Path(config["output_root"])
@@ -183,8 +196,11 @@ def main(argv=None) -> int:
         if not output.is_relative_to(ROOT):
             raise ValueError("采集输出需在项目目录内，以便连接九孔复核页面")
         from .capture_session import CaptureSession
-        with D415ColorCamera(config) as camera:
-            session = CaptureSession(output, camera.camera, args.batch, args.split, args.notes)
+        metadata = {"specimen_id": args.specimen, "printing_batch_id": args.printing_batch,
+                    "geometry_version": args.geometry_version, "source_kind": args.source_kind,
+                    "conditions": json.loads(args.conditions.read_text(encoding="utf-8-sig")) if args.conditions else {}}
+        with CaptureColorCamera(config) as camera:
+            session = CaptureSession(output, camera.camera, args.batch, args.split, args.notes, metadata=metadata)
             print(f"采集目录: {session.path}\n空格/S 保存原图，Q/ESC 结束；Ctrl+C 中断。", flush=True)
             collect(camera, session, args.interval, args.max_images)
     except KeyboardInterrupt:

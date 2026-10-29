@@ -46,26 +46,40 @@ def source_digest():
 class TaskLog:
     def __init__(self, path, config, source):
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        # Never overwrite an earlier experiment, even when reusing a command.
-        self.stream = self.path.open("x", encoding="utf-8", buffering=1)
-        self.task_id = uuid.uuid4().hex
+        experiment = config.get("experiment", {})
+        if experiment.get("formal") and (source != "hardware" or not experiment.get("verified")):
+            raise ValueError("formal tasks require hardware and verified setup metadata")
+        self.task_id = experiment.get("task_id") or uuid.uuid4().hex
         self.attempt_id = self.task_id + "-1"
         config_text = json.dumps(config, sort_keys=True, default=_json, allow_nan=False)
+        model_path = config.get("learning", {}).get("model_path")
+        model_sha256 = hashlib.sha256(Path(model_path).read_bytes()).hexdigest() if model_path and Path(model_path).is_file() else None
         try:
             revision = subprocess.run(["git", "--no-optional-locks", "rev-parse", "HEAD"],
                                       cwd=Path(__file__).resolve().parents[1], capture_output=True,
                                       text=True, timeout=3, check=False).stdout.strip()
         except (OSError, subprocess.TimeoutExpired):
             revision = "unknown"
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        # Never overwrite an earlier experiment, even when reusing a command.
+        self.stream = self.path.open("x", encoding="utf-8", buffering=1)
         self.write({"kind": "manifest", "source": source, "synthetic": source == "simulation",
+                    **({"method_identity": "PROBE", "purpose": config["supervised_probe"]["purpose"],
+                        "policy_source": config["supervised_probe"]["policy_source"], "model_used": False,
+                        "selection_values_meaning": config["supervised_probe"]["selection_values_meaning"]}
+                       if config.get("supervised_probe") else {}),
                     "created_utc": time.time(), "config": config,
                     "config_sha256": hashlib.sha256(config_text.encode()).hexdigest(),
                     "git_revision": revision, "source_sha256": source_digest(), "python": platform.python_version(),
-                    "clock": "host_monotonic_seconds", "schema_version": 1})
+                    "clock": "host_monotonic_seconds", "schema_version": 2,
+                    "rules_version": config.get("rules_version", "legacy-unversioned"),
+                    "experiment": experiment, "model_sha256": model_sha256})
 
     def write(self, record):
-        row = {"task_id": self.task_id, "attempt_id": self.attempt_id, **record}
+        if any(key in record and record[key] != value for key, value in
+               (("task_id", self.task_id), ("attempt_id", self.attempt_id))):
+            raise ValueError("a record cannot change its task or attempt identity")
+        row = {**record, "task_id": self.task_id, "attempt_id": self.attempt_id}
         self.stream.write(json.dumps(finite_json(row), ensure_ascii=False, default=_json, allow_nan=False) + "\n")
 
     def close(self):

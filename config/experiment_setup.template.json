@@ -1,0 +1,10 @@
+{
+  "task_id": null,
+  "verified": false,
+  "session_id": null,
+  "fixture_event": null,
+  "measurement_basis": null,
+  "wear_cycles_before": null,
+  "measured_initial_offset": [null, null, null, null],
+  "note": "One physical setup record per complete task. Offsets x/y/Rx/Ry in m/m/rad/rad. Record reseating/reclamping/replacement and actual cumulative insertion count. Do not mark verified before measurement."
+}

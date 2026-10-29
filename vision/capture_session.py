@@ -22,21 +22,36 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _check_batch(root: Path, batch_id: str, split: str) -> None:
+def _check_batch(root: Path, batch_id: str, split: str, metadata: dict) -> None:
     for path in root.glob("*/manifest.json"):
         manifest = json.loads(path.read_text(encoding="utf-8"))
         if (manifest.get("kind") == KIND and manifest.get("batch_id") == batch_id
                 and manifest.get("split") != split):
             raise ValueError("capture_batch_cannot_cross_dataset_splits")
+        if manifest.get("kind") == KIND and manifest.get("split") != split:
+            for key in ("specimen_id", "printing_batch_id"):
+                if metadata.get(key) and manifest.get("metadata", {}).get(key) == metadata[key]:
+                    raise ValueError(f"capture_{key}_cannot_cross_dataset_splits")
 
 
 class CaptureSession:
     def __init__(self, output_root: Path, camera: dict, batch_id: str,
-                 split: str = "train", notes: str = ""):
+                 split: str = "train", notes: str = "", *, metadata: dict | None = None):
         if not isinstance(batch_id, str) or not batch_id.strip() or batch_id != batch_id.strip():
             raise ValueError("nonempty_batch_id_without_surrounding_spaces_required")
         if split not in {"train", "val", "test", "unknown"} or not isinstance(notes, str):
             raise ValueError("invalid_capture_split_or_notes")
+        metadata = json.loads(json.dumps({} if metadata is None else metadata, allow_nan=False))
+        if not isinstance(metadata, dict):
+            raise ValueError("capture_metadata_must_be_object")
+        for key in ("specimen_id", "printing_batch_id", "geometry_version"):
+            if metadata.get(key) is not None and (not isinstance(metadata[key], str) or not metadata[key].strip()
+                                                  or metadata[key] != metadata[key].strip()):
+                raise ValueError(f"invalid_capture_metadata_{key}")
+        if metadata.get("source_kind", "unknown") not in {"printed_connector", "real_connector", "unknown"}:
+            raise ValueError("invalid_capture_source_kind")
+        if not isinstance(metadata.get("conditions", {}), dict):
+            raise ValueError("capture_conditions_must_be_object")
         # A JSON copy isolates the recorded stream calibration from caller mutations.
         self._camera = json.loads(json.dumps(camera, allow_nan=False))
         for key in ("serial", "device_name"):
@@ -56,7 +71,7 @@ class CaptureSession:
         self._camera["intrinsics_sha256"] = signature
         root = Path(output_root).resolve()
         root.mkdir(parents=True, exist_ok=True)
-        _check_batch(root, batch_id, split)
+        _check_batch(root, batch_id, split, metadata)
         session_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ_") + uuid.uuid4().hex
         self.path = root / session_id
         self.path.mkdir()  # Never reuse or clean up an existing session.
@@ -70,10 +85,11 @@ class CaptureSession:
                 "created_at": _utc_now(), "batch_id": batch_id, "split": split,
                 "notes": notes, "status": "recording", "camera_file": "camera.json",
                 "camera_sha256": self._camera_sha256, "frames": [],
+                "metadata": metadata,
             }
             atomic_json(self.path / "manifest.json", self._manifest)
             # Recheck after publishing: concurrent creators cannot both keep conflicting splits.
-            _check_batch(root, batch_id, split)
+            _check_batch(root, batch_id, split, metadata)
         except BaseException:
             for name in ("manifest.json", "camera.json"):
                 (self.path / name).unlink(missing_ok=True)

@@ -13,7 +13,7 @@ from .types import RobotSample
 
 def load_log(path):
     rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
-    if not rows or rows[0].get("kind") != "manifest" or rows[0].get("schema_version") != 1:
+    if not rows or rows[0].get("kind") != "manifest" or rows[0].get("schema_version") not in (1, 2):
         raise ValueError("not a versioned control task log")
     ids = {r.get("task_id") for r in rows}
     if len(ids) != 1 or None in ids:
@@ -24,7 +24,14 @@ def load_log(path):
 def replay(path):
     rows = load_log(path)
     config = rows[0]["config"]
-    controller = InsertionController(config, make_policy(config))
+    probe = config.get("supervised_probe")
+    if probe is not None:
+        from .probe import OperatorProbePolicy, prepare_probe
+        config = prepare_probe(config, probe["action"])
+        controller = InsertionController(config, OperatorProbePolicy(config["learning"], probe["action"]),
+                                         probe_action=probe["action"])
+    else:
+        controller = InsertionController(config, make_policy(config))
     mismatches = []
     count = 0
     last = None

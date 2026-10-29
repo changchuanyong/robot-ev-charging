@@ -1,5 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
+  "rules_version": "finite-trial-v2",
   "version": "UNCONFIGURED",
   "simulation_only": false,
   "method": "A",
@@ -117,12 +118,26 @@
     "bias_rate": null,
     "bias_budget": null
   },
+  "finite_trial": {
+    "version": "finite-trial-v2",
+    "baseline_s": null,
+    "trial_timeout_s": null,
+    "observation_s": null,
+    "confirmation_s": null,
+    "min_advance_m": null,
+    "load_drop": null,
+    "max_wait_s": null,
+    "max_trials": null,
+    "endpoint_tolerance": null,
+    "cumulative_budget": null
+  },
   "synergy": {
+    "rules_version": "finite-trial-v2",
     "validated": false,
     "max_offset": null,
     "action_step": null,
-    "pins": [],
-    "force_response": null
+    "admission_max_risk": null,
+    "pins": []
   },
   "hardware": {
     "host": null,

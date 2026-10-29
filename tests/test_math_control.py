@@ -31,11 +31,9 @@ def admittance_config():
 def synergy_config():
     step = [0.0001, 0.0001, 0, 0.02, 0.02, 0]
     return dict(
+        rules_version="finite-trial-v2", admission_max_risk=.9,
         validated=True, max_offset=[0.1] * 6, action_step=step,
         pins=[dict(point_m=[0, 0, 0], clearance_m=0.1, engagement_m=0.05)],
-        force_response=dict(delta_wrench=np.zeros((6, 8)).tolist(),
-                            version="synthetic-unit-response", calibrated=True,
-                            risk_version="synthetic-unit-test-domain", action_step=step),
     )
 
 
@@ -188,7 +186,7 @@ class SynergyTests(unittest.TestCase):
     def setUp(self):
         self.domain = EngineeringRisk(box_domain())
         self.offset = np.zeros(6)
-        self.budget = np.ones(6) * 0.1
+        self.budget = np.ones(4) * 0.1
         self.wrench = np.zeros(6)
 
     def evaluate(self, model, **kwargs):
@@ -203,9 +201,9 @@ class SynergyTests(unittest.TestCase):
             self.assertEqual(vector[5], 0)
         np.testing.assert_array_equal(action_vector("-Rx"), [0, 0, 0, -1, 0, 0])
 
-    def test_missing_calibrated_response_returns_hold_and_invalid(self):
+    def test_unvalidated_geometry_returns_hold_and_invalid(self):
         config = synergy_config()
-        config.pop("force_response")
+        config["validated"] = False
         result = self.evaluate(SynergyFilter(config, self.domain))
         self.assertFalse(result.valid)
         self.assertEqual(result.allowed, ("Hold",))
@@ -221,28 +219,30 @@ class SynergyTests(unittest.TestCase):
         self.assertEqual(result.reasons["+Rx"], "pin_clearance_or_key_geometry")
 
     def test_vision_envelope_removes_direction_that_exceeds_budget(self):
-        budget = np.array([0.001, 0.1, 0.1, 0.1, 0.1, 0.1])
+        budget = np.array([0.001, 0.1, 0.1, 0.1])
         result = self.evaluate(SynergyFilter(synergy_config(), self.domain),
                                offset=[0.001, 0, 0, 0, 0, 0], budget=budget)
         self.assertNotIn("+x", result.allowed)
         self.assertIn("-x", result.allowed)
 
-    def test_force_response_not_unsigned_risk_selects_direction(self):
+    def test_current_risk_admits_without_predicting_directional_load(self):
         config = synergy_config()
-        config["force_response"]["delta_wrench"][0][0] = 0.2
-        config["force_response"]["delta_wrench"][0][1] = -0.2
         wrench = [0.5, 0, 0, 0, 0, 0]
         result = self.evaluate(SynergyFilter(config, self.domain), wrench=wrench,
                                risk=self.domain.evaluate(wrench).values)
-        self.assertNotIn("+x", result.allowed)
+        self.assertIn("+x", result.allowed)
         self.assertIn("-x", result.allowed)
-        self.assertEqual(result.reasons["+x"], "predicted_risk_increase")
+        high = np.array([.95, 0, 0, 0, 0, 0])
+        result = self.evaluate(SynergyFilter(config, self.domain), wrench=high,
+                               risk=self.domain.evaluate(high).values)
+        self.assertEqual(result.allowed, ("Hold",))
+        self.assertEqual(result.reasons["+x"], "current_risk_admission")
 
-    def test_mismatched_response_step_and_nonfinite_input_fail_closed(self):
+    def test_legacy_response_and_nonfinite_input_fail_closed(self):
         config = synergy_config()
-        config["force_response"]["action_step"] = [0.001] * 6
-        model = SynergyFilter(config, self.domain)
-        self.assertFalse(self.evaluate(model).valid)
+        config["force_response"] = {}
+        with self.assertRaisesRegex(ValueError, "legacy"):
+            SynergyFilter(config, self.domain)
         model = SynergyFilter(synergy_config(), self.domain)
         self.assertFalse(self.evaluate(model, budget=[np.nan] * 6).valid)
         self.assertFalse(self.evaluate(model, risk=[0.2] * 6).valid)

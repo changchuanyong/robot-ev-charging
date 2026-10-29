@@ -107,7 +107,8 @@ class ObservationContractTests(unittest.TestCase):
 
     def test_visual_budget_requires_independent_calibration_and_domain_match(self):
         camera = camera_config()
-        spec = {"validated": True, "budget_m_rad": [0.001]*3+[0.01]*3,
+        spec = {"validated": True, "budget_m_rad": [0.001]*2+[0.01]*2,
+                "axes": ["x", "y", "Rx", "Ry"], "rules_version": "finite-trial-v2",
                 "depth_range_m": [0.2, 0.8], "max_reprojection_rms_px": 2,
                 "camera_intrinsics_sha256": intrinsics_signature(camera),
                 "version": "budget-test", "source": "held-out-pose-validation"}

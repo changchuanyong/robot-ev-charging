@@ -1,0 +1,11 @@
+{
+  "description": "D435 RGB dataset collection. This is separate from the D435 robot control entrypoint.",
+  "device_model": "D435",
+  "serial": null,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "warmup_frames": 30,
+  "timeout_ms": 5000,
+  "output_root": "artifacts/captures"
+}

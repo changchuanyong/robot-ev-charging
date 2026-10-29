@@ -1,0 +1,6 @@
+{
+  "version": null,
+  "validated": false,
+  "T_base_task": null,
+  "note": "Measured task frame for no-motion force collection. Uses the controller WrenchProcessor, configured compensation and tool moment origin. This is not an unmeasured identity transform."
+}

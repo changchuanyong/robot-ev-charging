@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "version": null,
+  "status": "measured_print",
+  "validated": false,
+  "units": "mm",
+  "frame": "target",
+  "feature_definition": null,
+  "points_mm": {
+    "S_neg": [
+      null,
+      null,
+      null
+    ],
+    "CC2": [
+      null,
+      null,
+      null
+    ],
+    "S_pos": [
+      null,
+      null,
+      null
+    ],
+    "CC1": [
+      null,
+      null,
+      null
+    ],
+    "DC_neg": [
+      null,
+      null,
+      null
+    ],
+    "DC_pos": [
+      null,
+      null,
+      null
+    ],
+    "A_neg": [
+      null,
+      null,
+      null
+    ],
+    "PE": [
+      null,
+      null,
+      null
+    ],
+    "A_pos": [
+      null,
+      null,
+      null
+    ]
+  },
+  "sections": {
+    "S_neg": null,
+    "CC2": null,
+    "S_pos": null,
+    "CC1": null,
+    "DC_neg": null,
+    "DC_pos": null,
+    "A_neg": null,
+    "PE": null,
+    "A_pos": null
+  },
+  "provenance": [
+    {
+      "path": null,
+      "sha256": null,
+      "kind": "CAD"
+    }
+  ],
+  "specimen_id": null,
+  "printing_batch_id": null,
+  "measurement": {
+    "operator": null,
+    "measured_at": null,
+    "instrument": null,
+    "evidence_path": null,
+    "evidence_sha256": null
+  },
+  "notes": "Template deliberately fails validation. Record actual aperture sections, preserve raw measurements, never fill from synthetic control config."
+}

@@ -10,6 +10,7 @@ import numpy as np
 from .synergy import ACTIONS
 
 FORCE_UNITS = ["N", "N", "N", "Nm", "Nm", "Nm"]
+PARTITION_IDENTITIES = ("printing_batch_id", "specimen_id", "session_id")
 
 
 def load_records(path):
@@ -31,8 +32,12 @@ def load_records(path):
             raise ValueError(f"line {line_number}: expected task-frame N/Nm wrench")
         if not str(row["trajectory_id"]) or not str(row["batch_id"]):
             raise ValueError(f"line {line_number}: empty trajectory/batch identity")
-        if row["label"] not in ACTIONS and row["label"] not in ("ambiguous", "invalid"):
+        if row["label"] not in ACTIONS and row["label"] not in ("ambiguous", "invalid", "fault"):
             raise ValueError(f"line {line_number}: unknown label {row['label']}")
+        if row.get("schema_version") == 2:
+            for field in PARTITION_IDENTITIES:
+                if not isinstance(row.get(field), str) or not row[field].strip():
+                    raise ValueError(f"line {line_number}: schema 2 requires {field}")
         records.append(row)
     if not records:
         raise ValueError("force dataset is empty")
@@ -55,9 +60,24 @@ def validate_split(records, split):
     if set(assignment) != trajectories:
         raise ValueError("split must cover exactly the dataset trajectories")
     batch_groups, trajectory_batches, last_times = {}, {}, {}
+    identity_groups, trajectory_identities = {}, {}
     for row in records:
         trajectory, batch = row["trajectory_id"], row["batch_id"]
         group = assignment[trajectory]
+        for field in (*PARTITION_IDENTITIES, "task_id"):
+            value = row.get(field)
+            if row.get("schema_version") == 2 and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"schema 2 requires {field}")
+            if value is None:
+                continue  # Legacy datasets remain readable, without upgraded provenance claims.
+            identity = (field, value)
+            if identity in identity_groups and identity_groups[identity] != group:
+                raise ValueError(f"{field} leakage: {value}")
+            key = (trajectory, field)
+            if key in trajectory_identities and trajectory_identities[key] != value:
+                raise ValueError(f"trajectory changes {field}: {trajectory}")
+            identity_groups[identity] = group
+            trajectory_identities[key] = value
         if batch in batch_groups and batch_groups[batch] != group:
             raise ValueError(f"acquisition batch leakage: {batch}")
         if trajectory in trajectory_batches and trajectory_batches[trajectory] != batch:

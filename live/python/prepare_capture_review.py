@@ -125,6 +125,10 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
             "points": {label: {"xy": None, "visibility": "unlabeled", "source": "unlabeled", "note": ""}
                        for label in LABELS},
         })
+    if "metadata" in manifest:
+        result["provenance"]["capture_metadata"] = manifest["metadata"]
+        for entry in result["images"]:
+            entry["capture_metadata"] = manifest["metadata"]
     validate_annotations(result)
     return result
 

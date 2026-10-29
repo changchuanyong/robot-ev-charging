@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "kind": "specimen_registry",
+  "status": "pending_physical_records",
+  "specimens": [
+    {
+      "specimen_id": "specimen-dev-01",
+      "split": "train",
+      "printing_batch_id": null,
+      "cad_version": null,
+      "cad_sha256": null,
+      "material": null,
+      "layer_orientation": null,
+      "print_date": null,
+      "measurement_record": null,
+      "geometry_version": null,
+      "insertion_cycles": null,
+      "reclamping_events": [],
+      "replacements": []
+    },
+    {
+      "specimen_id": "specimen-dev-02",
+      "split": "train",
+      "printing_batch_id": null,
+      "cad_version": null,
+      "cad_sha256": null,
+      "material": null,
+      "layer_orientation": null,
+      "print_date": null,
+      "measurement_record": null,
+      "geometry_version": null,
+      "insertion_cycles": null,
+      "reclamping_events": [],
+      "replacements": []
+    },
+    {
+      "specimen_id": "specimen-dev-03",
+      "split": "train",
+      "printing_batch_id": null,
+      "cad_version": null,
+      "cad_sha256": null,
+      "material": null,
+      "layer_orientation": null,
+      "print_date": null,
+      "measurement_record": null,
+      "geometry_version": null,
+      "insertion_cycles": null,
+      "reclamping_events": [],
+      "replacements": []
+    },
+    {
+      "specimen_id": "specimen-val-01",
+      "split": "val",
+      "printing_batch_id": null,
+      "cad_version": null,
+      "cad_sha256": null,
+      "material": null,
+      "layer_orientation": null,
+      "print_date": null,
+      "measurement_record": null,
+      "geometry_version": null,
+      "insertion_cycles": null,
+      "reclamping_events": [],
+      "replacements": []
+    },
+    {
+      "specimen_id": "test-01",
+      "split": "test",
+      "printing_batch_id": null,
+      "cad_version": null,
+      "cad_sha256": null,
+      "material": null,
+      "layer_orientation": null,
+      "print_date": null,
+      "measurement_record": null,
+      "geometry_version": null,
+      "insertion_cycles": null,
+      "reclamping_events": [],
+      "replacements": []
+    },
+    {
+      "specimen_id": "test-02",
+      "split": "test",
+      "printing_batch_id": null,
+      "cad_version": null,
+      "cad_sha256": null,
+      "material": null,
+      "layer_orientation": null,
+      "print_date": null,
+      "measurement_record": null,
+      "geometry_version": null,
+      "insertion_cycles": null,
+      "reclamping_events": [],
+      "replacements": []
+    }
+  ],
+  "notes": [
+    "Assign independent printing batches to splits; do not divide one printing batch across train/val/test.",
+    "Add spare specimens with new IDs and immutable replacement records; never reset wear counters."
+  ]
+}

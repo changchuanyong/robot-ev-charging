@@ -44,6 +44,16 @@ def sdk_fixture(name="Intel RealSense D415"):
 
 
 class CaptureCameraTests(unittest.TestCase):
+    def test_d435_acquisition_requires_explicit_model_and_exact_serial(self):
+        sdk, *_ = sdk_fixture("Intel RealSense D435")
+        settings = config()
+        settings["device_model"] = "D435"
+        with patch.dict("sys.modules", {"pyrealsense2": sdk}):
+            with collect.CaptureColorCamera(settings) as camera:
+                self.assertEqual(camera.camera["device_model"], "D435")
+                self.assertEqual(camera.camera["serial"], settings["serial"])
+        sdk.pipeline.return_value.stop.assert_called_once()
+
     def test_only_requested_color_stream_and_actual_intrinsics_are_used(self):
         sdk, _, _, frame = sdk_fixture()
         with patch.dict("sys.modules", {"pyrealsense2": sdk}):

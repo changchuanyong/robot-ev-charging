@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "capture_manifest": null,
+  "board": {
+    "board_id": null,
+    "columns": null,
+    "rows": null,
+    "measured_square_mm": null,
+    "measured_by": null,
+    "measured_at": null,
+    "instrument": null
+  },
+  "fit_images": [],
+  "validation_images": []
+}

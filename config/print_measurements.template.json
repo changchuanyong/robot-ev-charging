@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "kind": "printed_connector_measurements",
+  "units": "mm",
+  "status": "pending",
+  "specimen_id": null,
+  "printing_batch_id": null,
+  "cad_version": null,
+  "cad_sha256": null,
+  "measured_at": null,
+  "operator": null,
+  "instrument": {
+    "name": null,
+    "resolution_mm": null,
+    "check_record": null
+  },
+  "reference_frame": {
+    "description": null,
+    "datum_faces": null,
+    "T_target_cad": null
+  },
+  "holes": {
+    "S_neg": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "CC2": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "S_pos": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "CC1": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "DC_neg": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "DC_pos": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "A_neg": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "PE": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    },
+    "A_pos": {
+      "aperture_section": null,
+      "center_xyz_mm": [
+        null,
+        null,
+        null
+      ],
+      "hole_diameter_mm": null,
+      "pin_diameter_mm": null,
+      "step_depth_mm": null,
+      "engagement_length_mm": null,
+      "radial_clearance_mm": null,
+      "repeats": [],
+      "photo_or_drawing_evidence": null
+    }
+  },
+  "assembly": {
+    "insertion_depth_mm": null,
+    "depth_measurement_definition": null,
+    "angular_clearance_rad": null,
+    "initial_wear_cycles": null
+  },
+  "note": "radial_clearance=(hole_diameter-pin_diameter)/2 only where matching measured circular sections apply; counters are filled from actual history."
+}

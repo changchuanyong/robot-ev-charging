@@ -21,7 +21,8 @@ def simulation_config():
     eye = np.eye(4).tolist()
     step = [.00001, .00001, 0., .0002, .0002, 0.]
     return {
-        "schema_version": 1, "version": "synthetic-fixture-v1", "simulation_only": True,
+        "schema_version": 2, "rules_version": "finite-trial-v2",
+        "version": "synthetic-fixture-v2", "simulation_only": True,
         "method": "B", "target_id": "demo-port", "period": .01,
         "timing": {"max_sample_age": .035, "max_vision_age": .25,
                    "max_period": .03, "future_tolerance": .002, "max_pose_skew": .012, "timeout": 18.},
@@ -75,13 +76,18 @@ def simulation_config():
                      "min_hold_s": .05, "max_hold_s": 3., "model_path": None,
                      "bias_rate": [.0002, .0002, 0., .004, .004, 0.],
                      "bias_budget": [.001, .001, 0., .02, .02, 0.]},
-        "synergy": {"validated": True, "max_offset": [.004, .004, .02, .08, .08, .03],
+        "finite_trial": {"version": "finite-trial-v2", "baseline_s": .05,
+                         "trial_timeout_s": .3, "observation_s": .06,
+                         "confirmation_s": .3, "min_advance_m": .0001,
+                         "load_drop": .01, "max_wait_s": 3., "max_trials": 40,
+                         "endpoint_tolerance": [.000001, .000001, .00002, .00002, .00002, .00002],
+                         "cumulative_budget": [.001, .001, .001, .02, .02, .02]},
+        "synergy": {"rules_version": "finite-trial-v2", "validated": True,
+                    "max_offset": [.004, .004, .02, .08, .08, .03],
+                    "admission_max_risk": .9,
                     "action_step": step,
                     "pins": [{"point_m": [x, y, 0.], "clearance_m": .006,
-                              "engagement_m": .01} for x, y in [(-.017, 0.), (.017, 0.), (0., .021)]],
-                    "force_response": {"calibrated": True, "version": "synthetic-zero-response",
-                                       "risk_version": "synthetic-box-v1", "action_step": step,
-                                       "delta_wrench": np.zeros((6, 8)).tolist()}},
+                              "engagement_m": .01} for x, y in [(-.017, 0.), (.017, 0.), (0., .021)]]},
         "hardware": None,
     }
 
@@ -100,8 +106,10 @@ def hardware_template():
     c["wrench"].update(external_compensated=True, bias_frozen=True)
     c["risk"] = {"version": None, "calibrated": False, "scale": None,
                  "A": None, "b": None, "reference": None}
-    c["synergy"] = {"validated": False, "max_offset": None, "action_step": None,
-                    "pins": [], "force_response": None}
+    c["synergy"] = {"rules_version": "finite-trial-v2", "validated": False,
+                    "max_offset": None, "action_step": None, "admission_max_risk": None, "pins": []}
+    c["finite_trial"] = {k: None for k in c["finite_trial"]}
+    c["finite_trial"]["version"] = "finite-trial-v2"
     c["learning"] = {k: None for k in c["learning"]}
     c["hardware"] = {"host": None, "port": 8080, "controller_version": None,
                      "controller_version_confirmed": False, "expected_sdk_version": "1.1.6",
@@ -124,7 +132,7 @@ def load_config(path):
     return config
 
 
-def validate_config(config, *, hardware=False):
+def validate_config(config, *, hardware=False, supervised_probe=False):
     """Return actionable errors without connecting any device."""
     errors = []
     if not isinstance(config, dict):
@@ -135,8 +143,8 @@ def validate_config(config, *, hardware=False):
             errors.append(f"{section} must be a JSON object")
     if errors:
         return errors
-    if config.get("schema_version") != 1:
-        errors.append("schema_version must equal 1")
+    if config.get("schema_version") != 2 or config.get("rules_version") != "finite-trial-v2":
+        errors.append("schema_version 2 and rules_version finite-trial-v2 required; legacy configuration needs explicit migration")
     method = config.get("method")
     if not isinstance(method, str) or method not in METHODS:
         errors.append("method must be A, B, C, D, E, or F")
@@ -236,7 +244,11 @@ def validate_config(config, *, hardware=False):
     if flags["learning"]:
         try:
             from .learning import ForcePolicy
+            from .finite_trial import FiniteTrial
+            from .synergy import SynergyFilter
             ForcePolicy({**config["learning"], "model_path": None})
+            FiniteTrial(config["finite_trial"])
+            SynergyFilter(config["synergy"])
             for name in ("bias_rate", "bias_budget"):
                 a = np.asarray(config["learning"][name], float)
                 if a.shape != (6,) or not np.isfinite(a).all() or (a < 0).any() or (a[[0,1,3,4]] <= 0).any() or (a[[2,5]] != 0).any():
@@ -272,10 +284,10 @@ def validate_config(config, *, hardware=False):
                      "acceptance_record", "transport_latency_bound_s", "stop_feedback_timeout", "stop_tolerance"):
             if h.get(name) is None or h.get(name) == "":
                 errors.append(f"hardware.{name} is unconfigured")
-        if flags["learning"] and not config.get("learning", {}).get("model_path"):
+        if flags["learning"] and not supervised_probe and not config.get("learning", {}).get("model_path"):
             errors.append("learning method requires a trained checkpoint")
-        if flags["synergy"] and config.get("synergy", {}).get("validated") is not True:
-            errors.append("F requires independently validated geometry and action response")
+        if flags["learning"] and config.get("synergy", {}).get("validated") is not True:
+            errors.append("learning methods require independently validated shared mechanical geometry")
         if not h.get("expected_software"):
             errors.append("hardware.expected_software must freeze the verified firmware identity")
         number(h.get("stop_feedback_timeout"), "hardware.stop_feedback_timeout")

@@ -1,9 +1,6 @@
-"""Conservative implementation of thesis section 4.5.3, A_valid.
+"""Shared finite-motion admission; F adds a four-axis visual correction domain.
 
-The thesis specifies the meaning of g_v/g_g/g_f, not numeric calibrated rules.
-Here g_v uses a calibrated SI correction envelope; g_g checks both endpoints of
-each engaged pin; g_f uses measured per-action wrench responses. The last rule
-is a local calibrated approximation, not a guarantee about future contact.
+Current measured risk admits a trial. It does not predict post-action loading.
 """
 from __future__ import annotations
 
@@ -15,6 +12,7 @@ from .geometry import exp_so3
 
 
 ACTIONS = ("+x", "-x", "+y", "-y", "+Rx", "-Rx", "+Ry", "-Ry", "Hold")
+CORRECTION_AXES = (0, 1, 3, 4)
 _AXES = (0, 0, 1, 1, 3, 3, 4, 4)
 
 
@@ -37,6 +35,8 @@ class SynergyResult:
 
 class SynergyFilter:
     def __init__(self, config: dict, risk_model=None):
+        if config.get("rules_version") != "finite-trial-v2" or "force_response" in config:
+            raise ValueError("legacy synergy configuration requires explicit finite-trial-v2 migration")
         self.config = config
         self.risk_model = risk_model
         self.validated = config.get("validated", False) is True
@@ -55,25 +55,11 @@ class SynergyFilter:
                     or not np.isfinite(engagement) or engagement < 0):
                 raise ValueError("pin geometry needs finite point, positive clearance and nonnegative engagement")
             self.pins.append((point.copy(), clearance, engagement))
-        response = config.get("force_response")
-        self.response = None
-        self.response_version = None
-        self.response_risk_version = None
-        self.response_step = None
-        if response is not None:
-            if not isinstance(response, dict):
-                raise ValueError("force_response needs matrix, version, risk_version and calibration metadata")
-            matrix = np.asarray(response["delta_wrench"], dtype=float)
-            if matrix.shape != (6, 8) or not np.all(np.isfinite(matrix)):
-                raise ValueError("force response delta_wrench must have shape [6,8]")
-            if response.get("calibrated", False) is True:
-                self.response = matrix.copy()
-            self.response_version = response.get("version")
-            self.response_risk_version = response.get("risk_version")
-            self.response_step = self._six(response.get("action_step", []), "force response action_step")
-        self.risk_tolerance = float(config.get("risk_tolerance", 1e-9))
-        if not np.isfinite(self.risk_tolerance) or not 0 <= self.risk_tolerance <= 1e-3:
-            raise ValueError("risk_tolerance must be a small numerical tolerance, in [0,0.001]")
+        if np.any(self.action_step[[2, 5]] != 0):
+            raise ValueError("finite corrections require zero z/Rz steps")
+        self.max_risk = float(config["admission_max_risk"])
+        if not np.isfinite(self.max_risk) or not 0 < self.max_risk <= 1:
+            raise ValueError("admission_max_risk must be in (0,1]")
 
     @staticmethod
     def _six(value, name: str) -> np.ndarray:
@@ -98,47 +84,52 @@ class SynergyFilter:
                     return False
         return True
 
-    def allowed(self, pose_offset6, vision_budget6, risk6, wrench6,
+    def endpoint_reason(self, offset, vision_budget=None):
+        offset = self._six(offset, "offset")
+        if np.any(np.abs(offset) > self.max_offset + 1e-12):
+            return "travel_or_key_budget"
+        if not self._geometry_valid(offset):
+            return "pin_clearance_or_key_geometry"
+        if vision_budget is not None:
+            budget = np.asarray(vision_budget, float)
+            if budget.shape != (4,) or not np.isfinite(budget).all() or np.any(budget <= 0):
+                return "invalid_visual_budget"
+            if np.any(np.abs(offset[list(CORRECTION_AXES)]) > budget + 1e-12):
+                return "visual_correction_budget"
+        return ""
+
+    def allowed(self, pose_offset6, vision_budget4, risk6, wrench6,
                 phase: str = "INSERT") -> SynergyResult:
         try:
             offset = self._six(pose_offset6, "pose_offset")
-            budget = self._six(vision_budget6, "vision_budget")
-            risk = self._six(risk6, "risk")
             wrench = self._six(wrench6, "wrench")
+            reason = self.endpoint_reason(offset, vision_budget4)
         except (TypeError, ValueError):
             return self._unavailable("invalid_input")
         if phase != "INSERT":
             return self._unavailable("phase_disallows_correction")
-        if np.any(budget <= 0) or np.any(risk < 0) or np.any(risk > 1):
-            return self._unavailable("invalid_budget_or_risk")
         if not self.validated or not self.pins:
-            return self._unavailable("geometry_or_visual_envelope_not_validated")
-        if (self.response is None or not self.response_version
-                or self.risk_model is None or not self.risk_model.calibrated
-                or self.response_risk_version != self.risk_model.version
-                or self.response_step is None
-                or not np.allclose(self.response_step, self.action_step, atol=1e-12, rtol=0)):
-            return self._unavailable("force_response_not_validated_for_this_domain_and_step")
-        current = self.risk_model.evaluate(wrench)
-        if not current.valid or not np.allclose(current.values, risk, atol=1e-7, rtol=0):
-            return self._unavailable("risk_input_inconsistent")
-        envelope = np.minimum(budget, self.max_offset)
-        if np.any(np.abs(offset) > envelope):
-            return self._unavailable("current_pose_outside_correction_envelope")
+            return self._unavailable("geometry_not_validated")
+        if reason:
+            return self._unavailable("current_" + reason)
+        if self.risk_model is not None:
+            current = self.risk_model.evaluate(wrench)
+            try:
+                risk = self._six(risk6, "risk")
+            except (TypeError, ValueError):
+                return self._unavailable("invalid_risk")
+            if (not current.valid or not self.risk_model.calibrated or
+                    not np.allclose(current.values, risk, atol=1e-7, rtol=0)):
+                return self._unavailable("risk_input_inconsistent")
+            if np.max(risk) > self.max_risk:
+                return SynergyResult(("Hold",), dict.fromkeys(ACTIONS[:-1], "current_risk_admission"), True)
         accepted, reasons = [], {}
-        for index, action in enumerate(ACTIONS[:-1]):
+        for action in ACTIONS[:-1]:
             proposed = offset + action_vector(action) * self.action_step
-            if np.any(np.abs(proposed) > envelope):
-                reasons[action] = "visual_or_travel_budget"
-            elif not self._geometry_valid(proposed):
-                reasons[action] = "pin_clearance_or_key_geometry"
+            reason = self.endpoint_reason(proposed, vision_budget4)
+            if reason:
+                reasons[action] = reason
             else:
-                predicted = self.risk_model.evaluate(wrench + self.response[:, index])
-                if not predicted.valid:
-                    reasons[action] = "predicted_wrench_outside_domain"
-                elif np.any(predicted.values > current.values + self.risk_tolerance):
-                    reasons[action] = "predicted_risk_increase"
-                else:
-                    accepted.append(action)
+                accepted.append(action)
         accepted.append("Hold")
         return SynergyResult(tuple(accepted), reasons, True)

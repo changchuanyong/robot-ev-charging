@@ -285,27 +285,43 @@ class StateMachineTests(unittest.TestCase):
         policy = ControlledPolicy(config["learning"], probabilities)
         return (*drive_to(config=config, policy=policy), config)
 
-    def test_f_masks_highest_probability_and_uses_full_calibrated_quantum(self):
-        def reject_positive(config):
-            config["synergy"]["force_response"]["delta_wrench"][2][0] = -.1
-        controller, robot, now, config = self.make_f_controller(reject_positive)
-        decision = cycle(controller, robot, now, [0, 0, -.25, 0, 0, 0])
+    def test_f_masks_highest_probability_using_four_axis_visual_domain(self):
+        controller, robot, now, config = self.make_f_controller()
+        controller.vision_budget[0] = .000015
+        # Put the measured and commanded x near the positive visual boundary.
+        robot.pose[0, 3] = .00001
+        controller.last_command = robot.pose.copy()
+        controller.nominal = robot.pose.copy()
+        for k in range(8):
+            decision = cycle(controller, robot, now + k * .01, [0, 0, -.25, 0, 0, 0])
+            if controller.trial.active:
+                break
         self.assertEqual(decision.details["action"], "-x")
         self.assertNotIn("+x", decision.details["allowed_actions"])
-        self.assertAlmostEqual(controller.bias[0], -config["synergy"]["action_step"][0])
-        second = cycle(controller, robot, now + .01, [0, 0, -.25, 0, 0, 0])
-        self.assertEqual(second.details["action"], "Hold")
-        self.assertIn("action_quantum_rate_limit", second.details["action_rejections"].values())
+        self.assertEqual(controller.trial.record["action"], "-x")
+        self.assertEqual(decision.details["selection_confidence"], .35)
+        self.assertEqual(controller.trial.record["selection_probabilities"], [.6, .35, 0, 0, 0, 0, 0, 0, .05])
+        self.assertFalse(decision.details["advance_requested"])
 
-    def test_f_cannot_send_a_truncated_action_quantum(self):
+    def test_f_executes_slow_finite_step_without_reselecting_or_overstepping(self):
         def restrictive(config):
             config["limits"]["velocity"][0] = .0001
-        controller, robot, now, _ = self.make_f_controller(restrictive)
-        decision = cycle(controller, robot, now, [0, 0, -.25, 0, 0, 0])
-        self.assertEqual(decision.details["action"], "Hold")
-        self.assertEqual(decision.details["action_rejections"]["+x"], "action_quantum_would_be_truncated")
-        self.assertAlmostEqual(controller.bias[0], 0.)
-        self.assertAlmostEqual(decision.command[0, 3], 0.)
+        controller, robot, now, config = self.make_f_controller(restrictive)
+        deadline = None
+        for k in range(40):
+            decision = cycle(controller, robot, now + k * .01, [0, 0, -.25, 0, 0, 0])
+            self.assertFalse(decision.stop, decision.reason)
+            if controller.trial.active:
+                if deadline is None:
+                    deadline = controller.trial.record["trial_deadline"]
+                    controller.policy.fixture_probabilities = [0, 1, 0, 0, 0, 0, 0, 0, 0]
+                self.assertEqual(controller.trial.record["trial_deadline"], deadline)
+                self.assertEqual(controller.trial.record["action"], "+x")
+                self.assertLessEqual(controller.trial.increment[0], config["synergy"]["action_step"][0] + 1e-12)
+            if controller.trial.last_result:
+                self.assertEqual(controller.trial.last_result["outcome"], "effective")
+                break
+        self.assertIsNotNone(controller.trial.last_result)
 
     def test_f_checks_admittance_in_the_total_command_budget(self):
         controller, robot, now, _ = self.make_f_controller()

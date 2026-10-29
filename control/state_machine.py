@@ -10,23 +10,34 @@ import numpy as np
 
 from .admittance import Admittance, advance_scale
 from .config import METHODS, require_config
+from .finite_trial import FiniteTrial
 from .geometry import invert, log_so3, offset_pose, pose_error, validate_transform
 from .risk import EngineeringRisk
-from .synergy import ACTIONS, SynergyFilter, action_vector
+from .synergy import ACTIONS, CORRECTION_AXES, SynergyFilter, action_vector
 from .types import Decision, RobotSample
 from .wrench import WrenchProcessor
 
 
 class InsertionController:
-    def __init__(self, config, policy=None):
+    def __init__(self, config, policy=None, *, probe_action=None):
         self.config = require_config(config)
+        self.probe_action = probe_action
+        if config.get("supervised_probe") is not None:
+            from .probe import OperatorProbePolicy, prepare_probe
+            if probe_action is None or prepare_probe(config, probe_action) != config:
+                raise ValueError("supervised probe configuration requires explicit probe_action")
+            if not isinstance(policy, OperatorProbePolicy) or policy.requested_action != probe_action:
+                raise ValueError("probe policy must match the explicitly selected direction")
+        elif probe_action is not None:
+            raise ValueError("probe_action requires a separately prepared calibration configuration")
         self.flags = METHODS[self.config["method"]]
         self.policy = policy
         if self.flags["learning"] and (policy is None or not policy.model_ready):
             raise ValueError("selected method requires a ready, trained GRU checkpoint")
         self.admittance = Admittance(config["admittance"])
         self.risk_model = EngineeringRisk(config["risk"]) if self.flags["risk"] else None
-        self.synergy = SynergyFilter(config["synergy"], self.risk_model) if self.flags["synergy"] else None
+        self.synergy = SynergyFilter(config["synergy"], self.risk_model) if self.flags["learning"] else None
+        self.trial = FiniteTrial(config["finite_trial"]) if self.flags["learning"] else None
         self.wrench_processor = WrenchProcessor(config["wrench"])
         self.state = "VISION"
         self.reason = ""
@@ -65,6 +76,11 @@ class InsertionController:
         self.events.append({"at": now, "from": previous, "to": state, "reason": reason})
 
     def _fail(self, reason, now, **details):
+        if self.trial and self.trial.active:
+            self.trial.record["trial_peak"] = np.maximum(
+                self.trial.record["trial_peak"], np.abs(self.current_wrench)).tolist()
+            self.trial.finish("invalid", now, reason)
+            details.update(finite_trial=self.trial.snapshot(), trial_result=self.trial.last_result)
         if self.state != "STOPPED":
             self._transition("STOPPED", now, reason)
         self.reason = reason
@@ -163,10 +179,18 @@ class InsertionController:
         delta = self._task_delta(desired, self.last_command)
         desired_velocity = delta / dt
         velocity = np.clip(desired_velocity, -np.asarray(limits["velocity"]), limits["velocity"])
+        if self.trial and self.trial.freezes_advance:
+            trial_rate = np.asarray(self.config["learning"]["bias_rate"])
+            velocity = np.clip(velocity, -trial_rate, trial_rate)
         acceleration = np.asarray(limits["acceleration"])
         velocity = np.clip(velocity, self.command_velocity - acceleration * dt,
                            self.command_velocity + acceleration * dt)
         step = np.clip(velocity * dt, -np.asarray(limits["step"]), limits["step"])
+        if self.trial and self.trial.freezes_advance:
+            # A bounded trial never commands beyond its locked endpoint, even
+            # if the previous velocity would overshoot while decelerating.
+            step = np.where(step * delta >= 0,
+                            np.sign(delta) * np.minimum(np.abs(step), np.abs(delta)), 0.)
         # Do not jump through a new target when decelerating. A reversal can
         # take several periods; it is recorded as a command limit.
         result = offset_pose(self.last_command, step, self.R_base_task)
@@ -205,6 +229,16 @@ class InsertionController:
             if not c["simulation_only"] and (observation.get("source") != "realsense" or observation.get("time_sync_valid") is not True):
                 return "vision_source_or_clock_unverified"
             quality = observation["quality"]
+            experiment = c.get("experiment", {})
+            if experiment.get("formal") is True:
+                expected = experiment.get("geometry_reference")
+                actual = quality.get("geometry_reference")
+                if (not isinstance(expected, dict) or not isinstance(actual, dict)
+                        or actual.get("status") != "measured_print" or actual.get("validated") is not True
+                        or not expected.get("version") or not expected.get("sha256")
+                        or actual.get("version") != expected["version"]
+                        or actual.get("source_sha256") != expected["sha256"]):
+                    return "formal_print_geometry_mismatch"
             if quality.get("camera_calibrated") is not True or quality.get("all_in_front") is not True:
                 return "vision_calibration_or_depth"
             metrics = np.array([quality["reprojection_rms_px"], quality["max_error_px"], quality["inlier_count"]], float)
@@ -255,13 +289,13 @@ class InsertionController:
                     return "vision_target_outside_workspace"
             if self.flags["synergy"]:
                 budget = np.asarray(quality.get("visual_budget"), float)
-                if (budget.shape != (6,) or not np.isfinite(budget).all() or np.any(budget <= 0)
+                if (budget.shape != (4,) or not np.isfinite(budget).all() or np.any(budget <= 0)
                         or quality.get("budget_version") != cal["expected_budget_version"]):
                     return "visual_correction_budget_unavailable"
                 cal_budget = np.r_[cal["position_budget"], cal["rotation_budget"]]
                 if cal_budget.shape != (6,) or not np.isfinite(cal_budget).all() or np.any(cal_budget <= 0):
                     return "visual_budget_calibration_invalid"
-                vision_budget = np.minimum(budget, cal_budget)
+                vision_budget = np.minimum(budget, cal_budget[list(CORRECTION_AXES)])
             else:
                 vision_budget = None
             # Rejected observations must not rotate the force-monitoring axes
@@ -319,6 +353,9 @@ class InsertionController:
         self.last_at, self.last_seq = now, sample.seq
         self.last_sample_time, self.last_pose = sample.timestamp, pose.copy()
         self.current_wrench = current.copy()
+        if self.trial and self.trial.active:
+            self.trial.record["trial_peak"] = np.maximum(
+                self.trial.record["trial_peak"], np.abs(current)).tolist()
         if np.any(np.abs(current) >= limits["wrench"]):
             return self._fail("hard_wrench_limit", now, wrench=current.tolist())
         if now - self.started_at > timing["timeout"]:
@@ -406,7 +443,7 @@ class InsertionController:
             command, limited = self._limit(desired, dt)
         except ValueError as exc:
             return self._fail(str(exc), now, **details)
-        if self.state == "INSERT" and limited:
+        if self.state == "INSERT" and limited and not (self.trial and self.trial.active):
             # Do not keep integrating a hidden reference or learning offset
             # behind a clipped command. Keep the feasible command as nominal.
             self.nominal = command.copy()
@@ -433,80 +470,149 @@ class InsertionController:
         rho = max(chi, risk[2] if risk is not None else 0.)
         # The independent load supervisor remains on even in fixed baseline A.
         scale = advance_scale(rho, scheduling["low"], scheduling["high"]) if self.flags["risk"] else float(chi < scheduling["high"])
+        if self.trial and (self.trial.freezes_advance or
+                           (self.probe_action is not None and not self.trial.active) or
+                           (not self.trial.active and not self.trial.ready(now))):
+            scale = 0.
         depth = self._depth(pose)
         attitude = np.linalg.norm(log_so3(self.target[:3, :3] @ pose[:3, :3].T))
         at_goal = depth >= task["depth"] - task["depth_tolerance"] and attitude <= task["attitude_tolerance"]
+        if self.probe_action is not None and at_goal and not self.trial.active:
+            return self._fail("probe_start_already_at_goal", now, **details)
         advance = np.zeros(6)
         advance[2] = task["insert_speed"] * scale * dt
         proposed_nominal = offset_pose(self.nominal, advance, self.R_base_task)
         correction = self.admittance.displacement.copy()
-        if not at_goal:
+        if not at_goal and not (self.trial and self.trial.freezes_advance):
             correction = self.admittance.step(current, dt, risk if self.flags["risk"] else None)
         base_desired = self.last_command.copy() if at_goal else offset_pose(proposed_nominal, self.bias + correction, self.R_base_task)
         allowed, rejections = ACTIONS, {}
         probabilities = self.policy.update(filtered, now, self.config["target_id"]) if self.policy else None
-        if self.synergy:
-            # The candidate includes both the existing bias and this cycle's
-            # admittance correction. Checking only the measured pose would
-            # omit pending corrections already present in the sent reference.
-            base_offset = self._task_delta(base_desired, self.target)
-            base_offset[2] = 0.
+        if self.policy:
+            details.update(probabilities=None if probabilities is None else np.asarray(probabilities).tolist(),
+                           decision_policy_source=getattr(self.policy, "source", "trained_gru"),
+                           learning_reason=self.policy.last_reason,
+                           inference_seconds=self.policy.last_inference_seconds)
+        if self.trial:
+            self.trial.add_baseline(now, filtered, chi)
             actual_offset = self._task_delta(pose, self.target)
             actual_offset[2] = 0.
-            if np.any(np.abs(actual_offset) > np.minimum(self.vision_budget, self.synergy.max_offset)):
-                return self._fail("actual_visual_correction_budget", now, **details)
-            permit = self.synergy.allowed(base_offset, self.vision_budget, risk, current)
+            budget = self.vision_budget if self.flags["synergy"] else None
+            base_offset = self._task_delta(self.last_command if self.trial.active else base_desired, self.target)
+            base_offset[2] = 0.
+            permit = self.synergy.allowed(base_offset, budget, risk, current)
             allowed, rejections = list(permit.allowed), dict(permit.reasons)
             details["synergy_valid"] = permit.valid
             if not permit.valid:
                 details["action_rejections"] = rejections
                 return self._fail("synergy_constraints_invalid", now, **details)
-            for action in tuple(allowed):
-                if action == "Hold":
-                    continue
-                quantum = action_vector(action) * self.synergy.action_step
-                axis = int(np.flatnonzero(quantum)[0])
-                rate = self.config["learning"]["bias_rate"][axis]
-                next_bias = self.bias + quantum
-                reason = ""
-                if rate <= 0:
-                    reason = "action_rate_not_configured"
-                elif (self.last_action_time is not None
-                      and now - self.last_action_time + 1e-12 < abs(quantum[axis]) / rate):
-                    reason = "action_quantum_rate_limit"
-                elif (self.policy.prediction_time is None
-                      or self.policy.prediction_time == self.last_action_prediction):
-                    reason = "action_requires_new_prediction"
-                elif np.any(np.abs(next_bias) > np.asarray(self.config["learning"]["bias_budget"]) + 1e-12):
-                    reason = "accumulated_bias_budget"
-                else:
-                    candidate = offset_pose(proposed_nominal, next_bias + correction, self.R_base_task)
-                    candidate_offset = self._task_delta(candidate, self.target)
-                    candidate_offset[2] = 0.
-                    if (np.any(np.abs(candidate_offset) > np.minimum(self.vision_budget, self.synergy.max_offset))
-                            or not self.synergy._geometry_valid(candidate_offset)):
-                        reason = "full_command_geometry_or_visual_budget"
-                    else:
-                        try:
-                            _, limited = self._limit(candidate, dt, commit=False)
-                            if limited:
-                                reason = "action_quantum_would_be_truncated"
-                        except ValueError:
-                            reason = "action_quantum_outside_workspace"
+            actual_reason = self.synergy.endpoint_reason(actual_offset, budget)
+            if actual_reason:
+                return self._fail("actual_" + actual_reason, now, **details)
+            loads_allowed = chi < scheduling["high"] and (risk is None or np.max(risk) <= self.synergy.max_risk)
+            was_phase = self.trial.phase
+            if self.trial.active:
+                endpoint = offset_pose(self.trial.start_pose, self.trial.delta, self.R_base_task)
+                endpoint_offset = self._task_delta(endpoint, self.target)
+                endpoint_offset[2] = 0.
+                reason = self.synergy.endpoint_reason(endpoint_offset, budget)
+                if (np.any(np.abs(self._task_delta(endpoint, self.contact_pose)) > limits["total_offset"])
+                        or np.any(endpoint[:3, 3] < limits["workspace_min"])
+                        or np.any(endpoint[:3, 3] > limits["workspace_max"])):
+                    reason = "travel_or_workspace_limit"
                 if reason:
-                    allowed.remove(action)
-                    rejections[action] = reason
-            details.update(allowed_actions=list(allowed), action_rejections=rejections)
-        if at_goal or scale <= 0:
-            allowed = ("Hold",)
-            if self.synergy:
-                details["allowed_actions"] = ["Hold"]
-        self.action = self.policy.choose(probabilities, allowed, now) if self.policy else "Hold"
+                    self.trial.finish("invalid", now, reason)
+                    details["trial_result"] = self.trial.last_result
+                    return self._fail("locked_endpoint_" + reason, now, **details)
+                actual_increment = self._task_delta(pose, self.trial.start_pose)
+                reason = self.trial.update(now, dt, actual_increment, depth, current, chi, loads_allowed)
+                if reason:
+                    details.update(finite_trial=self.trial.snapshot(), trial_result=self.trial.last_result)
+                    return self._fail(reason, now, **details)
+                self.action = self.trial.record["action"] if self.trial.active else "Hold"
+                # Only independently observed endpoint arrival unlocks the
+                # confirmation phase. Rebase once; never add the trial twice.
+                if was_phase == "OBSERVE" and self.trial.phase == "CONFIRM":
+                    self.nominal = self.last_command.copy()
+                    self.bias[:] = 0.
+                    self.admittance.sync(np.zeros(6), np.zeros(6))
+                    correction[:] = 0.
+                    proposed_nominal = offset_pose(self.nominal, advance, self.R_base_task)
+                if not self.trial.active:
+                    details["trial_result"] = self.trial.last_result
+                    if self.probe_action is not None:
+                        details.update(probe_completed=True, probe_action=self.probe_action,
+                                       advance_requested=False, advance_scale=0.)
+                        return self._fail("supervised_probe_completed", now, **details)
+                    self.policy.reset()
+                elif self.probe_action is not None and at_goal:
+                    return self._fail("probe_reached_depth_boundary_before_confirmation", now, **details)
+            else:
+                if at_goal or not loads_allowed or not self.trial.ready(now):
+                    allowed = ["Hold"]
+                for action in tuple(allowed):
+                    if action == "Hold":
+                        continue
+                    increment = action_vector(action) * self.synergy.action_step
+                    endpoint = offset_pose(self.last_command, increment, self.R_base_task)
+                    endpoint_offset = self._task_delta(endpoint, self.target)
+                    endpoint_offset[2] = 0.
+                    reason = self.synergy.endpoint_reason(endpoint_offset, budget)
+                    if (np.any(np.abs(self._task_delta(endpoint, self.contact_pose)) > limits["total_offset"])
+                            or np.any(endpoint[:3, 3] < limits["workspace_min"])
+                            or np.any(endpoint[:3, 3] > limits["workspace_max"])):
+                        reason = "locked_endpoint_travel_or_workspace"
+                    proposed_bias = self.bias + increment
+                    if np.any(np.abs(proposed_bias) > np.asarray(self.config["learning"]["bias_budget"]) + 1e-12):
+                        reason = "accumulated_bias_budget"
+                    if reason:
+                        allowed.remove(action)
+                        rejections[action] = reason
+                self.action = self.policy.choose(probabilities, allowed, now)
+                if self.action != "Hold":
+                    try:
+                        self.trial.start(self.action, now, self.last_command, self.bias,
+                                         self.synergy.action_step, self.config["learning"]["bias_rate"], depth)
+                        self.trial.record["endpoint_pose"] = offset_pose(
+                            self.trial.start_pose, self.trial.delta, self.R_base_task).tolist()
+                        self.trial.record.update(
+                            selection_probabilities=np.asarray(probabilities).tolist(),
+                            selection_confidence=float(probabilities[ACTIONS.index(self.action)]),
+                            selection_prediction_at=self.policy.prediction_time,
+                            decision_policy_source=getattr(self.policy, "source", "trained_gru"),
+                            peak_source="compensated_unfiltered_task_wrench")
+                    except ValueError as exc:
+                        return self._fail(str(exc), now, **details)
+                    self.nominal = self.last_command.copy()
+                    self.bias[:] = 0.
+                    self.admittance.sync(np.zeros(6), np.zeros(6))
+                    correction[:] = 0.
+                    self.trial.update(now, dt, np.zeros(6), depth, current, chi, loads_allowed)
+                elif (self.trial.wait_started is not None and
+                      now - self.trial.wait_started > self.config["finite_trial"]["max_wait_s"]):
+                    return self._fail("finite_trial_candidate_timeout", now, **details)
+            details.update(allowed_actions=list(allowed), action_rejections=rejections,
+                           finite_trial=self.trial.snapshot(), rules_version=self.config["rules_version"],
+                           learning_reason=self.policy.last_reason,
+                           selection_confidence=(self.trial.record.get("selection_confidence")
+                                                 if self.trial.active else None))
+            if self.trial.freezes_advance:
+                scale = 0.
+                self.progress.clear()
+                self.pause_since = None
+                details.update(action=self.action, advance_scale=0., advance_requested=False, load_gate=chi)
+                desired = offset_pose(self.trial.start_pose, self.trial.increment, self.R_base_task)
+                if (np.any(np.abs(self._task_delta(pose, self.contact_pose)) > limits["total_offset"])
+                        or np.any(np.abs(self._task_delta(desired, self.contact_pose)) > limits["total_offset"])):
+                    return self._fail("finite_trial_total_travel_limit", now, **details)
+                return desired
+        else:
+            self.action = "Hold"
         if self.policy:
             details.update(probabilities=None if probabilities is None else np.asarray(probabilities).tolist(),
                            learning_reason=self.policy.last_reason,
                            inference_seconds=self.policy.last_inference_seconds)
-            if self.policy.hold_timed_out(now):
+            if not self.trial.active and self.policy.hold_timed_out(now):
                 return self._fail("learning_hold_timeout", now, **details)
         details.update(action=self.action, advance_scale=scale, advance_requested=scale > 0., load_gate=chi)
         if at_goal:
@@ -565,23 +671,11 @@ class InsertionController:
         if np.any(np.abs(offset) > limits["total_offset"]):
             return self._fail("actual_total_travel_limit", now, **details)
         self.nominal = proposed_nominal
-        if self.action != "Hold" and scale > 0:
-            learning = self.config["learning"]
-            if self.synergy:
-                # The force-response calibration belongs to this exact motion
-                # quantum. It is never silently rescaled to a smaller action.
-                self.bias += action_vector(self.action) * self.synergy.action_step
-                self.last_action_time = now
-                self.last_action_prediction = self.policy.prediction_time
-            else:
-                proposed_bias = self.bias + action_vector(self.action) * learning["bias_rate"] * dt
-                self.bias = np.clip(proposed_bias, -np.asarray(learning["bias_budget"]), learning["bias_budget"])
         desired = offset_pose(self.nominal, self.bias + correction, self.R_base_task)
         if self.synergy:
             full_offset = self._task_delta(desired, self.target)
             full_offset[2] = 0.
-            if (np.any(np.abs(full_offset) > np.minimum(self.vision_budget, self.synergy.max_offset))
-                    or not self.synergy._geometry_valid(full_offset)):
+            if self.synergy.endpoint_reason(full_offset, self.vision_budget if self.flags["synergy"] else None):
                 return self._fail("full_command_synergy_constraint", now, **details)
         if np.any(np.abs(self._task_delta(desired, self.contact_pose)) > limits["total_offset"]):
             return self._fail("command_total_travel_limit", now, **details)

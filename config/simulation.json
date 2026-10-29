@@ -1,6 +1,7 @@
 {
-  "schema_version": 1,
-  "version": "synthetic-fixture-v1",
+  "schema_version": 2,
+  "rules_version": "finite-trial-v2",
+  "version": "synthetic-fixture-v2",
   "simulation_only": true,
   "method": "B",
   "target_id": "demo-port",
@@ -19,7 +20,23 @@
     "expected_camera_version": "synthetic-v1",
     "expected_budget_version": "synthetic-v1",
     "expected_camera_serial": "SIMULATED",
-    "R_target_task": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+    "R_target_task": [
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
     "insertion_axis_verified": true,
     "T_flange_camera": [
       [
@@ -496,7 +513,35 @@
       0.0
     ]
   },
+  "finite_trial": {
+    "version": "finite-trial-v2",
+    "baseline_s": 0.05,
+    "trial_timeout_s": 0.3,
+    "observation_s": 0.06,
+    "confirmation_s": 0.3,
+    "min_advance_m": 0.0001,
+    "load_drop": 0.01,
+    "max_wait_s": 3.0,
+    "max_trials": 40,
+    "endpoint_tolerance": [
+      1e-06,
+      1e-06,
+      2e-05,
+      2e-05,
+      2e-05,
+      2e-05
+    ],
+    "cumulative_budget": [
+      0.001,
+      0.001,
+      0.001,
+      0.02,
+      0.02,
+      0.02
+    ]
+  },
   "synergy": {
+    "rules_version": "finite-trial-v2",
     "validated": true,
     "max_offset": [
       0.004,
@@ -506,6 +551,7 @@
       0.08,
       0.03
     ],
+    "admission_max_risk": 0.9,
     "action_step": [
       1e-05,
       1e-05,
@@ -542,82 +588,7 @@
         "clearance_m": 0.006,
         "engagement_m": 0.01
       }
-    ],
-    "force_response": {
-      "calibrated": true,
-      "version": "synthetic-zero-response",
-      "risk_version": "synthetic-box-v1",
-      "action_step": [
-        1e-05,
-        1e-05,
-        0.0,
-        0.0002,
-        0.0002,
-        0.0
-      ],
-      "delta_wrench": [
-        [
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0
-        ],
-        [
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0
-        ],
-        [
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0
-        ],
-        [
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0
-        ],
-        [
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0
-        ],
-        [
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0,
-          0.0
-        ]
-      ]
-    }
+    ]
   },
   "hardware": null
 }
