@@ -16,7 +16,7 @@ from ultralytics import YOLO
 # 你只改这里
 # ======================
 ROOT_DIR = Path(__file__).resolve().parents[2]
-MODEL_PATH = ROOT_DIR / "runs" / "detect_retrain" / "weights" / "best.pt"
+MODEL_PATH = ROOT_DIR / "runs" / "detect_reviewed" / "weights" / "best.pt"
 IMAGE_PATH = ROOT_DIR / "dataset" / "live" / "latest.jpg"
 
 OUT_DIR = ROOT_DIR / "dataset" / "live"

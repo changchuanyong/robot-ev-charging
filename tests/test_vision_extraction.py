@@ -14,6 +14,9 @@ from vision.pipeline import PosePipeline, ROOT
 class VisionExtractionTests(unittest.TestCase):
     def setUp(self):
         config = json.loads((ROOT / "config/realsense_config.json").read_text())
+        # This fixture projects the ideal flat CAD plate. Real observed-layout
+        # extraction is covered by test_observed_entrypoints on a reviewed photo.
+        config["observed_layout_prior"] = None
         box = SimpleNamespace(cls=np.array(0), conf=np.array(0.99),
                               xyxy=np.array([[600., 110., 1000., 550.]]))
         detector = lambda image, **kwargs: [SimpleNamespace(boxes=[box])]

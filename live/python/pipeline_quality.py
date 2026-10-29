@@ -128,11 +128,16 @@ def check_candidates(centers: list[dict[str, Any]]) -> dict[str, Any]:
     status = "ok"
     reasons = []
 
+    if any(item.get("association_quality_ok") is False
+           or item.get("association_ambiguous") is True for item in centers):
+        status = "fail"
+        reasons.append("observed_association_rejected")
+
     if len(fitted) < MIN_EXPECTED_CANDIDATES or len(anchors) < 2:
         status = "fail"
         reasons.append("too_few_fitted_candidates_or_anchors")
     elif missing:
-        status = "warn"
+        status = worst_status(status, "warn")
         reasons.append("layout_names_missing")
 
     if max_layout_ratio is not None:

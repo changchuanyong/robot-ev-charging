@@ -27,9 +27,10 @@ import latest_candidate_contours as contours_step  # noqa: E402
 import pnp2  # noqa: E402
 from pose_correspondence import select_correspondences  # noqa: E402
 import roi as roi_step  # noqa: E402
+from observed_layout import DEFAULT_PRIOR_PATH, load_prior  # noqa: E402
 
 
-DEFAULT_MODEL_PATH = ROOT_DIR / "runs" / "detect_retrain" / "weights" / "best.pt"
+DEFAULT_MODEL_PATH = roi_step.MODEL_PATH
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "artifacts" / "batch_eval"
 DEFAULT_IMAGE_DIRS = [
     ROOT_DIR / "yolo_port" / "images" / "val",
@@ -167,9 +168,15 @@ def evaluate_one_image(
     dist_coeffs: np.ndarray,
     verbose: bool,
     visualization_dir: Path | None = None,
+    observed_prior: dict | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
-    frame = cv2.imread(str(image_path))
+    # OpenCV's Windows filename API cannot read this workspace's Chinese path.
+    try:
+        image_bytes = image_path.read_bytes()
+        frame = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR) if image_bytes else None
+    except (OSError, cv2.error):
+        frame = None
     if frame is None or frame.size == 0:
         return {
             "image": str(image_path),
@@ -251,7 +258,8 @@ def evaluate_one_image(
         contours_step.PRINT_REJECT_LOG = old_reject_log
 
     selection = select_correspondences(raw_candidates, enhanced_bgr.shape, object_points,
-                                       camera_matrix, dist_coeffs, (crop_x1, crop_y1))
+                                       camera_matrix, dist_coeffs, (crop_x1, crop_y1),
+                                       observed_prior=observed_prior)
     scored_variants = [selection["best"]] if selection["best"] is not None else []
     result["contour_diagnostics"] = contour_diagnostics
     result["correspondence_diagnostics"] = selection["diagnostics"]
@@ -264,6 +272,8 @@ def evaluate_one_image(
         best_variant = scored_variants[0]
         fitted_candidates = best_variant["candidates"]
         centers = best_variant["centers"]
+        result["association_points_full"] = {name: list(point) for name, point in
+                                             best_variant["image_points"].items()}
         result["layout_variant"] = best_variant["variant_name"]
         result["layout_variant_count"] = len(selection["hypotheses"])
     else:
@@ -361,8 +371,10 @@ def save_diagnostic_image(frame: np.ndarray, row: dict, path: Path) -> None:
     label = f"{row['status']} | points={row.get('candidate_count', 0)} | mean={row.get('pnp_reproj_error_px')} px"
     cv2.putText(canvas, label, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, .8, (255, 255, 255), 2)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if not cv2.imwrite(str(path), canvas):
+    ok, encoded = cv2.imencode(path.suffix, canvas)
+    if not ok:
         raise OSError(f"Cannot save diagnostic image: {path}")
+    path.write_bytes(encoded.tobytes())
 
 
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -414,6 +426,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--max-images", type=int, default=50)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
+    layout = parser.add_mutually_exclusive_group()
+    layout.add_argument("--observed-layout-prior", type=Path, default=DEFAULT_PRIOR_PATH,
+                        help="Learned 2D correspondence prior; physical PnP geometry stays in the CSV")
+    layout.add_argument("--legacy-layout", action="store_true", help="Use the previous CAD-layout matcher for comparison")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--verbose", action="store_true", help="Print contour/layout debug logs for every image.")
     parser.add_argument("--strict-exit", action="store_true", help="Return non-zero when any image fails.")
@@ -423,6 +439,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.legacy_layout:
+        args.observed_layout_prior = None
     image_dirs = args.image_dir if args.image_dir else DEFAULT_IMAGE_DIRS
     images = list_images(image_dirs, max_images=args.max_images)
     if not images:
@@ -441,6 +459,9 @@ def main() -> int:
     model = YOLO(args.model)
     object_points = pnp2.load_object_points_from_csv(pnp2.MODEL_CSV_PATH)
     camera_matrix, dist_coeffs, camera_is_placeholder = pnp2.load_camera_intrinsics(pnp2.CAMERA_CONFIG_PATH)
+    observed_prior = None
+    if args.observed_layout_prior is not None:
+        observed_prior = load_prior(args.observed_layout_prior)
     if camera_is_placeholder:
         print("[WARN] camera_intrinsics.json is still approximate/placeholder.")
 
@@ -455,6 +476,7 @@ def main() -> int:
             dist_coeffs=dist_coeffs,
             verbose=args.verbose,
             visualization_dir=run_dir / "visualizations" if args.save_visualizations else None,
+            observed_prior=observed_prior,
         )
         rows.append(row)
         print(
@@ -470,6 +492,9 @@ def main() -> int:
     provenance = {
         "weights": str(args.model.resolve()),
         "weights_sha256": hashlib.sha256(args.model.read_bytes()).hexdigest(),
+        "observed_layout_prior": str(args.observed_layout_prior.resolve()) if args.observed_layout_prior else None,
+        "observed_layout_prior_sha256": hashlib.sha256(args.observed_layout_prior.read_bytes()).hexdigest()
+        if args.observed_layout_prior else None,
         "camera_config_sha256": hashlib.sha256(pnp2.CAMERA_CONFIG_PATH.read_bytes()).hexdigest(),
         "model_points_sha256": hashlib.sha256(pnp2.MODEL_CSV_PATH.read_bytes()).hexdigest(),
         "camera_is_placeholder": camera_is_placeholder,
@@ -482,6 +507,8 @@ def main() -> int:
                            PY_DIR / "pose_correspondence.py", PY_DIR / "latest_candidate_contours.py",
                            PY_DIR / "center_fit.py", PY_DIR / "candidate_types.py"]},
     }
+    if observed_prior is not None:
+        provenance["source_sha256"]["observed_layout.py"] = hashlib.sha256((PY_DIR / "observed_layout.py").read_bytes()).hexdigest()
     report = {"summary": summary, "by_split": {split: summarize([r for r in rows if r.get("split") == split])
               for split in sorted({r.get("split", "unknown") for r in rows})}, "provenance": provenance, "rows": rows}
     write_csv(run_dir / "summary.csv", rows)

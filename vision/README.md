@@ -2,6 +2,10 @@
 
 `vision.run` 在内存中顺序复用现有 YOLO、增强、Canny、孔位筛选、椭圆中心和 PnP 算法。每次调用只处理一张图像，不读取 `latest_roi.jpg` 等共享中间文件。旧视觉程序仍可独立使用；机器人应消费新的 `latest_control_pose.json`。
 
+当前默认使用 `runs/detect_reviewed/weights/best.pt` 和 `config/observed_layout_prior.json`。二维先验根据人工复核的 train 图学习孔名关联，仅输出实际内孔口中心；PnP 仍使用原三维模型。开发对照及剩余漏点见 [人工复核后的视觉改进](../docs/supervised_vision_improvement.md)。该先验来自现有图像，尚未在实际 D435 新拍数据上验收。
+
+使用 D415 采集训练图片时，运行独立的 `python -m vision.collect`；具体命令、批次划分和九孔复核见 [D415 数据采集说明](../docs/d415_data_collection.md)。D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
+
 ## 启动及输出
 
 在项目根目录运行：

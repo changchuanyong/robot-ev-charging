@@ -1,0 +1,31 @@
+{
+  "purpose": "development_diagnostic",
+  "independent_test_set": false,
+  "selection_note": "24 张按已知故障和较好样例选取的去重开发图；用于诊断，不用于估计总体准确率。",
+  "images": [
+    {"image": "yolo_port/images/train/train_port_0002.jpg", "selection_reasons": ["低残差放行但 S_pos 偏点"]},
+    {"image": "yolo_port/images/train/train_port_0003.jpg", "selection_reasons": ["当前通过，较好参照"]},
+    {"image": "yolo_port/images/train/train_port_0008.jpg", "selection_reasons": ["A_neg 错选"]},
+    {"image": "yolo_port/images/train/train_port_0015.jpg", "selection_reasons": ["当前通过，较好参照"]},
+    {"image": "yolo_port/images/train/train_port_0017.jpg", "selection_reasons": ["A_pos 偏点"]},
+    {"image": "yolo_port/images/train/train_port_0018.jpg", "selection_reasons": ["A_neg 偏点"]},
+    {"image": "yolo_port/images/train/train_port_0025.jpg", "selection_reasons": ["无可解对应"]},
+    {"image": "yolo_port/images/train/train_port_0027.jpg", "selection_reasons": ["九点高残差，对应歧义"]},
+    {"image": "yolo_port/images/train/train_port_0028.jpg", "selection_reasons": ["CC1 错孔；排除重复内容 0036"]},
+    {"image": "yolo_port/images/train/train_port_0031.jpg", "selection_reasons": ["仅四点，低残差不足以证明正确"]},
+    {"image": "yolo_port/images/train/train_port_0034.jpg", "selection_reasons": ["S_neg 偏点；排除重复内容 0039"]},
+    {"image": "yolo_port/images/train/train_port_0043.jpg", "selection_reasons": ["检测 ROI 裁掉右主孔"]},
+    {"image": "yolo_port/images/train/train_port_0054.jpg", "selection_reasons": ["九孔对应目视较好，检测分数低"]},
+    {"image": "yolo_port/images/train/train_port_0055.jpg", "selection_reasons": ["缺孔，高残差"]},
+    {"image": "yolo_port/images/train/train_port_0059.jpg", "selection_reasons": ["主孔不稳定，无解"]},
+    {"image": "yolo_port/images/train/train_port_0060.jpg", "selection_reasons": ["缺孔与朝向歧义"]},
+    {"image": "yolo_port/images/val/val_port_0001.jpg", "selection_reasons": ["九点，朝向歧义"]},
+    {"image": "yolo_port/images/val/val_port_0003.jpg", "selection_reasons": ["当前最高单图平均残差"]},
+    {"image": "yolo_port/images/val/val_port_0004.jpg", "selection_reasons": ["检测分数低，无解"]},
+    {"image": "yolo_port/images/val/val_port_0006.jpg", "selection_reasons": ["八点，内点不足"]},
+    {"image": "yolo_port/images/val/val_port_0008.jpg", "selection_reasons": ["九点但残差高"]},
+    {"image": "yolo_port/images/val/val_port_0010.jpg", "selection_reasons": ["七点，小孔缺失"]},
+    {"image": "yolo_port/images/val/val_port_0012.jpg", "selection_reasons": ["九点，朝向歧义"]},
+    {"image": "yolo_port/images/val/val_port_0016.jpg", "selection_reasons": ["九点，内点不足"]}
+  ]
+}

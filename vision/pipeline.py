@@ -112,6 +112,12 @@ class PosePipeline:
         self.model = modules["pnp2"].load_object_points_from_csv(model_path)
         if not np.isfinite(np.asarray(list(self.model.values()), dtype=float)).all():
             raise ValueError("nonfinite_model_points")
+        self.observed_prior = None
+        if self.config.get("observed_layout_prior"):
+            prior_path = Path(self.config["observed_layout_prior"])
+            if not prior_path.is_absolute():
+                prior_path = ROOT / prior_path
+            self.observed_prior = importlib.import_module("observed_layout").load_prior(prior_path)
         self._modules, self._detector = modules, detector
 
     def _extract_points(self, image: np.ndarray, *, projection: tuple) -> tuple[dict, dict]:
@@ -150,7 +156,8 @@ class PosePipeline:
             point_transform=lambda points: rectify_points(points, matrix, coefficients, distortion_model),
             max_mean_error_px=float(self.config["max_reprojection_rms_px"]),
             min_inlier_count=int(self.config["min_inliers"]),
-            min_correspondence_count=max(6, int(self.config["min_inliers"])))
+            min_correspondence_count=max(6, int(self.config["min_inliers"])),
+            observed_prior=self.observed_prior)
         if selection["best"] is None:
             raise ValueError("no_layout_variant")
         return selection["best"]["image_points"], {

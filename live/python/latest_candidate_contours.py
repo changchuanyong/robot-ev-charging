@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+from dataclasses import replace
 from pathlib import Path
 
 import cv2
@@ -15,6 +16,7 @@ from layout_prior import apply_standard_layout_prior, draw_layout_prior
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ROI_IMAGE_PATH = ROOT_DIR / "dataset" / "live" / "latest_roi_enhanced.jpg"
+RAW_ROI_IMAGE_PATH = ROOT_DIR / "dataset" / "live" / "latest_roi.jpg"
 EDGES_IMAGE_PATH = ROOT_DIR / "dataset" / "live" / "latest_edges.jpg"
 
 OUT_DIR = ROI_IMAGE_PATH.parent
@@ -54,11 +56,12 @@ def atomic_imwrite(path: Path, image: np.ndarray) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.stem + "_tmp" + path.suffix)
 
-    ok = cv2.imwrite(str(tmp), image)
+    ok, encoded = cv2.imencode(path.suffix, image)
     if not ok:
         return False
 
     try:
+        tmp.write_bytes(encoded.tobytes())
         if path.exists():
             path.unlink()
         tmp.replace(path)
@@ -585,6 +588,22 @@ def build_center_vis(
     return vis
 
 
+def extract_observed_candidates(edges, enhanced_roi, raw_roi, prior):
+    """Use measured inner apertures and the same learned labels as live/batch."""
+    from observed_layout import select_observed_correspondences
+
+    if raw_roi is None or raw_roi.shape != enhanced_roi.shape:
+        raise ValueError("raw_roi_missing_or_shape_mismatch")
+    candidates, all_contours, _ = filter_candidate_contours(
+        prepare_edges(edges), enhanced_roi, apply_layout=False, gray_source=raw_roi)
+    selection = select_observed_correspondences(candidates, enhanced_roi.shape, prior)
+    # The file-based PnP reader consumes fitted_center. Preserve its contract,
+    # exporting the actually selected inner aperture, not a surrounding tube.
+    selected = [replace(candidate, fitted_center=tuple(candidate.aperture_center))
+                for candidate in selection["candidates"]]
+    return selected, all_contours, selection["diagnostics"]
+
+
 def main():
     if not ROI_IMAGE_PATH.exists():
         print(f"ROI not found: {ROI_IMAGE_PATH}")
@@ -594,8 +613,8 @@ def main():
         print(f"Edges not found: {EDGES_IMAGE_PATH}")
         return
 
-    roi = cv2.imread(str(ROI_IMAGE_PATH))
-    edges = cv2.imread(str(EDGES_IMAGE_PATH), cv2.IMREAD_GRAYSCALE)
+    roi = cv2.imdecode(np.frombuffer(ROI_IMAGE_PATH.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+    edges = cv2.imdecode(np.frombuffer(EDGES_IMAGE_PATH.read_bytes(), dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
 
     if roi is None or roi.size == 0:
         print("Failed to read ROI image.")
@@ -616,17 +635,26 @@ def main():
     print(f"ROI shape       : {roi.shape}")
     print(f"Edges shape     : {edges_bin.shape}\n")
 
-    candidates, all_contours, layout_model = filter_candidate_contours(edges_bin, roi)
+    from observed_layout import DEFAULT_PRIOR_PATH, load_prior
+
+    raw_roi = cv2.imdecode(np.frombuffer(RAW_ROI_IMAGE_PATH.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+    candidates, all_contours, association = extract_observed_candidates(
+        edges_bin, roi, raw_roi, load_prior(DEFAULT_PRIOR_PATH))
+    layout_model = None
 
     cand_vis = build_candidate_vis(roi, all_contours, candidates, layout_model)
     atomic_imwrite(CAND_VIS_PATH, cand_vis)
 
-    fitted_candidates = fit_ellipse_on_kept_candidates(candidates)
+    fitted_candidates = candidates
 
     center_vis = build_center_vis(roi, fitted_candidates)
     atomic_imwrite(CENTER_VIS_PATH, center_vis)
 
     center_data = export_fitted_centers(fitted_candidates)
+    for item in center_data:
+        item["association_method"] = "observed_2d_layout"
+        item["association_quality_ok"] = bool(association["selection_quality_ok"])
+        item["association_ambiguous"] = bool(association["ambiguous"])
     atomic_write_json(CENTER_JSON_PATH, center_data)
 
     print("\n===== Final kept candidates =====")

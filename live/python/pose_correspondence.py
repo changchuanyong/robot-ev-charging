@@ -125,13 +125,17 @@ def _refine(model, points, assignment, predicted, anchors, scale, scores, diamet
 def select_correspondences(candidates, roi_shape, object_points, K, dist,
                            offset_xy=(0, 0), point_transform=None,
                            max_mean_error_px=20.0, min_inlier_count=4,
-                           min_correspondence_count=6):
+                           min_correspondence_count=6, observed_prior=None):
     """Return best/diagnostics using only valid fitted input contours.
 
     ``best.image_points`` stays in raw full-image pixels. An optional transform
     rectifies those pixels solely for PnP; its K/dist must describe that space.
     Hypothesis scores use residuals for every correspondence, including outliers.
     """
+    if observed_prior is not None:
+        return _select_observed(candidates, roi_shape, object_points, K, dist,
+                                offset_xy, point_transform, max_mean_error_px,
+                                min_inlier_count, min_correspondence_count, observed_prior)
     candidates = copy.deepcopy(candidates)
     with contextlib.redirect_stdout(io.StringIO()):
         candidates = fit_ellipse_on_kept_candidates(candidates)
@@ -285,3 +289,66 @@ def select_correspondences(candidates, roi_shape, object_points, K, dist,
         if not np.isfinite(hypothesis["reproj"]):
             hypothesis["reproj"] = None
     return {"best": best, "hypotheses": hypotheses, "diagnostics": diagnostics}
+
+
+def _select_observed(candidates, roi_shape, object_points, K, dist, offset_xy,
+                     point_transform, max_mean_error_px, min_inlier_count,
+                     min_correspondence_count, prior):
+    """Fix observed identities before PnP; pose residuals cannot relabel holes."""
+    from observed_layout import select_observed_correspondences
+
+    selection = select_observed_correspondences(candidates, roi_shape, prior, offset_xy)
+    diagnostics = dict(selection["diagnostics"])
+    image_points = selection["image_points"]
+    kept = selection["candidates"]
+    if not image_points:
+        diagnostics["selection_quality_ok"] = False
+        return {"best": None, "hypotheses": [], "diagnostics": diagnostics}
+    pose, error = None, None
+    try:
+        if not set(image_points) <= set(object_points):
+            raise ValueError("observed_labels_missing_from_model")
+        solve_points = image_points
+        if point_transform is not None:
+            labels = list(image_points)
+            transformed = np.asarray(point_transform(np.asarray(list(image_points.values()))))
+            if transformed.shape != (len(labels), 2) or not np.isfinite(transformed).all():
+                raise ValueError("invalid_point_transform")
+            solve_points = dict(zip(labels, transformed))
+        pose = pnp2.solve_target_pose(solve_points, object_points, K, dist)
+        if (set(pose["matched_names"]) != set(image_points)
+                or set(pose["per_point_errors_px"]) != set(image_points)):
+            raise ValueError("incomplete_observed_pose_correspondences")
+        if not pose["all_in_front"] or not np.isfinite(list(pose["per_point_errors_px"].values())).all():
+            raise ValueError("invalid_observed_pose")
+    except (ValueError, RuntimeError, cv2.error) as exc:
+        error, pose = str(exc), None
+    errors = pose["per_point_errors_px"] if pose else {}
+    reproj = float(np.mean(list(errors.values()))) if errors else float("inf")
+    geometry_ok = bool(pose and len(image_points) >= min_correspondence_count
+                       and reproj <= max_mean_error_px and pose["inlier_count"] >= min_inlier_count)
+    quality_ok = bool(diagnostics.get("selection_quality_ok") and geometry_ok
+                      and not diagnostics.get("ambiguous", False))
+    diagnostics["association_quality_ok"] = bool(diagnostics.get("selection_quality_ok"))
+    diagnostics["selection_quality_ok"] = quality_ok
+    diagnostics["evaluated_hypothesis_count"] = diagnostics.get("hypothesis_count", 1)
+    centers = export_fitted_centers(kept)
+    for item, candidate in zip(centers, kept):
+        item["measurement_center"] = list(_measurement_center(candidate))
+        item["measurement_source"] = "adaptive_dark" if candidate.aperture_center is not None else candidate.contour_source
+    layouts = {candidate.layout_name for candidate in kept}
+    best = {"variant_name": "observed_layout", "score": float(diagnostics.get("score", 0)),
+            "candidates": kept, "centers": centers, "layout_names": layouts,
+            "missing_layouts": sorted(set(LAYOUT_TO_MODEL_LABEL) - layouts),
+            "pose": pose, "pnp_error": error, "candidate_count": len(image_points),
+            "reproj": reproj, "inliers": pose["inlier_count"] if pose else 0,
+            "image_points": image_points, "coverage": len(image_points) / 9,
+            "all_point_errors_px": errors, "selection_quality_ok": quality_ok,
+            "geometric_quality_ok": geometry_ok,
+            "structural_support_ok": diagnostics.get("structural_support_ok", False),
+            "orientation_evidence": diagnostics.get("orientation_evidence", {})}
+    hypothesis = {key: best[key] for key in ("variant_name", "score", "candidate_count", "coverage",
+                  "inliers", "pnp_error", "all_point_errors_px", "image_points", "selection_quality_ok",
+                  "structural_support_ok", "orientation_evidence")}
+    hypothesis["reproj"] = reproj if np.isfinite(reproj) else None
+    return {"best": best, "hypotheses": [hypothesis], "diagnostics": diagnostics}
