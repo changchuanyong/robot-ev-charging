@@ -10,7 +10,129 @@
 
 D415 采训练数据、D435 用于机械臂定位的流程见 [D415 数据采集说明](docs/d415_data_collection.md)：独立采集原图和相机参数，按拍摄批次分组，再生成九孔人工复核页面。
 
-D415 实时诊断窗口：`.venv\Scripts\python.exe -B -X utf8 -m vision.preview`。显示检测框、孔名、重投影残差与失败原因；F5 保存同帧原图和诊断，F6 暂停，Esc 退出。使用设备 SDK 内参即可开始调试，结果仅作视觉分析。
+## D415 快速使用（Windows / PowerShell）
+
+### 1. 进入工程并准备环境
+
+当前电脑已配置好 `.venv`，直接进入项目目录即可；其他电脑请替换为实际克隆目录：
+
+```powershell
+Set-Location "C:\Users\admin\Desktop\doc\毕业设计\robot-ev-charging"
+```
+
+已验证环境为 **Windows + Python 3.12**。新电脑尚无 `.venv` 时，先安装 Python 3.12，再执行以下环境准备；已有环境不必重复创建：
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-control.txt
+```
+
+实时检测默认读取 `runs/detect_reviewed/weights/best.pt`。本机已有该权重，但 `runs/` 和 `*.pt` 被 Git 忽略，**新克隆不会包含模型权重**：需要另行放入训练好的权重，或通过 `--vision-config` 指定 JSON 并设置其中的 `weights` 路径。只用 `vision.collect` 采集原图不需要检测权重。
+
+连接 D415，关闭占用它的 RealSense Viewer 或其他采集进程。查看设备型号和完整序列号：
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.collect --list-devices
+```
+
+默认绑定本机 D415 `349222063070`。更换 D415 时，在下面的启动命令后加 `--serial 实际完整序列号`。D435 的机器人定位入口见 [视觉模块说明](vision/README.md)，不使用这里的 D415 预览入口。
+
+### 2. 打开彩色与深度诊断
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth
+```
+
+启动后打开两个窗口：
+
+| 窗口 | 显示内容 |
+| --- | --- |
+| `D415 Visual Diagnostics` | 原始彩色画面、检测框、孔位候选、孔名、重投影点、逐孔残差及 mean/RMS/max |
+| `D415 Depth Diagnostics` | 原生深度图、有效深度比例、双流时间差、目标区域距离、候选表面平面法向及 PnP 一致性 |
+
+彩色流为 **1280×720 / 15 fps**，深度流为 **640×480 / Z16 / 15 fps**。2026-10-29 已在本机报告 USB 2.1 的连接上验证这组双流；程序不会在启动失败时自动更换分辨率。配置位置和指标定义见下文。
+
+只看彩色视觉、暂不开深度：
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview
+```
+
+快速检查双流、自动保存第一组分析结果并在分析三帧后退出：
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --frames 3 --save-first
+```
+
+### 3. 暂停、保存和退出
+
+点击任一诊断窗口后操作；中文输入法下优先使用功能键：
+
+| 按键 | 操作 |
+| --- | --- |
+| **F5** | 保存当前已分析帧的 RGB 原图、叠加图和诊断 JSON；深度模式同时保存该帧配对的原始深度 |
+| **F6** | 暂停/继续两个窗口的显示；暂停时后台继续读取相机，保存仍对应冻结画面 |
+| **Esc** | 结束会话、完成清单并释放相机；关闭任一诊断窗口也会退出 |
+
+首次分析完成前按 F5 会提示等待。相同帧重复保存会跳过；没有检测到目标、孔位关联失败或 PnP 失败的画面也能保存，便于排查。英文输入状态下还支持空格/S 保存、P 暂停、Q 退出。
+
+采集打印件时可加批次、样件和拍摄说明；以下编号仅为填写示例，应替换为实际编号：
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --batch d415_session01 --specimen print_dev01 --printing-batch print_batch01 --notes "打印件，正视，室内光照"
+```
+
+### 4. 保存位置和文件用途
+
+每次启动在 `artifacts/d415_preview/` 下新建唯一会话目录，终端会打印完整路径：
+
+```text
+artifacts/d415_preview/<UTC时间_唯一标识>/
+├─ camera.json                # 实际彩色流内参、畸变和设备身份
+├─ depth_camera.json          # 深度模式：深度内参、尺度、深度到彩色外参
+├─ manifest.json              # RGB 采集清单，可接入九孔人工复核
+├─ preview_manifest.json      # 模型、配置、几何、代码及样本来源与哈希
+├─ images/frame_000001.png    # 无叠加的 RGB 原图
+├─ depth/frame_000001.png     # 深度模式且有原帧：原始 uint16 Z16
+├─ overlays/frame_000001.png  # RGB 诊断叠加图
+└─ diagnostics/frame_000001.json  # 同帧视觉和深度结果、残差、失败原因
+```
+
+深度 PNG 保留原值，**米值 = 像素值 × `depth_camera.json` 中的 `depth_scale_m`**；不能将其作为普通 8 位灰度图读取。深度彩图只用于显示，原始深度未对齐、未补洞。深度缺失时仍可保存 RGB 与失败原因，不生成假的深度文件。
+
+预览数据默认 `split=unknown`，自动孔位不是人工真值。会话结束后，按 [九孔复核流程](docs/d415_data_collection.md#接入九孔复核) 使用其 `manifest.json` 生成复核页。采集图片、权重及 `artifacts/` 不会随 Git 提交。
+
+### 5. 配置与结果判断
+
+| 参数 | 默认配置 | 用途 |
+| --- | --- | --- |
+| `--capture-config` | `config/data_capture_d415.json` | D415 身份、彩色分辨率、帧率与预热 |
+| `--depth-config` | `config/d415_depth_diagnostics.json` | 深度流与配对时间差阈值；仅在 `--depth` 时生效 |
+| `--vision-config` | `config/realsense_config.json` | 预览仅使用检测/PnP 参数，不执行其中的 D435 采集或控制输出配置 |
+| `--geometry` | `config/geometry_nominal.json` | 孔位几何；使用实测几何时需匹配 `--specimen` 和 `--printing-batch` |
+| `--output-root` | `artifacts/d415_preview` | 自定义会话根目录，必须在项目目录内 |
+
+诊断可先使用实时读取的 SDK 内参，不要求先拍标定板；SDK 内参和名义几何仍标为未独立验证。**预览结果用于分析，不驱动机械臂。**
+
+- “暂无位姿”或 `target_not_detected` 表示当前视觉没有得到可用目标位姿，深度正常也不会自动补出九孔。
+- 深度黑色区域表示无效测量；有效比例只统计原生深度非零像素，不代表精度。未检测到充电口时只显示场景深度，目标距离和法向显示 `--`。
+- 候选平面来自检测 ROI 内的表面点；不同台阶或孔底不一定属于建模孔口平面。它不能直接证明 PnP 位姿正确，也不直接修正重投影残差。
+- 拍显示屏只能测到屏幕实际表面的深度，不能获得屏幕里 CAD 模型的三维深度；验证目标平面应使用实体打印件。
+- `YOLO weights missing`：检查权重路径；型号/序列号不匹配：重新列设备；无法启动指定流：检查占用和配置。具体错误会打印在终端，已建立会话时也会记录失败状态。
+
+本次相关 112 项测试通过，D415 双窗口、暂停、同帧保存及退出已实测；打印件目标平面和真实插装效果仍待实验。验证范围见 [实现与验证记录](docs/implementation_validation.md)。更完整的采集、深度指标和复核说明见 [D415 数据采集说明](docs/d415_data_collection.md)。
+
+### 6. 只采 RGB 训练图片
+
+不运行检测/PnP、只采集原图时使用：
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.collect --batch d415_session01 --split unknown --notes "打印件，多角度"
+```
+
+这个入口使用**空格/S 保存、Q/Esc 退出**，输出在 `artifacts/captures/`；F5/F6 和深度功能属于上面的 `vision.preview`。原图与参数的划分、复核和训练衔接见 [采集说明](docs/d415_data_collection.md)。
+
+## 离线演示与控制文档
 
 快速运行离线演示（在项目根目录）：
 
@@ -19,7 +141,11 @@ D415 实时诊断窗口：`.venv\Scripts\python.exe -B -X utf8 -m vision.preview
 .venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-下方保留原 Kinect 视觉程序说明；新控制程序消费 `dataset/live/latest_control_pose.json`。
+新控制程序消费 `dataset/live/latest_control_pose.json`。实际 RM75/D435 的配置、标定和运行步骤见 [控制与实验运行说明](docs/control_usage.md)；D415 预览不写入该控制文件。
+
+## Kinect 历史流程（旧设备参考）
+
+以下保留原 Kinect 视觉程序说明，使用 `.yolo_env`、Kinect SDK 和历史近似内参。当前 D415 请按上方快速使用章节操作。
 
 电动汽车充电口视觉检测与位姿估计项目。项目覆盖数据集整理、YOLO 充电口检测、ROI 后处理、孔位中心提取，以及面向机器人充电实验的 PnP 位姿估计。
 
@@ -91,7 +217,7 @@ robot-ev-charging/
 └─ runs/                # YOLO 训练输出，Git 忽略
 ```
 
-## 环境准备
+## Kinect 历史环境准备
 
 推荐环境：Windows、Python 3.9+。如果需要实时采集，需要安装 Microsoft Kinect SDK v2。
 
@@ -141,7 +267,7 @@ yolo_port/images/val
 runs/detect_retrain/weights/best.pt
 ```
 
-## 实时流水线
+## Kinect 历史实时流水线
 
 启动完整实时流水线：
 

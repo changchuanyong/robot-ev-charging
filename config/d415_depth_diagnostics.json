@@ -1,0 +1,7 @@
+{
+  "description": "Optional D415 depth diagnostics; measured dual-stream profile, not robot limits.",
+  "width": 640,
+  "height": 480,
+  "fps": 15,
+  "max_pair_skew_ms": 40.0
+}
