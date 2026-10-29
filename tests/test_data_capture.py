@@ -15,7 +15,7 @@ from vision.realsense import RealSenseCamera
 
 def config():
     result = json.loads((collect.ROOT / "config/data_capture_d415.json").read_text())
-    result.update(serial="d415-exact-serial", width=8, height=6, warmup_frames=0)
+    result.update(serial="d415-exact-serial", width=8, height=6, fps=30, warmup_frames=0)
     return result
 
 

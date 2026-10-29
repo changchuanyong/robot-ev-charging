@@ -93,6 +93,42 @@ class CameraDiagnosticTests(unittest.TestCase):
         self.assertIn("bad_correspondence", result["reason"])
         self.assertEqual(result["named_points_raw_px"], {})
 
+    def test_detection_failure_retains_all_boxes_without_stale_named_points(self):
+        from types import SimpleNamespace
+        boxes = [SimpleNamespace(cls=np.array(0), conf=np.array(score), xyxy=np.array([bounds]))
+                 for bounds, score in (([100., 100., 400., 400.], .9), ([600., 100., 900., 400.], .8))]
+        for detected, reason in ((boxes, "ambiguous_complete_target"), ([], "target_not_detected")):
+            with self.subTest(reason=reason):
+                pipeline = DiagnosticFrontend(self.config, detector=lambda *_args, **_kw: [SimpleNamespace(boxes=detected)])
+                result = pipeline.extract(np.zeros((720, 1280, 3), np.uint8), self.camera, self.geometry)
+                self.assertEqual(result["detected_boxes"], [
+                    {"xyxy": box.xyxy[0].tolist(), "confidence": float(box.conf)} for box in detected])
+                self.assertIn(reason, result["reason"])
+                self.assertEqual(result["named_points_raw_px"], {})
+                self.assertEqual(result["candidate_points_raw_px"], [])
+                self.assertNotIn("selected_bbox_xyxy", result)
+
+    def test_single_detection_retains_original_box_and_named_points(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        bounds = [100., 100., 400., 400.]
+        pipeline = DiagnosticFrontend(self.config, detector=lambda *_args, **_kw: [SimpleNamespace(boxes=[
+            SimpleNamespace(cls=np.array(0), conf=np.array(.9), xyxy=np.array([bounds]))])])
+        pipeline._load()
+        contours = MagicMock()
+        contours.filter_candidate_contours.return_value = [], None, None
+        pipeline._modules["latest_candidate_contours"] = contours
+        selection = {"best": {"image_points": self.points},
+                     "diagnostics": {"association_quality_ok": True, "selection_quality_ok": True}}
+        with patch.object(pipeline._modules["pose_correspondence"], "select_correspondences", return_value=selection):
+            result = pipeline.extract(np.zeros((720, 1280, 3), np.uint8), self.camera, self.geometry)
+        self.assertEqual(result["detected_boxes"], [{"xyxy": bounds, "confidence": .9}])
+        self.assertEqual(result["selected_bbox_xyxy"], bounds)
+        self.assertEqual(result["roi_bbox_xyxy"], [76, 76, 424, 424])
+        self.assertEqual(result["named_points_raw_px"], self.points)
+        self.assertTrue(result["association_quality_ok"])
+        self.assertEqual(result["reason"], "ok")
+
 
 class BoundCaptureDiagnosticTests(CameraDiagnosticTests):
     def setUp(self):

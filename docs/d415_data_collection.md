@@ -1,10 +1,39 @@
 # D415 采集训练数据，D435 用于机械臂定位
 
-`vision.collect` 是独立的 D415 彩色图片采集入口。采集原始完整 RGB 画面，以无损 PNG 保存；不运行检测、PnP 或机械臂控制。默认分辨率为 1280×720、30 fps，启动后丢弃前 30 帧以等待成像稳定。参数在 `config/data_capture_d415.json` 中。
+`vision.collect` 是独立的 D415 彩色图片采集入口。采集原始完整 RGB 画面，以无损 PNG 保存；不运行检测、PnP 或机械臂控制。默认绑定序列号 `349222063070`，分辨率为 1280×720、15 fps，启动后丢弃前 30 帧以等待成像稳定。参数在 `config/data_capture_d415.json` 中。
 
-若设备当前枚举为 USB 2.1，本机实测的 1280×720 彩色流最高只支持 15 fps，默认 30 fps 请求会失败。请复制采集配置，将副本的 `fps` 改为 `15`，通过 `--config 配置副本路径` 启动。程序不会自动降低帧率；是否支持 30 fps 应以当前连接实际提供的模式为准。
+2026-10-29 当前连接实际报告 USB 2.1，因此默认使用已验证可启动的 15 fps。程序不会自动降低帧率；以后更换连接并确认支持 30 fps 后，再调整采集配置。每次采集均从实际彩色流重新读取内参，随图像保存，不使用旧 Kinect 参数。
 
 机械臂上的 D435 仍使用 `vision.run` 和 `config/realsense_config.json`，其型号限制、内参验证及控制门槛保持原样。D415 的图片可以用于训练二维检测/孔位模型，后续应以独立拍摄的 D435 数据验证迁移效果。
+
+## 实时检测、孔位与残差预览
+
+在仓库根目录运行：
+
+```powershell
+.venv\Scripts\python.exe -B -X utf8 -m vision.preview
+```
+
+窗口使用 D415 实际 RGB 内参，显示检测框、ROI、候选点、孔名中心、重投影点、逐孔残差及 mean/RMS/max。当前默认几何为 `config/geometry_nominal.json`；SDK 内参和名义几何均保留未独立验证标记，但可以进行诊断估计。`位姿估计`、`质量告警`、`暂无位姿` 只表示该帧的诊断情况，不输出机器人控制消息。
+
+- **F5**：保存屏幕上已分析帧的原图、叠加图和诊断 JSON；未检测到目标或 PnP 失败也可保存。
+- **F6**：暂停/继续显示，暂停时可反复查看和保存同一帧；后台仍读取相机，恢复后继续分析。
+- **Esc**：结束会话并释放相机；点击关闭窗口同样有效。
+- 英文输入状态下也支持空格/S 保存、P 暂停、Q 退出。中文输入法下优先使用 F5/F6。
+
+分析在单个后台线程执行，图像、孔位和残差始终属于同一帧；不会将旧孔位叠到更新的画面上。面板分别显示相机帧率和单次分析耗时，二者不等价。首次模型推理可能较慢；首次结果产生前保存键只提示等待。
+
+每次启动在 `artifacts/d415_preview/` 下新建会话。`images/` 保存不带叠加的完整原图，`overlays/` 保存预览图，`diagnostics/` 保存同帧原始候选、自动孔名、PnP、逐孔残差向量、错误原因和文件哈希；`preview_manifest.json` 记录模型、配置和几何来源。自动孔位不作为人工真值。相同帧/完全相同图像会跳过重复保存。
+
+诊断会话默认 `split=unknown`；可用 `--batch`、`--specimen`、`--printing-batch` 和 `--notes` 记录实际采集条件。需按训练/验证/测试预分组的大批量采集仍使用下方 `vision.collect`。退出预览后，用该会话的 `manifest.json` 接入本文的九孔人工复核流程。
+
+切换几何使用 `--geometry 路径.json`；实测几何须同时提供匹配的样件与打印批次。更换相机用 `--serial`，流配置用 `--capture-config`。诊断算法配置通过 `--vision-config` 指定，其中仅使用检测和 PnP 参数，不执行相机控制配置或写入控制输出路径。
+
+有限次启动检查（分析三帧，自动保存第一帧后退出）：
+
+```powershell
+.venv\Scripts\python.exe -B -X utf8 -m vision.preview --frames 3 --save-first
+```
 
 ## 采集
 
@@ -14,10 +43,10 @@
 .venv\Scripts\python.exe -B -X utf8 -m vision.collect --list-devices
 ```
 
-将下面的 `你的D415序列号` 替换为列表中 D415 的完整序列号：
+当前这台 D415 已写入默认配置，可直接开始采集；更换相机时用 `--serial` 指定列表中的完整序列号：
 
 ```powershell
-.venv\Scripts\python.exe -B -X utf8 -m vision.collect --serial 你的D415序列号 --batch d415_session01 --split train --notes "室内，正面与倾斜视角"
+.venv\Scripts\python.exe -B -X utf8 -m vision.collect --batch d415_session01 --split unknown --notes "室内，正面与倾斜视角"
 ```
 
 点击预览窗口后操作：
@@ -29,7 +58,7 @@
 每两秒保存一张，达到 50 张后结束：
 
 ```powershell
-.venv\Scripts\python.exe -B -X utf8 -m vision.collect --serial 你的D415序列号 --batch d415_session02 --split train --interval 2 --max-images 50
+.venv\Scripts\python.exe -B -X utf8 -m vision.collect --batch d415_session02 --split unknown --interval 2 --max-images 50
 ```
 
 自动采集仍显示预览，可随时按 Q 停止。默认 `--interval 0` 为手动保存，`--max-images 0` 为按键结束。程序跳过重复设备帧和完全相同的 PNG 内容，但不自动判断相似视角；不要把定时采集当作近重复数据清理。
@@ -56,6 +85,20 @@ artifacts/captures/<UTC时间_唯一标识>/
 同一次拍摄、同一连续场景尽量使用相同 `--batch`，即使中途重启采集也保留该批次名。在**同一个输出根目录**内，同名批次不能跨 `train/val/test/unknown` 分区；`unknown` 表示尚未确定用途，不会进入当前二维先验的 train 拟合。不要通过更换输出根目录或随意改批次名，把近似图片拆进不同集合。
 
 默认采集根目录适合持续使用；可用 `--output-root` 指定项目内另一个目录。一个会话的分区固定，人工复核不会修改分区、相机或图片身份。
+
+## 先使用 SDK 内参做视觉分析
+
+当前先使用设备 SDK 内参，不要求先拍标定板。`config/d415_camera_intrinsics.json` 保存本机于 2026-10-29 从该 D415 的 1280×720 / 15 fps 彩色流实际读取的参数，来源记录为 `artifacts/d415_intrinsics/20261029T080843Z_d57ef983/readout.json`。它保留 `validated=false`，可以计算检测点、PnP 位姿及重投影残差；不将设备参数标记为独立验收结果。
+
+单张同相机、同分辨率的原始图片可以这样分析（替换实际图片路径）：
+
+```powershell
+.venv\Scripts\python.exe -B -X utf8 -m vision.run --image "实际D415图片.png" --camera-config config/d415_camera_intrinsics.json --output artifacts/d415_pose.json
+```
+
+新采集图片优先将 `--camera-config` 指向该会话的 `camera.json`。不要用于缩放、裁剪后的图片或其他相机。未独立验证时结果仍可能包含位姿与残差，但 `valid=false`，原因包含 `intrinsics_not_independently_validated`，退出码为 2；另有漏孔、目标未检测或残差超限时也会明确记录。单图分析务必指定独立 `--output`，避免写入控制器使用的输出路径。
+
+新会话复核完成后，`vision.diagnose` 自动使用标注绑定的会话内参，无需把这份 `version=null` 的 SDK 快照传给 `--camera-override`。后续需要更高精度时，再按 [相机与几何诊断](camera_geometry_diagnostics.md) 做内参独立检查。
 
 ## 接入九孔复核
 
@@ -99,5 +142,7 @@ D415 训练图和 D435 实际作业画面应尽量覆盖相近的目标尺寸与
 全量 270 项测试通过，其中新增采集/保存/复核测试 34 项。日志为 `artifacts/d415_capture_smoke/tests.log`；合成会话已完成 PNG 保存、重复帧跳过、独立内参记录和复核页生成的完整离线检查。
 
 2026-10-28 已在 D415 固件 5.15.1.55、USB 2.1、1280×720 / 15 fps 下验证连续彩色帧、实际内参读取、单张诊断 PNG 保存及手动采集预览。`artifacts/d415_live_check/` 中的诊断会话为 `split=unknown`，不是充电口训练数据；当次手动采集会话正常结束，但保存图片为 0 张。2026-10-29 固件升级至 5.17.0.10 后只复查了设备信息和支持模式，仍为 USB 2.1；未将该复查计为升级后的连续采集验收。
+
+2026-10-29 本次应用 SDK 内参后，11 项采集相关测试通过；使用默认配置在固件 5.17.0.10、USB 2.1 下完成预热和单帧原图保存，实际流内参指纹与 `config/d415_camera_intrinsics.json` 一致。记录位于 `artifacts/d415_sdk_apply/20261029T084744Z_b340274aa21f4397a1cdcba130685985/`，分区为 `unknown`。该帧已使用新配置运行离线视觉入口，返回 `target_not_detected`，因此本次只确认采图和参数接入，尚未验证该帧的孔位、PnP 或重投影精度。
 
 复核页面的导入逻辑已通过 JavaScript 自动检查，尚未做本轮实际浏览器点击验收。`artifacts/d415_capture_smoke/` 内仅为明确标注的合成离线测试数据，不属于采集训练集。

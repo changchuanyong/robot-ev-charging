@@ -69,7 +69,7 @@ def solve_raw_points(points: dict, model: dict, camera: dict) -> dict:
 class DiagnosticFrontend(PosePipeline):
     """Existing extractor with failure evidence retained before PnP/gating."""
     def extract(self, image, camera, geometry):
-        output = {"attempted": True, "candidate_points_raw_px": [], "named_points_raw_px": {},
+        output = {"attempted": True, "detected_boxes": [], "candidate_points_raw_px": [], "named_points_raw_px": {},
                   "association_quality_ok": False, "ambiguous": False, "reason": "not_processed"}
         try:
             self._load()
@@ -78,7 +78,9 @@ class DiagnosticFrontend(PosePipeline):
             boxes = [{"xyxy": [float(x) for x in box.xyxy[0].tolist()], "confidence": float(box.conf.item())}
                      for detection in detections for box in detection.boxes
                      if int(box.cls.item()) == int(self.config["target_class"])]
+            output["detected_boxes"] = boxes
             selected = select_detection(boxes, image.shape, self.config.get("target_window"))
+            output["selected_bbox_xyxy"] = list(selected["xyxy"])
             x1, y1, x2, y2 = selected["xyxy"]
             padding = max(20, int(max(x2 - x1, y2 - y1) * .08))
             x1, y1 = max(0, int(x1) - padding), max(0, int(y1) - padding)

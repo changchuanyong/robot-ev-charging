@@ -1,10 +1,10 @@
 {
   "description": "D415 RGB dataset collection only. D435 robot vision uses its own configuration.",
   "device_model": "D415",
-  "serial": null,
+  "serial": "349222063070",
   "width": 1280,
   "height": 720,
-  "fps": 30,
+  "fps": 15,
   "warmup_frames": 30,
   "timeout_ms": 5000,
   "output_root": "artifacts/captures"
