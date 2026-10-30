@@ -7,9 +7,14 @@ __pycache__/
 # VS Code
 .vscode/
 
-# YOLO training outputs and weights
-runs/
-*.pt
+# YOLO training outputs: only published detector weights are tracked
+runs/*
+!runs/*/
+runs/*/*
+!runs/*/weights/
+runs/*/weights/*
+!runs/*/weights/best.pt
+!runs/*/weights/last.pt
 *.cache
 
 # Live capture outputs and debug artifacts
