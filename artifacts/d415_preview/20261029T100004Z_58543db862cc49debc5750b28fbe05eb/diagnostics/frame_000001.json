@@ -1,0 +1,255 @@
+{
+  "schema_version": 2,
+  "kind": "d415_visual_diagnostic",
+  "source": "live_diagnostic",
+  "authorizes_robot_motion": false,
+  "frame": {
+    "frame_number": 562,
+    "device_timestamp_ms": 1793268039526.4685,
+    "timestamp_domain": "global_time",
+    "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+  },
+  "camera": {
+    "stream": "color",
+    "serial": "349222063070",
+    "device_name": "RealSense D415",
+    "device_model": "D415",
+    "image_width": 1280,
+    "image_height": 720,
+    "fps": 15,
+    "pixel_format": "bgr8",
+    "camera_matrix": [
+      [
+        902.9183959960938,
+        0,
+        637.34375
+      ],
+      [
+        0,
+        900.7101440429688,
+        359.00823974609375
+      ],
+      [
+        0,
+        0,
+        1
+      ]
+    ],
+    "dist_coeffs": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "distortion_model": "inverse_brown_conrady",
+    "source": "device_color_stream",
+    "validated": false,
+    "version": null,
+    "is_placeholder": false,
+    "is_approximate": false,
+    "intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c"
+  },
+  "geometry": {
+    "version": "legacy-nominal-xy-planar-v1",
+    "status": "nominal_reference",
+    "validated": false,
+    "source_sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab"
+  },
+  "image_pixels_sha256": "15631958e33e29450e7c87ce50c47f2454f8eb06f2248747747778ba489fda77",
+  "frontend": {
+    "attempted": true,
+    "detected_boxes": [],
+    "candidate_points_raw_px": [],
+    "named_points_raw_px": {},
+    "association_quality_ok": false,
+    "ambiguous": false,
+    "reason": "ValueError: target_not_detected"
+  },
+  "pose": {
+    "solved": false,
+    "point_count": 0,
+    "points_raw_px": {},
+    "residual_frame": "raw_color_pixels",
+    "vector_definition": "projected_minus_observed",
+    "reason": "fewer_than_four_points"
+  },
+  "assessment": {
+    "status": "no_pose",
+    "reasons": [
+      "ValueError: target_not_detected",
+      "fewer_than_four_points"
+    ]
+  },
+  "processing_ms": 31.000000017229468,
+  "depth": {
+    "schema_version": 1,
+    "kind": "depth_assisted_diagnostic",
+    "method_version": "roi_plane_v1",
+    "authorizes_robot_motion": false,
+    "status": "scene_only",
+    "reasons": [
+      "target_not_detected"
+    ],
+    "frame": {
+      "frame_number": 559,
+      "device_timestamp_ms": 1793268039525.6716,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+    },
+    "color_frame": {
+      "frame_number": 562,
+      "device_timestamp_ms": 1793268039526.4685,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+    },
+    "calibration": {
+      "schema_version": 1,
+      "source": "device_sdk",
+      "validated": false,
+      "depth_camera": {
+        "stream": "depth",
+        "serial": "349222063070",
+        "device_name": "RealSense D415",
+        "device_model": "D415",
+        "image_width": 640,
+        "image_height": 480,
+        "fps": 15,
+        "pixel_format": "z16",
+        "camera_matrix": [
+          [
+            592.1373291015625,
+            0,
+            317.0010986328125
+          ],
+          [
+            0,
+            592.1373291015625,
+            244.806884765625
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "dist_coeffs": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "distortion_model": "brown_conrady",
+        "source": "device_depth_stream",
+        "validated": false,
+        "version": null,
+        "is_placeholder": false,
+        "is_approximate": false,
+        "intrinsics_sha256": "94182039f3bdf732d464e128d1560b7eeb91028ebd47f35a565c35fe0a988ac7"
+      },
+      "color_intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c",
+      "depth_scale_m": 0.0010000000474974513,
+      "depth_to_color": {
+        "rotation": [
+          [
+            0.9999983906745911,
+            -0.00154095608741045,
+            0.0008894714992493391
+          ],
+          [
+            0.0015420103445649147,
+            0.9999980926513672,
+            -0.0011857807403430343
+          ],
+          [
+            -0.000887642556335777,
+            0.00118715048301965,
+            0.999998927116394
+          ]
+        ],
+        "translation_m": [
+          0.015195678919553757,
+          2.1995921997586265e-05,
+          -0.0005210565286688507
+        ]
+      },
+      "depth_profile": {
+        "width": 640,
+        "height": 480,
+        "fps": 15,
+        "format": "z16"
+      },
+      "max_pair_skew_ms": 40.0,
+      "firmware_version": "5.17.0.10",
+      "usb_type_descriptor": "2.1",
+      "point_frame": "camera_color_optical",
+      "point_unit": "m",
+      "depth_pixels": "native_unaligned_unfiltered_z16"
+    },
+    "raw_pixels_sha256": "a396c01390c89ace49d871b56e1fa750bcbd10430cf75d4013c5fbcb831631e3",
+    "pair_skew_ms": 0.796875,
+    "scene": {
+      "valid_fraction": 0.7361555989583334,
+      "valid_pixels": 226147,
+      "total_pixels": 307200,
+      "median_depth_mm": 970.0000460725278,
+      "depth_frame": "depth_optical",
+      "validity_definition": "nonzero_native_Z16_pixels",
+      "projected_valid_samples": 217835
+    },
+    "roi": null,
+    "plane": {
+      "solved": false,
+      "reason": "no_detected_target_ROI"
+    },
+    "pnp_consistency": null,
+    "thresholds": {
+      "roi_inset_fraction": 0.1,
+      "hole_radius_fraction": 0.025,
+      "hole_radius_min_px": 6.0,
+      "edge_absolute_m": 0.005,
+      "edge_relative": 0.01,
+      "min_surface_samples": 80,
+      "max_fit_samples": 4000,
+      "ransac_iterations": 80,
+      "plane_tolerance_m": 0.003,
+      "min_inlier_fraction": 0.85,
+      "max_plane_rms_m": 0.002,
+      "min_second_axis_std_m": 0.003,
+      "min_rgb_span_fraction": 0.35
+    }
+  },
+  "image": "images/frame_000001.png",
+  "image_sha256": "5d9858b364bf299a5a0e44904f1d6723864f25c5b85106a25be180e283dfd931",
+  "camera_file": "camera.json",
+  "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+  "intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c",
+  "overlay": "overlays/frame_000001.png",
+  "overlay_sha256": "0d84de7302f42f1236129762c9179aa26f208b8b0c28b54d47bcf4257f577c1d",
+  "depth_capture": {
+    "available": true,
+    "file": "depth/frame_000001.png",
+    "file_sha256": "5dc845d0fc0d72f860ee1184ae5fce93d3d2ed825795eb919d70e486476cf373",
+    "raw_pixels_sha256": "a396c01390c89ace49d871b56e1fa750bcbd10430cf75d4013c5fbcb831631e3",
+    "frame": {
+      "frame_number": 559,
+      "device_timestamp_ms": 1793268039525.6716,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+    },
+    "color_frame": {
+      "frame_number": 562,
+      "device_timestamp_ms": 1793268039526.4685,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+    },
+    "depth_scale_m": 0.0010000000474974513,
+    "calibration_file": "depth_camera.json",
+    "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+    "status": "scene_only",
+    "reasons": [
+      "target_not_detected"
+    ]
+  }
+}

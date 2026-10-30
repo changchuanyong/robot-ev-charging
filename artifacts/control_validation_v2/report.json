@@ -1,0 +1,637 @@
+{
+  "hardware_accessed": false,
+  "results": [
+    {
+      "source": "simulation",
+      "scenario": "nominal",
+      "method": "A",
+      "success": true,
+      "reason": "mechanical_insertion_complete",
+      "duration": 3.92,
+      "cycles": 393,
+      "commands": 392,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "COMPLETE"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "nominal",
+      "method": "B",
+      "success": true,
+      "reason": "mechanical_insertion_complete",
+      "duration": 3.92,
+      "cycles": 393,
+      "commands": 392,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "COMPLETE"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "nominal",
+      "method": "C",
+      "success": true,
+      "reason": "mechanical_insertion_complete",
+      "duration": 3.92,
+      "cycles": 393,
+      "commands": 392,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "COMPLETE"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "nominal",
+      "method": "D",
+      "success": true,
+      "reason": "mechanical_insertion_complete",
+      "duration": 3.92,
+      "cycles": 393,
+      "commands": 392,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "COMPLETE"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "nominal",
+      "method": "E",
+      "success": true,
+      "reason": "mechanical_insertion_complete",
+      "duration": 3.92,
+      "cycles": 393,
+      "commands": 392,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "COMPLETE"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "nominal",
+      "method": "F",
+      "success": true,
+      "reason": "mechanical_insertion_complete",
+      "duration": 3.92,
+      "cycles": 393,
+      "commands": 392,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "COMPLETE"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "blocked",
+      "method": "B",
+      "success": false,
+      "reason": "progress_stall",
+      "duration": 3.5100000000000002,
+      "cycles": 352,
+      "commands": 351,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "STOPPED"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "overload",
+      "method": "B",
+      "success": false,
+      "reason": "hard_wrench_limit",
+      "duration": 2.0,
+      "cycles": 201,
+      "commands": 200,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "STOPPED"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "stale",
+      "method": "B",
+      "success": false,
+      "reason": "feedback_stale",
+      "duration": 2.0,
+      "cycles": 201,
+      "commands": 200,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "STOPPED"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "disconnect",
+      "method": "B",
+      "success": false,
+      "reason": "feedback_invalid",
+      "duration": 2.0,
+      "cycles": 201,
+      "commands": 200,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "STOPPED"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "no_contact",
+      "method": "B",
+      "success": false,
+      "reason": "contact_not_found",
+      "duration": 6.0200000000000005,
+      "cycles": 603,
+      "commands": 602,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "STOPPED"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "bad_vision",
+      "method": "B",
+      "success": false,
+      "reason": "task_timeout",
+      "duration": 18.01,
+      "cycles": 1802,
+      "commands": 0,
+      "stop_confirmed": true,
+      "states": [
+        "STOPPED"
+      ]
+    },
+    {
+      "source": "simulation",
+      "scenario": "risk_outside",
+      "method": "B",
+      "success": false,
+      "reason": "risk_domain_invalid",
+      "duration": 2.0,
+      "cycles": 201,
+      "commands": 200,
+      "stop_confirmed": true,
+      "states": [
+        "PREALIGN",
+        "APPROACH",
+        "CONTACT",
+        "INSERT",
+        "STOPPED"
+      ]
+    }
+  ],
+  "replay_mismatches": 0,
+  "statistics": {
+    "groups": [
+      {
+        "source": "simulation",
+        "target_id": "demo-port",
+        "method": "A",
+        "tasks": 1,
+        "successes": 1,
+        "success_rate": 1.0,
+        "wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "duration_mean": 3.92,
+        "duration_sample_std": null
+      },
+      {
+        "source": "simulation",
+        "target_id": "demo-port",
+        "method": "B",
+        "tasks": 8,
+        "successes": 1,
+        "success_rate": 0.125,
+        "wilson_95": [
+          0.02241749145005667,
+          0.4708881822128535
+        ],
+        "duration_mean": 4.9325,
+        "duration_sample_std": 5.4726664955420565
+      },
+      {
+        "source": "simulation",
+        "target_id": "demo-port",
+        "method": "C",
+        "tasks": 1,
+        "successes": 1,
+        "success_rate": 1.0,
+        "wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "duration_mean": 3.92,
+        "duration_sample_std": null
+      },
+      {
+        "source": "simulation",
+        "target_id": "demo-port",
+        "method": "D",
+        "tasks": 1,
+        "successes": 1,
+        "success_rate": 1.0,
+        "wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "duration_mean": 3.92,
+        "duration_sample_std": null
+      },
+      {
+        "source": "simulation",
+        "target_id": "demo-port",
+        "method": "E",
+        "tasks": 1,
+        "successes": 1,
+        "success_rate": 1.0,
+        "wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "duration_mean": 3.92,
+        "duration_sample_std": null
+      },
+      {
+        "source": "simulation",
+        "target_id": "demo-port",
+        "method": "F",
+        "tasks": 1,
+        "successes": 1,
+        "success_rate": 1.0,
+        "wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "duration_mean": 3.92,
+        "duration_sample_std": null
+      }
+    ],
+    "tasks": [
+      {
+        "task_id": "2c3f55094f174af8a8ecca56b2a72268",
+        "method": "A",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "62eeaf008dfd83a604e5530eb50d1a68ceba324ef2f409b7c086fcccbdc10b41",
+        "success": true,
+        "reason": "mechanical_insertion_complete",
+        "duration": 3.92,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.339201427721594,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.19000000000000017,
+        "limited_fraction": 0.002544529262086514,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\method_A.jsonl"
+      },
+      {
+        "task_id": "5e5b2a4e73b74e9686822cbff349ce57",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "32c1bea0b7c2457bcb091865ab9ff1c08aa8cb5e1622b433a1a013ff74353318",
+        "success": true,
+        "reason": "mechanical_insertion_complete",
+        "duration": 3.92,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.3391994282562535,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.19000000000000017,
+        "limited_fraction": 0.002544529262086514,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\method_B.jsonl"
+      },
+      {
+        "task_id": "4568fbf25e4d4ab7a3d1bec8efec261d",
+        "method": "C",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "7a561b7729d9b682641fd1770987026912572696e38112bf61975ebed8139146",
+        "success": true,
+        "reason": "mechanical_insertion_complete",
+        "duration": 3.92,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.3391994282562535,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.19000000000000017,
+        "limited_fraction": 0.002544529262086514,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\method_C.jsonl"
+      },
+      {
+        "task_id": "b67efe6f57bb40938cfe93233f4ac1b5",
+        "method": "D",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "0df75acfeed296ce1644a609b9e5bdc1ecbda6249146f700e89e7a9b3da2cb40",
+        "success": true,
+        "reason": "mechanical_insertion_complete",
+        "duration": 3.92,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.339201427721594,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.19000000000000017,
+        "limited_fraction": 0.002544529262086514,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\method_D.jsonl"
+      },
+      {
+        "task_id": "f34c3682209e4bdbb6513950acd19bad",
+        "method": "E",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "63eaf0a2483114cda6c8156bcdd301b82454027ae311c7c7dbace41c3ad1431e",
+        "success": true,
+        "reason": "mechanical_insertion_complete",
+        "duration": 3.92,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.3391994282562535,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.19000000000000017,
+        "limited_fraction": 0.002544529262086514,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\method_E.jsonl"
+      },
+      {
+        "task_id": "e03194cf56f44facb1fa5cc1e4bff1e8",
+        "method": "F",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "48ceed13fb6eba14e3f1592823eed91655c40e95927310e15960de1bff8d7c5e",
+        "success": true,
+        "reason": "mechanical_insertion_complete",
+        "duration": 3.92,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.3391994282562535,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.19000000000000017,
+        "limited_fraction": 0.002544529262086514,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\method_F.jsonl"
+      },
+      {
+        "task_id": "701d4192beab43599b56005d405a899e",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "progress_stall",
+        "duration": 3.5100000000000002,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.24,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.010000000000000009,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000231,
+          0.010000000000000231
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\fault_blocked.jsonl"
+      },
+      {
+        "task_id": "0775a7a0ee354bb68344454cacb74fd3",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "hard_wrench_limit",
+        "duration": 2.0,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 30.0,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.010000000000000009,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000009,
+          0.010000000000000009
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\fault_overload.jsonl"
+      },
+      {
+        "task_id": "b5c5f4072f9241cc97be2a774247110f",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "feedback_stale",
+        "duration": 2.0,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.23659011137891356,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.010000000000000009,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000009,
+          0.010000000000000009
+        ],
+        "sample_age_max": 0.19999999999999996,
+        "path": "artifacts\\control_validation_v2\\fault_stale.jsonl"
+      },
+      {
+        "task_id": "c9eaf06203f04d8ea603d4870f8d8213",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "feedback_invalid",
+        "duration": 2.0,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.23659011137891356,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.010000000000000009,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000009,
+          0.010000000000000009
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\fault_disconnect.jsonl"
+      },
+      {
+        "task_id": "160a31f5f1a84ba19e59258adb9751b8",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "contact_not_found",
+        "duration": 6.0200000000000005,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.0,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.0,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000675,
+          0.010000000000000675
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\fault_no_contact.jsonl"
+      },
+      {
+        "task_id": "bf146ba692e94e9b826f3d20d0115eeb",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "task_timeout",
+        "duration": 18.01,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 0.0,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.0,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.009999999999999787,
+          0.010000000000001563,
+          0.010000000000001563
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\fault_bad_vision.jsonl"
+      },
+      {
+        "task_id": "f7045c317381479887585edf8829dc2c",
+        "method": "B",
+        "source": "simulation",
+        "target_id": "demo-port",
+        "config_sha256": "841be6fd36055ea05d5de427b1db0dff22a2007293f1f6d54bb971b7e3eb66b0",
+        "success": false,
+        "reason": "risk_domain_invalid",
+        "duration": 2.0,
+        "peak_current_wrench_at_tool_in_task_frame": {
+          "axial_N": 7.0,
+          "lateral_N": 0.0,
+          "moment_Nm": 0.0
+        },
+        "pause_seconds": 0.010000000000000009,
+        "limited_fraction": 0.0,
+        "period_p50_p95_max": [
+          0.010000000000000009,
+          0.010000000000000009,
+          0.010000000000000009
+        ],
+        "sample_age_max": 0.0,
+        "path": "artifacts\\control_validation_v2\\fault_risk_outside.jsonl"
+      }
+    ],
+    "note": "Simulation and hardware are separate. E/F comparisons require matched conditions and frozen configurations."
+  }
+}

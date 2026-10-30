@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "kind": "d415_visual_diagnostic",
+  "source": "live_diagnostic",
+  "authorizes_robot_motion": false,
+  "frame": {
+    "frame_number": 31,
+    "device_timestamp_ms": 1793264930100.4072,
+    "timestamp_domain": "global_time",
+    "received_at_utc": "2026-10-29T09:08:50.240050+00:00"
+  },
+  "camera": {
+    "stream": "color",
+    "serial": "349222063070",
+    "device_name": "RealSense D415",
+    "device_model": "D415",
+    "image_width": 1280,
+    "image_height": 720,
+    "fps": 15,
+    "pixel_format": "bgr8",
+    "camera_matrix": [
+      [
+        902.9183959960938,
+        0,
+        637.34375
+      ],
+      [
+        0,
+        900.7101440429688,
+        359.00823974609375
+      ],
+      [
+        0,
+        0,
+        1
+      ]
+    ],
+    "dist_coeffs": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "distortion_model": "inverse_brown_conrady",
+    "source": "device_color_stream",
+    "validated": false,
+    "version": null,
+    "is_placeholder": false,
+    "is_approximate": false,
+    "intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c"
+  },
+  "geometry": {
+    "version": "legacy-nominal-xy-planar-v1",
+    "status": "nominal_reference",
+    "validated": false,
+    "source_sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab"
+  },
+  "image_pixels_sha256": "8096f9f21d1f79da0b0414a6eacf045264b212a961ca6402cb3e4c55ab341d3f",
+  "frontend": {
+    "attempted": true,
+    "detected_boxes": [],
+    "candidate_points_raw_px": [],
+    "named_points_raw_px": {},
+    "association_quality_ok": false,
+    "ambiguous": false,
+    "reason": "ValueError: target_not_detected"
+  },
+  "pose": {
+    "solved": false,
+    "point_count": 0,
+    "points_raw_px": {},
+    "residual_frame": "raw_color_pixels",
+    "vector_definition": "projected_minus_observed",
+    "reason": "fewer_than_four_points"
+  },
+  "assessment": {
+    "status": "no_pose",
+    "reasons": [
+      "ValueError: target_not_detected",
+      "fewer_than_four_points"
+    ]
+  },
+  "processing_ms": 1358.9999999967404,
+  "image": "images/frame_000001.png",
+  "image_sha256": "445f3f8d414dd667d796b5bcba6c1fc50237b92ac18d4616a44ba99c7922d593",
+  "camera_file": "camera.json",
+  "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+  "intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c",
+  "overlay": "overlays/frame_000001.png",
+  "overlay_sha256": "a2296535136738adc8fb4ad7e50c2101d3bf82e3b306a1c65a57a0b2410cc22a"
+}

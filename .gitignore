@@ -15,7 +15,31 @@ runs/
 # Live capture outputs and debug artifacts
 dataset/live/
 dataset/vision/
-artifacts/
+artifacts/*
+# Documentation evidence: keep only the small, explicitly cited records in Git.
+!artifacts/d415_preview/
+artifacts/d415_preview/*
+!artifacts/d415_preview/20261029T090850Z_164f714d415741f28d98a9f0eaaeaac4/
+!artifacts/d415_preview/20261029T091732Z_0674d0e62b3840aca24fc76c65e7156a/
+!artifacts/d415_preview/20261029T095514Z_86c14a3ef10b407f85059c6eba1c7a1f/
+!artifacts/d415_preview/20261029T100004Z_58543db862cc49debc5750b28fbe05eb/
+!artifacts/d415_preview/20261030T022814Z_70c99eebf68b4566aa45290f73397b57/
+!artifacts/d415_preview/20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a/
+!artifacts/control_validation_v2/
+artifacts/control_validation_v2/*
+!artifacts/control_validation_v2/report.json
+!artifacts/software_validation/
+artifacts/software_validation/*
+!artifacts/software_validation/final_unittest.log
+!artifacts/software_validation/final_unittest_postprobe.log
+!artifacts/software_validation/release_20261029T070911Z/
+artifacts/software_validation/release_20261029T070911Z/*
+!artifacts/software_validation/release_20261029T070911Z/report.synthetic.json
+!artifacts/software_validation/release_20261029T070911Z/method_metrics.synthetic.json
+!artifacts/capture_file_retry_validation/
+!artifacts/d415_depth_validation/
+!artifacts/printed_stage1/
+!artifacts/final_tests.log
 dataset/live/recent_roi/
 dataset/live/debug_roi_enhance/
 

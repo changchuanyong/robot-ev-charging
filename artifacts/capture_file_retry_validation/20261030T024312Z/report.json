@@ -1,0 +1,24 @@
+{
+  "tests": 119,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "success": true,
+  "patterns": [
+    "test_preview*.py",
+    "test_rgbd_capture.py",
+    "test_depth_diagnostic.py",
+    "test_new_camera_diagnostics.py",
+    "test_data_capture.py",
+    "test_capture*.py"
+  ],
+  "source_sha256": {
+    "vision\\capture_files.py": "ec8d3e86c86dbf4544c2246d0151f264c36faf71e0e569b1684cdd171a75e4db",
+    "vision\\capture_session.py": "fcfdadc2b2427cbd94f7213b765fc412dc2d276e6c78b3485f8449bd54ed5b33",
+    "vision\\preview_session.py": "71c09856c0494059214f823d99dac0dcfc0d2d6c72c408135abd06de461b5dad",
+    "vision\\contracts.py": "aed5b990ce3f2784cabf38624c2f532dc16c28ab53c56a27e91a8c3277e0822b",
+    "tests\\test_capture_file_retry.py": "9f43d17ad4270f46f119c2721d3080b217b34f787742a596b9d81761909c9269"
+  },
+  "camera_opened": false,
+  "robot_connected": false
+}

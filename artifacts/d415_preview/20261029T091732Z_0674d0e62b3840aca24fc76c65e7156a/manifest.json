@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "kind": "realsense_rgb_capture",
+  "session_id": "20261029T091732Z_0674d0e62b3840aca24fc76c65e7156a",
+  "created_at": "2026-10-29T09:17:32.081482+00:00",
+  "batch_id": "d415_preview_ready_20261029",
+  "split": "unknown",
+  "notes": "Live diagnostic samples; automatic points are not human labels.",
+  "status": "completed",
+  "camera_file": "camera.json",
+  "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+  "frames": [
+    {
+      "image": "images/frame_000001.png",
+      "image_sha256": "3bd71ca7eccbfc0a854ccf3238edd227427ed0318edf164f0f9ced9e9d6659a5",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 270,
+      "device_timestamp_ms": 1793265468057.0789,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T09:17:48.196324+00:00"
+    },
+    {
+      "image": "images/frame_000002.png",
+      "image_sha256": "ae971990bedeff9d907f14267642924f38294e8582efbb4c4fca15934eb6c23c",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 2359,
+      "device_timestamp_ms": 1793265608427.2537,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T09:20:08.566140+00:00"
+    }
+  ],
+  "metadata": {
+    "specimen_id": null,
+    "printing_batch_id": null,
+    "geometry_version": "legacy-nominal-xy-planar-v1",
+    "notes": "D415 SDK visual diagnostics; unreviewed images"
+  },
+  "finished_at": "2026-10-29T09:22:15.047975+00:00",
+  "error": null
+}

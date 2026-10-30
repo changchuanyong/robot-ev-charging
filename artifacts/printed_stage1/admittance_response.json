@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "source": "synthetic_analytic_ODE",
+  "hardware_accessed": false,
+  "passes_dt_refinement": true,
+  "cases": [
+    {
+      "response": "underdamped",
+      "dt_s": 0.01,
+      "max_allowed_dt_s": 0.1103448275862069,
+      "max_abs_displacement_error": 0.001916549006573627,
+      "rms_displacement_error": 0.0007953739568052313,
+      "final_displacement": 0.0788756877996089,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "underdamped",
+      "dt_s": 0.005,
+      "max_allowed_dt_s": 0.1103448275862069,
+      "max_abs_displacement_error": 0.0009546781746307895,
+      "rms_displacement_error": 0.0003959670427491124,
+      "final_displacement": 0.07879690072326304,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "underdamped",
+      "dt_s": 0.0025,
+      "max_allowed_dt_s": 0.1103448275862069,
+      "max_abs_displacement_error": 0.0004765015827660757,
+      "rms_displacement_error": 0.00019756158150657462,
+      "final_displacement": 0.07875865388782095,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "critical",
+      "dt_s": 0.01,
+      "max_allowed_dt_s": 0.128,
+      "max_abs_displacement_error": 0.0012552195876280071,
+      "rms_displacement_error": 0.0003542157232682451,
+      "final_displacement": 0.07999998272049316,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "critical",
+      "dt_s": 0.005,
+      "max_allowed_dt_s": 0.128,
+      "max_abs_displacement_error": 0.0006249707421306684,
+      "rms_displacement_error": 0.00017693299145080427,
+      "final_displacement": 0.07999999080893051,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "critical",
+      "dt_s": 0.0025,
+      "max_allowed_dt_s": 0.128,
+      "max_abs_displacement_error": 0.00031183128578817637,
+      "rms_displacement_error": 8.842628980873683e-05,
+      "final_displacement": 0.07999999395271881,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "overdamped",
+      "dt_s": 0.01,
+      "max_allowed_dt_s": 0.07529411764705883,
+      "max_abs_displacement_error": 0.0008141753076151594,
+      "rms_displacement_error": 0.0002502344699005065,
+      "final_displacement": 0.07958395285162716,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "overdamped",
+      "dt_s": 0.005,
+      "max_allowed_dt_s": 0.07529411764705883,
+      "max_abs_displacement_error": 0.0004053823585419853,
+      "rms_displacement_error": 0.0001250448156090516,
+      "final_displacement": 0.0795891897494375,
+      "static_equilibrium": 0.08
+    },
+    {
+      "response": "overdamped",
+      "dt_s": 0.0025,
+      "max_allowed_dt_s": 0.07529411764705883,
+      "max_abs_displacement_error": 0.00020227892189613947,
+      "rms_displacement_error": 6.250694416065496e-05,
+      "final_displacement": 0.07959180808154775,
+      "static_equilibrium": 0.08
+    }
+  ],
+  "interpretation": "Constant-damping ODE discretization check; does not validate robot/contact stability or physical limits."
+}

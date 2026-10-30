@@ -1,0 +1,6 @@
+Risk-domain build rejected: [Errno 17] File exists: 'C:\\Users\\admin\\Desktop\\doc\\��ҵ���\\robot-ev-charging\\artifacts\\risk-builder-test-b47ab3e1f3e44287b832831cdec11c6a\\domain.json'
+----------------------------------------------------------------------
+Ran 120 tests in 9.342s
+
+OK
+{"output": "C:\\Users\\admin\\Desktop\\doc\\��ҵ���\\robot-ev-charging\\artifacts\\risk-builder-test-b47ab3e1f3e44287b832831cdec11c6a\\domain.json", "calibrated": false, "constraints": 12, "validation_logs": 0}

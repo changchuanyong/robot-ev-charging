@@ -1,0 +1,424 @@
+{
+  "schema_version": 2,
+  "kind": "realsense_preview_diagnostics",
+  "source": "live_diagnostic",
+  "authorizes_robot_motion": false,
+  "capture_manifest": "manifest.json",
+  "camera_file": "camera.json",
+  "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+  "intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c",
+  "status": "failed",
+  "samples": [
+    {
+      "image": "images/frame_000001.png",
+      "image_sha256": "c971398cd45af09c270f5cc7360f8eb7ca26e691263295f1a3c606f8dcd65da2",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 523,
+      "device_timestamp_ms": 1793327327564.1777,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-30T02:28:47.695623+00:00",
+      "image_pixels_sha256": "fe7bc231535cef188a90277c8defe45a727db7cd837db5aaac8d4360d1920985",
+      "diagnostic": "diagnostics/frame_000001.json",
+      "diagnostic_sha256": "d8718475149dde42d5bb887b75f3ea14b816cc00803fc8d4b91d517ed8620748",
+      "overlay": "overlays/frame_000001.png",
+      "overlay_sha256": "224964863a44f5155265d7090c4382a72377bac9132ed97daa133399fa5b68e2",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000001.png",
+        "file_sha256": "2179f0055c8a23041b834695a92a71fcffd3b68e30fbf6b8d57a470dfc9f3a0f",
+        "raw_pixels_sha256": "a6ce9955a9d2ff4525b03d4e2d2594cbb3958b0b3f506cbb97f94c14cb2038fb",
+        "frame": {
+          "frame_number": 519,
+          "device_timestamp_ms": 1793327327563.3806,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:47.695623+00:00"
+        },
+        "color_frame": {
+          "frame_number": 523,
+          "device_timestamp_ms": 1793327327564.1777,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:47.695623+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    },
+    {
+      "image": "images/frame_000002.png",
+      "image_sha256": "0e5f9354e56878e2c32102e6b89bb4a8988a54d5b6176bb0117041b31b3f8aa8",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 531,
+      "device_timestamp_ms": 1793327328101.7336,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-30T02:28:48.233197+00:00",
+      "image_pixels_sha256": "7a8a7266085718cf46f6c85418c023fbf938ba29816d2efc198f7f1267235ec0",
+      "diagnostic": "diagnostics/frame_000002.json",
+      "diagnostic_sha256": "bc804768e5ca14326775f6d379adea2eb8812f0f0de587bededcd9684c09beaf",
+      "overlay": "overlays/frame_000002.png",
+      "overlay_sha256": "d299b678def14c3f4fce32a31a2faa04ac30e0d8f05cad9ff6073f4727574824",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000002.png",
+        "file_sha256": "75fccb9a9383638db8f781af603c94367d3d421d338cf53c682258270328fe74",
+        "raw_pixels_sha256": "6115257ebb6030e02f46c3e3b3ff480875856616fe896aae25be2f4fdeb7b10d",
+        "frame": {
+          "frame_number": 527,
+          "device_timestamp_ms": 1793327328100.9365,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:48.233197+00:00"
+        },
+        "color_frame": {
+          "frame_number": 531,
+          "device_timestamp_ms": 1793327328101.7336,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:48.233197+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    },
+    {
+      "image": "images/frame_000003.png",
+      "image_sha256": "b88538858d6f90149c23292c74ec4f7f0a109e0dbd312b490692706f52e4c20d",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 534,
+      "device_timestamp_ms": 1793327328303.318,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-30T02:28:48.447726+00:00",
+      "image_pixels_sha256": "7eaec66e047194d28556ad59c86c0394955d329b0a6e4d82ce97765b773ac822",
+      "diagnostic": "diagnostics/frame_000003.json",
+      "diagnostic_sha256": "9bee06a9e9bbb529408f5922ced0108e7ae9b89cc0f83b3481fa8926c9c94328",
+      "overlay": "overlays/frame_000003.png",
+      "overlay_sha256": "069bc860d4b459f0cf6e11864b4a9179c32ee4f5fc1dfac0c550dc0b71dccf3f",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000003.png",
+        "file_sha256": "13549fa1859d632e184a9824e495b1ff7ef6c5491a1fd9727a6ca9ed9891885b",
+        "raw_pixels_sha256": "0668a2a007b03c9e7c0951ef7fba09761ec3974c92199e4defd46a061b32c8f7",
+        "frame": {
+          "frame_number": 530,
+          "device_timestamp_ms": 1793327328302.5212,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:48.447726+00:00"
+        },
+        "color_frame": {
+          "frame_number": 534,
+          "device_timestamp_ms": 1793327328303.318,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:48.447726+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    },
+    {
+      "image": "images/frame_000004.png",
+      "image_sha256": "08a3988077e8c256358f970680896562ed8c59e2510b8567164c3ea78a403ef9",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 540,
+      "device_timestamp_ms": 1793327328706.487,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-30T02:28:48.837781+00:00",
+      "image_pixels_sha256": "8951c4ef083738874549c1026509b14481c8b30ea6ae1d56841ba70cda90cf6b",
+      "diagnostic": "diagnostics/frame_000004.json",
+      "diagnostic_sha256": "b03834d184998b17ef292cdf143d4033e634b74edf3c034dc8a38d9e82a7667c",
+      "overlay": "overlays/frame_000004.png",
+      "overlay_sha256": "38ef407fc210129d49c0c16f741bd25b20413efd5a46c114c353304da0d40541",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000004.png",
+        "file_sha256": "46e7a91103d16f04ebc0a78ad25508ef4943899f271449a0bb0d01532f5e0f37",
+        "raw_pixels_sha256": "07587f479860153562efd145dbf1564471eb6dbafed1e6ee9a7521b8302db37d",
+        "frame": {
+          "frame_number": 536,
+          "device_timestamp_ms": 1793327328705.6902,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:48.837781+00:00"
+        },
+        "color_frame": {
+          "frame_number": 540,
+          "device_timestamp_ms": 1793327328706.487,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:48.837781+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    },
+    {
+      "image": "images/frame_000005.png",
+      "image_sha256": "eaefc153d940aa2cb2c8341c9b28b61f11681d83fef01301b824fcc980961253",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 543,
+      "device_timestamp_ms": 1793327328908.0718,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-30T02:28:49.042803+00:00",
+      "image_pixels_sha256": "b71d5fb340ca657928d45efa0af920197f1cdfce579cafaa1853aadb9a43a0d3",
+      "diagnostic": "diagnostics/frame_000005.json",
+      "diagnostic_sha256": "06579f745f1df2624ce0a1fb67840b357474c64dcf64ebce00b7153036372738",
+      "overlay": "overlays/frame_000005.png",
+      "overlay_sha256": "8f5e5cead8bb88dfc9fcbdec00617d1ace8332537661a25031196408d50e9e77",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000005.png",
+        "file_sha256": "b036bcaa0a05f4e8c2568ef886699345f9a1e6568fc37be6f1a8c885024c8328",
+        "raw_pixels_sha256": "1244dcf5b3420bb2c173ccf17074a53e6a428069ec13f0a42a1f894841eac716",
+        "frame": {
+          "frame_number": 539,
+          "device_timestamp_ms": 1793327328907.2747,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:49.042803+00:00"
+        },
+        "color_frame": {
+          "frame_number": 543,
+          "device_timestamp_ms": 1793327328908.0718,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:49.042803+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    },
+    {
+      "image": "images/frame_000006.png",
+      "image_sha256": "3ed8f2338321bec516741abbe21d25d20de5ce291163cec724affd30a490c2c0",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 544,
+      "device_timestamp_ms": 1793327328975.2664,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-30T02:28:49.106807+00:00",
+      "image_pixels_sha256": "f97c27a48bbad911a2ad1c9115dedfd4bb5df974a57d94f7c265e79f023397cb",
+      "diagnostic": "diagnostics/frame_000006.json",
+      "diagnostic_sha256": "7a79dc5b4c2b31cf33d00768ef2a99f9075aaa8928a9e75ad890c3b603990b6f",
+      "overlay": "overlays/frame_000006.png",
+      "overlay_sha256": "c893cfd0e47fa7d419da50f508e9fc07dd6d6ab7fb85e1713a2a65c0b576bba9",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000006.png",
+        "file_sha256": "3be842dfad6c9d298b1a051b9979961f96f6126edca9a1a25a5a6cda170a5ff4",
+        "raw_pixels_sha256": "d69898b012cf01d020aa5ec02ce11c05c49ca198dd5b9f2b932652c90aded46a",
+        "frame": {
+          "frame_number": 540,
+          "device_timestamp_ms": 1793327328974.4695,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:49.106807+00:00"
+        },
+        "color_frame": {
+          "frame_number": 544,
+          "device_timestamp_ms": 1793327328975.2664,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-30T02:28:49.106807+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    }
+  ],
+  "pipeline_config": {
+    "description": "D435 eye-in-hand RGB pipeline. Set exact serial and validate calibration before robot use. Pixel gates are provisional analysis settings.",
+    "serial": null,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "timeout_ms": 2000,
+    "max_frame_age_s": 0.5,
+    "intrinsics_validated": false,
+    "intrinsics_sha256": null,
+    "calibration_version": null,
+    "intrinsics_override_file": null,
+    "weights": "runs/detect_reviewed/weights/best.pt",
+    "observed_layout_prior": "config/observed_layout_prior.json",
+    "model_points": "config/charging_port_model.csv",
+    "geometry_reference": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\geometry_nominal.json",
+    "target_id": "connector_1",
+    "target_class": 0,
+    "target_window": null,
+    "confidence": 0.25,
+    "min_inliers": 7,
+    "max_reprojection_rms_px": 8.0,
+    "max_point_error_px": 15.0,
+    "visual_budget": null,
+    "output": "dataset/live/latest_control_pose.json"
+  },
+  "pipeline_config_sha256": "e1f8e08d532d6a6846152e09d400675c921494d85526d782b63c941ae1ede88d",
+  "geometry": {
+    "schema_version": 1,
+    "version": "legacy-nominal-xy-planar-v1",
+    "status": "nominal_reference",
+    "validated": false,
+    "units": "mm",
+    "frame": "target",
+    "feature_definition": "Historical nominal XY layout with assumed z=0. The visible inner aperture sections of modified CAD and prints are NOT verified.",
+    "points_mm": {
+      "S_neg": [
+        -12,
+        21,
+        0
+      ],
+      "CC2": [
+        0,
+        21,
+        0
+      ],
+      "S_pos": [
+        12,
+        21,
+        0
+      ],
+      "CC1": [
+        0,
+        9,
+        0
+      ],
+      "DC_neg": [
+        -17,
+        -1.2,
+        0
+      ],
+      "DC_pos": [
+        17,
+        -1.2,
+        0
+      ],
+      "A_neg": [
+        -14.25,
+        -21,
+        0
+      ],
+      "PE": [
+        0,
+        -21,
+        0
+      ],
+      "A_pos": [
+        14.25,
+        -21,
+        0
+      ]
+    },
+    "sections": {
+      "S_neg": "historical assumed common plane z=0; physical aperture level unverified",
+      "CC2": "historical assumed common plane z=0; physical aperture level unverified",
+      "S_pos": "historical assumed common plane z=0; physical aperture level unverified",
+      "CC1": "historical assumed common plane z=0; physical aperture level unverified",
+      "DC_neg": "historical assumed common plane z=0; physical aperture level unverified",
+      "DC_pos": "historical assumed common plane z=0; physical aperture level unverified",
+      "A_neg": "historical assumed common plane z=0; physical aperture level unverified",
+      "PE": "historical assumed common plane z=0; physical aperture level unverified",
+      "A_pos": "historical assumed common plane z=0; physical aperture level unverified"
+    },
+    "provenance": [
+      {
+        "path": "config/charging_port_model.csv",
+        "sha256": "e956d4bcc1953a6a23f5c3a74dd0189c1962a5a2f4d9bc0b5c279a20d89d90a5",
+        "kind": "historical_model"
+      }
+    ],
+    "source_path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\geometry_nominal.json",
+    "source_sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab"
+  },
+  "assets": {
+    "weights": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_reviewed\\weights\\best.pt",
+      "sha256": "9fb0889076f1e85485ca9bb6158f5cb559deed1457ff1889f7fd6938f3906264"
+    },
+    "observed_layout_prior": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\observed_layout_prior.json",
+      "sha256": "cabd2e52ac0cfd65c6f3459b93b3cbc35eb6cb2c7bf433dd3cbf16cdf3472988"
+    },
+    "model_points": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\charging_port_model.csv",
+      "sha256": "e956d4bcc1953a6a23f5c3a74dd0189c1962a5a2f4d9bc0b5c279a20d89d90a5"
+    },
+    "geometry_reference": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\geometry_nominal.json",
+      "sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab"
+    }
+  },
+  "code": {
+    "vision/preview.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\preview.py",
+      "sha256": "447965b264fb855d82ce7d4b29c1b5b1f8424abab2ffd7f87cfd56cc99c67749"
+    },
+    "vision/preview_render.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\preview_render.py",
+      "sha256": "80ced77831cc5ca5620f1c3ecc48c55f3b29b367bbf27ada887aa25f627520a1"
+    },
+    "vision/preview_session.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\preview_session.py",
+      "sha256": "516c24c9b6efe4150eb957a65d63fa626452532490d9c5f9e6066e45189cb4f8"
+    },
+    "vision/diagnose.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\diagnose.py",
+      "sha256": "8685c47caa0a11c16f061c7b81da344a43f34205aaeaa50f82428dde05b5a740"
+    },
+    "vision/capture_session.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\capture_session.py",
+      "sha256": "606260e0a7921edec895008490982bf8c510551eac234bd1de254bddeea2ba66"
+    },
+    "vision/contracts.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\contracts.py",
+      "sha256": "aed5b990ce3f2784cabf38624c2f532dc16c28ab53c56a27e91a8c3277e0822b"
+    },
+    "live/python/pose_correspondence.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\live\\python\\pose_correspondence.py",
+      "sha256": "60aed9580f856120fcd87365dfd715bfa13839a035a0f39fdd8efd31a85f276d"
+    },
+    "live/python/pnp2.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\live\\python\\pnp2.py",
+      "sha256": "6def39ecc48f8666ab11e14b98ff54d329c6b72c940e1f2526af8bd29020232b"
+    },
+    "vision/rgbd_capture.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\rgbd_capture.py",
+      "sha256": "263003e2bace2f3c5778963a559ffa9ae7b28ee276a06c76f3ffca7f0358be05"
+    },
+    "vision/depth_diagnostic.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\depth_diagnostic.py",
+      "sha256": "d2a2043f9ceab6925f86bcb6e45f77a1abcc544dee301b4b03f2d1e92d4346b4"
+    },
+    "vision/depth_render.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\depth_render.py",
+      "sha256": "eb93e6e4adafb7098d3d1b810050a89f8e6a7a49eeea4b46c4292b67e67eb004"
+    }
+  },
+  "depth_camera_file": "depth_camera.json",
+  "depth_camera_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+  "error": "PermissionError: [WinError 5] 拒绝访问。: 'C:\\\\Users\\\\admin\\\\Desktop\\\\doc\\\\毕业设计\\\\robot-ev-charging\\\\artifacts\\\\d415_preview\\\\20261030T022814Z_70c99eebf68b4566aa45290f73397b57\\\\manifest.json.eeab1ef60a574b4184ea08ebb7529747.tmp' -> 'C:\\\\Users\\\\admin\\\\Desktop\\\\doc\\\\毕业设计\\\\robot-ev-charging\\\\artifacts\\\\d415_preview\\\\20261030T022814Z_70c99eebf68b4566aa45290f73397b57\\\\manifest.json'",
+  "finished_at": "2026-10-30T02:28:49.710418+00:00"
+}

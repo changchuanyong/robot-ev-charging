@@ -1,0 +1,224 @@
+{
+  "schema_version": 2,
+  "kind": "realsense_preview_diagnostics",
+  "source": "live_diagnostic",
+  "authorizes_robot_motion": false,
+  "capture_manifest": "manifest.json",
+  "camera_file": "camera.json",
+  "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+  "intrinsics_sha256": "52234623a0019d3bf17048d8a46111e71a68e5e9b17b39e9d084db1025243f7c",
+  "status": "completed",
+  "samples": [
+    {
+      "image": "images/frame_000001.png",
+      "image_sha256": "5d9858b364bf299a5a0e44904f1d6723864f25c5b85106a25be180e283dfd931",
+      "width": 1280,
+      "height": 720,
+      "frame_number": 562,
+      "device_timestamp_ms": 1793268039526.4685,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T10:00:39.657594+00:00",
+      "image_pixels_sha256": "15631958e33e29450e7c87ce50c47f2454f8eb06f2248747747778ba489fda77",
+      "diagnostic": "diagnostics/frame_000001.json",
+      "diagnostic_sha256": "7d612d1134ea403aff25ed211d1f334cf5129f92641541ddbea3a5a397014b44",
+      "overlay": "overlays/frame_000001.png",
+      "overlay_sha256": "0d84de7302f42f1236129762c9179aa26f208b8b0c28b54d47bcf4257f577c1d",
+      "depth": {
+        "available": true,
+        "file": "depth/frame_000001.png",
+        "file_sha256": "5dc845d0fc0d72f860ee1184ae5fce93d3d2ed825795eb919d70e486476cf373",
+        "raw_pixels_sha256": "a396c01390c89ace49d871b56e1fa750bcbd10430cf75d4013c5fbcb831631e3",
+        "frame": {
+          "frame_number": 559,
+          "device_timestamp_ms": 1793268039525.6716,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+        },
+        "color_frame": {
+          "frame_number": 562,
+          "device_timestamp_ms": 1793268039526.4685,
+          "timestamp_domain": "global_time",
+          "received_at_utc": "2026-10-29T10:00:39.657594+00:00"
+        },
+        "depth_scale_m": 0.0010000000474974513,
+        "calibration_file": "depth_camera.json",
+        "calibration_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+        "status": "scene_only",
+        "reasons": [
+          "target_not_detected"
+        ]
+      }
+    }
+  ],
+  "pipeline_config": {
+    "description": "D435 eye-in-hand RGB pipeline. Set exact serial and validate calibration before robot use. Pixel gates are provisional analysis settings.",
+    "serial": null,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "timeout_ms": 2000,
+    "max_frame_age_s": 0.5,
+    "intrinsics_validated": false,
+    "intrinsics_sha256": null,
+    "calibration_version": null,
+    "intrinsics_override_file": null,
+    "weights": "runs/detect_reviewed/weights/best.pt",
+    "observed_layout_prior": "config/observed_layout_prior.json",
+    "model_points": "config/charging_port_model.csv",
+    "geometry_reference": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\geometry_nominal.json",
+    "target_id": "connector_1",
+    "target_class": 0,
+    "target_window": null,
+    "confidence": 0.25,
+    "min_inliers": 7,
+    "max_reprojection_rms_px": 8.0,
+    "max_point_error_px": 15.0,
+    "visual_budget": null,
+    "output": "dataset/live/latest_control_pose.json"
+  },
+  "pipeline_config_sha256": "e1f8e08d532d6a6846152e09d400675c921494d85526d782b63c941ae1ede88d",
+  "geometry": {
+    "schema_version": 1,
+    "version": "legacy-nominal-xy-planar-v1",
+    "status": "nominal_reference",
+    "validated": false,
+    "units": "mm",
+    "frame": "target",
+    "feature_definition": "Historical nominal XY layout with assumed z=0. The visible inner aperture sections of modified CAD and prints are NOT verified.",
+    "points_mm": {
+      "S_neg": [
+        -12,
+        21,
+        0
+      ],
+      "CC2": [
+        0,
+        21,
+        0
+      ],
+      "S_pos": [
+        12,
+        21,
+        0
+      ],
+      "CC1": [
+        0,
+        9,
+        0
+      ],
+      "DC_neg": [
+        -17,
+        -1.2,
+        0
+      ],
+      "DC_pos": [
+        17,
+        -1.2,
+        0
+      ],
+      "A_neg": [
+        -14.25,
+        -21,
+        0
+      ],
+      "PE": [
+        0,
+        -21,
+        0
+      ],
+      "A_pos": [
+        14.25,
+        -21,
+        0
+      ]
+    },
+    "sections": {
+      "S_neg": "historical assumed common plane z=0; physical aperture level unverified",
+      "CC2": "historical assumed common plane z=0; physical aperture level unverified",
+      "S_pos": "historical assumed common plane z=0; physical aperture level unverified",
+      "CC1": "historical assumed common plane z=0; physical aperture level unverified",
+      "DC_neg": "historical assumed common plane z=0; physical aperture level unverified",
+      "DC_pos": "historical assumed common plane z=0; physical aperture level unverified",
+      "A_neg": "historical assumed common plane z=0; physical aperture level unverified",
+      "PE": "historical assumed common plane z=0; physical aperture level unverified",
+      "A_pos": "historical assumed common plane z=0; physical aperture level unverified"
+    },
+    "provenance": [
+      {
+        "path": "config/charging_port_model.csv",
+        "sha256": "e956d4bcc1953a6a23f5c3a74dd0189c1962a5a2f4d9bc0b5c279a20d89d90a5",
+        "kind": "historical_model"
+      }
+    ],
+    "source_path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\geometry_nominal.json",
+    "source_sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab"
+  },
+  "assets": {
+    "weights": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_reviewed\\weights\\best.pt",
+      "sha256": "9fb0889076f1e85485ca9bb6158f5cb559deed1457ff1889f7fd6938f3906264"
+    },
+    "observed_layout_prior": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\observed_layout_prior.json",
+      "sha256": "cabd2e52ac0cfd65c6f3459b93b3cbc35eb6cb2c7bf433dd3cbf16cdf3472988"
+    },
+    "model_points": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\charging_port_model.csv",
+      "sha256": "e956d4bcc1953a6a23f5c3a74dd0189c1962a5a2f4d9bc0b5c279a20d89d90a5"
+    },
+    "geometry_reference": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\geometry_nominal.json",
+      "sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab"
+    }
+  },
+  "code": {
+    "vision/preview.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\preview.py",
+      "sha256": "eee5d22b040240f4e18d54e6248522bc4984dd71376e3975beb429b1cea5f3e1"
+    },
+    "vision/preview_render.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\preview_render.py",
+      "sha256": "80ced77831cc5ca5620f1c3ecc48c55f3b29b367bbf27ada887aa25f627520a1"
+    },
+    "vision/preview_session.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\preview_session.py",
+      "sha256": "516c24c9b6efe4150eb957a65d63fa626452532490d9c5f9e6066e45189cb4f8"
+    },
+    "vision/diagnose.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\diagnose.py",
+      "sha256": "8685c47caa0a11c16f061c7b81da344a43f34205aaeaa50f82428dde05b5a740"
+    },
+    "vision/capture_session.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\capture_session.py",
+      "sha256": "606260e0a7921edec895008490982bf8c510551eac234bd1de254bddeea2ba66"
+    },
+    "vision/contracts.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\contracts.py",
+      "sha256": "aed5b990ce3f2784cabf38624c2f532dc16c28ab53c56a27e91a8c3277e0822b"
+    },
+    "live/python/pose_correspondence.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\live\\python\\pose_correspondence.py",
+      "sha256": "60aed9580f856120fcd87365dfd715bfa13839a035a0f39fdd8efd31a85f276d"
+    },
+    "live/python/pnp2.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\live\\python\\pnp2.py",
+      "sha256": "6def39ecc48f8666ab11e14b98ff54d329c6b72c940e1f2526af8bd29020232b"
+    },
+    "vision/rgbd_capture.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\rgbd_capture.py",
+      "sha256": "263003e2bace2f3c5778963a559ffa9ae7b28ee276a06c76f3ffca7f0358be05"
+    },
+    "vision/depth_diagnostic.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\depth_diagnostic.py",
+      "sha256": "d2a2043f9ceab6925f86bcb6e45f77a1abcc544dee301b4b03f2d1e92d4346b4"
+    },
+    "vision/depth_render.py": {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\vision\\depth_render.py",
+      "sha256": "5fbf3f5a73c5dac477ecbf11c26d73fae7d973662a7da74edd0b97c053f4c743"
+    }
+  },
+  "depth_camera_file": "depth_camera.json",
+  "depth_camera_sha256": "f2d3d50de72d217b6b0279ae9f33eac3a2a5b71c2f027b4cfcfc9503c7012e07",
+  "error": null,
+  "finished_at": "2026-10-29T10:02:07.898716+00:00"
+}

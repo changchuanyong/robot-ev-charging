@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "kind": "printed_insertion_stage1_readiness",
+  "created_at": "2026-10-29T06:50:58.225384+00:00",
+  "status": "software_workflows_implemented_physical_baseline_pending",
+  "hardware_accessed": false,
+  "source_sha256": "904a7c0ea8c427f319a0d79d8463b551f23d0e432420d5cbdd23856fde927abd",
+  "historical_development_baseline": {
+    "report": "artifacts\\keypoint_review_pilot\\human_20261027_849095b2\\human_comparison.json",
+    "sha256": "46eb45ab2ece430b80c079bd5aa6ddb8e84d4555232836b3ef405b7d3ebbb84f",
+    "images": 24,
+    "visible_points": 190,
+    "manual_per_image_mean_distance_statistics_px": {
+      "count": 24,
+      "mean_px": 13.452185080544139,
+      "median_px": 12.892969044136496,
+      "max_px": 26.968365572504858
+    },
+    "independent_test_set": false,
+    "camera_and_geometry": "legacy; not the new D435/printed measured baseline"
+  },
+  "available_deliverables": {
+    "CAD_inventory": "artifacts\\printed_stage1\\cad_sources.json",
+    "unassigned_CAD_section": "artifacts\\printed_stage1\\socket_section_y44_25.json",
+    "nominal_geometry": "config/geometry_nominal.json",
+    "measurement_template": "config/print_measurements.template.json",
+    "measured_geometry_template": "config/geometry_reference.template.json",
+    "specimen_registry_template": "config/specimen_registry.template.json",
+    "schedule": "artifacts\\printed_stage1\\schedule_520_v2_pending.json",
+    "admittance_analytic_check": "artifacts\\printed_stage1\\admittance_response.json"
+  },
+  "software_validation": {
+    "unit_tests_passed": 333,
+    "test_log": "artifacts/software_validation/final_unittest_postprobe.log",
+    "synthetic_control_runs": 17,
+    "replayed_runs": 14,
+    "decision_mismatches": 0,
+    "report": "artifacts/software_validation/release_20261029T070911Z/report.synthetic.json",
+    "hardware_template_ready": false
+  },
+  "schedule_check": {
+    "unique_tasks": 520,
+    "methods": [
+      "A",
+      "B",
+      "C",
+      "F"
+    ],
+    "conditions": 13,
+    "tasks_per_cell": 10,
+    "per_specimen_per_cell": 5,
+    "all_pending": true
+  },
+  "pending_actual_evidence": [
+    {
+      "item": "printed geometry",
+      "budget": "3 development + 1 validation + 2 formal test pairs",
+      "status": "measure aperture sections, dimensions, steps, clearances and insertion depth"
+    },
+    {
+      "item": "RGB intrinsics",
+      "budget": "each D415/D435 30 fit/check +10 independent poses",
+      "status": "capture and review; no newly validated real camera report"
+    },
+    {
+      "item": "first diagnostic",
+      "budget": 60,
+      "status": "new schema2 human-reviewed image set not supplied; do not reuse 79 mixed historical images as independent data"
+    },
+    {
+      "item": "blind annotation",
+      "budget": 20,
+      "status": "two independent blind passes, then freeze pixel tolerance"
+    },
+    {
+      "item": "hand-eye/tool/force origin",
+      "budget": "20 solve +10 validation poses plus tool/force records",
+      "status": "physical validation pending"
+    },
+    {
+      "item": "force direction data",
+      "budget": "each class 30 train +10 validation +10 test independent records",
+      "status": "physical labels and real GRU acceptance pending"
+    },
+    {
+      "item": "formal experiments",
+      "budget": 520,
+      "status": "pending independent pilot, frozen physical thresholds and real tasks"
+    }
+  ],
+  "interpretation": "No new real reprojection-error reduction, measured printed geometry, physical pose accuracy, robot readiness, or task success rate is claimed."
+}

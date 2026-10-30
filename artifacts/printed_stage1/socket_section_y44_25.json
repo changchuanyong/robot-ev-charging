@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "kind": "unassigned_CAD_section_candidates",
+  "validated": false,
+  "mesh_path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\模型\\插座改.STL",
+  "mesh_sha256": "95afd0124efd6532fd5cf5eda703982ccea1c89d81a074b89b0b0370ede4c89f",
+  "axis": "y",
+  "level": 44.25,
+  "units": "mm",
+  "candidates": [
+    {
+      "candidate_id": 1,
+      "center_cad": [
+        28.000001780661727,
+        44.25,
+        46.20000204766855
+      ],
+      "diameter": 12.881306885366653,
+      "radial_rms": 0.009346477529668879,
+      "radial_max": 0.009347630522344552,
+      "largest_angular_gap_rad": 0.12249843603635985,
+      "vertex_count": 74
+    },
+    {
+      "candidate_id": 2,
+      "center_cad": [
+        28.000015311275924,
+        44.25,
+        46.20116276639642
+      ],
+      "diameter": 23.976568419582282,
+      "radial_rms": 0.015312704109151224,
+      "radial_max": 0.017232798759376777,
+      "largest_angular_gap_rad": 0.13014144584691922,
+      "vertex_count": 76
+    },
+    {
+      "candidate_id": 3,
+      "center_cad": [
+        45.000001329952,
+        44.25,
+        66.00002738815256
+      ],
+      "diameter": 14.51086334377123,
+      "radial_rms": 0.00034595774929186286,
+      "radial_max": 0.00039040176522586734,
+      "largest_angular_gap_rad": 0.168674599900982,
+      "vertex_count": 76
+    },
+    {
+      "candidate_id": 4,
+      "center_cad": [
+        45.00000147056198,
+        44.25,
+        66.00000160579752
+      ],
+      "diameter": 6.599650768839262,
+      "radial_rms": 0.00017477378816588933,
+      "radial_max": 0.00017717124635652226,
+      "largest_angular_gap_rad": 0.1685633743403927,
+      "vertex_count": 74
+    },
+    {
+      "candidate_id": 5,
+      "center_cad": [
+        45.000001543755886,
+        44.25,
+        24.000018473966204
+      ],
+      "diameter": 9.009192008702316,
+      "radial_rms": 0.0002176634907566781,
+      "radial_max": 0.00024528359272046885,
+      "largest_angular_gap_rad": 0.16865939357400883,
+      "vertex_count": 76
+    },
+    {
+      "candidate_id": 6,
+      "center_cad": [
+        45.000001729820866,
+        44.25,
+        24.00000185008348
+      ],
+      "diameter": 3.5998093499344734,
+      "radial_rms": 9.533394953210823e-05,
+      "radial_max": 9.747057006204152e-05,
+      "largest_angular_gap_rad": 0.16856295067812033,
+      "vertex_count": 74
+    },
+    {
+      "candidate_id": 7,
+      "center_cad": [
+        45.00531047100251,
+        44.25,
+        45.27742348549369
+      ],
+      "diameter": 65.68065122809735,
+      "radial_rms": 0.38467039808016323,
+      "radial_max": 1.7648728540891092,
+      "largest_angular_gap_rad": 0.7394413458896081,
+      "vertex_count": 143
+    },
+    {
+      "candidate_id": 8,
+      "center_cad": [
+        45.0318923157159,
+        44.25,
+        45.41703752935155
+      ],
+      "diameter": 74.48001328321486,
+      "radial_rms": 0.6862016175468502,
+      "radial_max": 3.345725539295856,
+      "largest_angular_gap_rad": 0.5036506159565397,
+      "vertex_count": 111
+    },
+    {
+      "candidate_id": 9,
+      "center_cad": [
+        62.000001667188336,
+        44.25,
+        46.20000170076885
+      ],
+      "diameter": 12.881307042046679,
+      "radial_rms": 0.009346475841581034,
+      "radial_max": 0.009349332460240944,
+      "largest_angular_gap_rad": 0.12249865794442405,
+      "vertex_count": 74
+    },
+    {
+      "candidate_id": 10,
+      "center_cad": [
+        62.000015880637136,
+        44.25,
+        46.20116295747417
+      ],
+      "diameter": 23.976568608705453,
+      "radial_rms": 0.015312687397607867,
+      "radial_max": 0.017233130688603993,
+      "largest_angular_gap_rad": 0.130141567466606,
+      "vertex_count": 76
+    }
+  ],
+  "warning": "CAD section candidates are not named apertures or measured print geometry"
+}
