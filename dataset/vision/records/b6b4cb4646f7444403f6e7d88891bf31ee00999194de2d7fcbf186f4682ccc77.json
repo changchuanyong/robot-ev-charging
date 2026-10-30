@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "image_sha256": "b6b4cb4646f7444403f6e7d88891bf31ee00999194de2d7fcbf186f4682ccc77",
+  "image": "images/2026-10-29/b6b4cb4646f7444403f6e7d88891bf31ee00999194de2d7fcbf186f4682ccc77.png",
+  "label": "labels/2026-10-29/b6b4cb4646f7444403f6e7d88891bf31ee00999194de2d7fcbf186f4682ccc77.txt",
+  "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "width": 1280,
+  "height": 720,
+  "date": "2026-10-29",
+  "status": "excluded",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_sdk_apply\\20261029T084744Z_b340274aa21f4397a1cdcba130685985\\images\\frame_000001.png",
+      "manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_sdk_apply\\20261029T084744Z_b340274aa21f4397a1cdcba130685985\\manifest.json",
+      "image": "images/frame_000001.png",
+      "session_id": "20261029T084744Z_b340274aa21f4397a1cdcba130685985",
+      "received_at_utc": "2026-10-29T08:47:44.187813+00:00",
+      "camera_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_sdk_apply\\20261029T084744Z_b340274aa21f4397a1cdcba130685985\\camera.json",
+      "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+      "camera_serial": "349222063070",
+      "device_model": "D415",
+      "original_split": "unknown",
+      "metadata": {},
+      "preview_manifest": null,
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_sdk_apply\\20261029T084744Z_b340274aa21f4397a1cdcba130685985\\images\\frame_000001.png"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:26.800401+00:00",
+  "annotation_source": "user_requested_permanent_exclusion_20261030",
+  "human_reviewed": true,
+  "label_candidates": [
+    {
+      "label_text": "",
+      "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sources": [
+        {
+          "annotation_source": "assistant_visual_review_20261030_pool",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "pending",
+      "label_sha256": null,
+      "annotation_source": null,
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "changed_at": "2026-10-30T09:51:51.964726+00:00"
+    },
+    {
+      "status": "excluded",
+      "label_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "annotation_source": "assistant_visual_review_20261030_pool",
+      "human_reviewed": false,
+      "exclusion_reason": "assistant_review_no_charging_socket_in_original_RGB",
+      "image_available": false,
+      "label_available": false,
+      "changed_at": "2026-10-30T10:16:57.621119+00:00"
+    }
+  ],
+  "updated_at": "2026-10-30T11:00:39.967125+00:00",
+  "exclusion_reason": "User explicitly retained deletion of 2026-10-28 and 2026-10-29 library copies; do not restore or train on this image."
+}

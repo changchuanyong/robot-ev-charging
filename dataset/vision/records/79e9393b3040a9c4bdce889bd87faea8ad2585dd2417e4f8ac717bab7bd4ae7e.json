@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "image_sha256": "79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e",
+  "image": "images/historical/79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e.jpg",
+  "label": "labels/historical/79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e.txt",
+  "label_sha256": "9ed3f265309e187e32a0ed6da7951beb6dcddf2f2b93b080b79b762c830254f7",
+  "width": 1920,
+  "height": 1080,
+  "date": "historical",
+  "status": "ready",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0041.jpg",
+      "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+      "original_split": "train",
+      "original_group": "historical_train",
+      "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\train\\train_port_0041.txt",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0041.jpg"
+    },
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0046.jpg",
+      "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+      "original_split": "train",
+      "original_group": "historical_train",
+      "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\train\\train_port_0046.txt",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0046.jpg"
+    },
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0041.jpg",
+      "original_split": "train",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0041.jpg"
+    },
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0046.jpg",
+      "original_split": "train",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0046.jpg"
+    },
+    {
+      "review_batch": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\port_library_setup\\20261030",
+      "review_image_id": 15,
+      "visual_domain": "physical_printed_socket",
+      "bbox_definition": "visible socket body and flange, occluded extent clipped to visible evidence; charging gun fixture is a different object",
+      "occluded": false,
+      "human_reviewed": false,
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision\\images\\historical\\79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e.jpg"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:20.866641+00:00",
+  "annotation_source": "assistant_visual_review_20261030_pool",
+  "human_reviewed": false,
+  "label_candidates": [
+    {
+      "label_text": "0 0.418252 0.462158 0.289855 0.402576\n",
+      "label_sha256": "e7afbb796119f5a5b6b23f42d604f70c933fc86ae732535d49bef2b80f3aee6f",
+      "sources": [
+        {
+          "source": {
+            "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0041.jpg",
+            "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+            "original_split": "train",
+            "original_group": "historical_train",
+            "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\train\\train_port_0041.txt",
+            "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0041.jpg"
+          },
+          "annotation_source": "existing_yolo_port_label",
+          "human_reviewed": false
+        }
+      ]
+    },
+    {
+      "label_text": "0 0.413949 0.453301 0.293025 0.386473\n",
+      "label_sha256": "6a2eb48069b89dd70d567f3ee6dd3588c143b8741fe2f68872bae69d22bfe87d",
+      "sources": [
+        {
+          "source": {
+            "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0046.jpg",
+            "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+            "original_split": "train",
+            "original_group": "historical_train",
+            "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\train\\train_port_0046.txt",
+            "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\train\\train_port_0046.jpg"
+          },
+          "annotation_source": "existing_yolo_port_label",
+          "human_reviewed": false
+        }
+      ]
+    },
+    {
+      "label_text": "0 0.41484375 0.4763888889 0.2984375 0.4416666667\n",
+      "label_sha256": "9ed3f265309e187e32a0ed6da7951beb6dcddf2f2b93b080b79b762c830254f7",
+      "sources": [
+        {
+          "annotation_source": "assistant_visual_review_20261030_pool",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "conflict",
+      "label_sha256": "e7afbb796119f5a5b6b23f42d604f70c933fc86ae732535d49bef2b80f3aee6f",
+      "annotation_source": "existing_yolo_port_label",
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "label_text": "0 0.418252 0.462158 0.289855 0.402576\n",
+      "changed_at": "2026-10-30T09:51:51.944727+00:00"
+    }
+  ],
+  "updated_at": "2026-10-30T11:00:35.278847+00:00",
+  "exclusion_reason": null
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "image_sha256": "bfdbe0f11c11626318407cbfa8a79f292a94315a5e253f7abf9b95a52dfc4c09",
+  "image": "images/2026-10-30/bfdbe0f11c11626318407cbfa8a79f292a94315a5e253f7abf9b95a52dfc4c09.png",
+  "label": "labels/2026-10-30/bfdbe0f11c11626318407cbfa8a79f292a94315a5e253f7abf9b95a52dfc4c09.txt",
+  "label_sha256": "c6a7f7541c58345bdc62a133800b6c187c21e783dfc3746f190bce5f668ed732",
+  "width": 1280,
+  "height": 720,
+  "date": "2026-10-30",
+  "status": "ready",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\images\\frame_000025.png",
+      "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+      "original_split": "train",
+      "original_group": "d415_capture_collection_20261030_0313_0317",
+      "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\train\\d415_20261030_new_s3_025.txt",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\images\\frame_000025.png"
+    },
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\images\\frame_000025.png",
+      "manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\manifest.json",
+      "image": "images/frame_000025.png",
+      "session_id": "20261030T031538Z_99879947c6494ae5b7eb56cb9e262678",
+      "received_at_utc": "2026-10-30T03:16:19.185360+00:00",
+      "camera_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\camera.json",
+      "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+      "camera_serial": "349222063070",
+      "device_model": "D415",
+      "original_split": "unknown",
+      "metadata": {
+        "specimen_id": null,
+        "printing_batch_id": null,
+        "geometry_version": "legacy-nominal-xy-planar-v1",
+        "notes": "D415 SDK visual diagnostics; unreviewed images"
+      },
+      "preview_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\preview_manifest.json",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\images\\frame_000025.png"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:22.911175+00:00",
+  "annotation_source": "assistant_visual_review",
+  "human_reviewed": false,
+  "label_candidates": [
+    {
+      "label_text": "0 0.6296875 0.38680556 0.546875 0.77361111\n",
+      "label_sha256": "c6a7f7541c58345bdc62a133800b6c187c21e783dfc3746f190bce5f668ed732",
+      "sources": [
+        {
+          "source": {
+            "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\images\\frame_000025.png",
+            "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+            "original_split": "train",
+            "original_group": "d415_capture_collection_20261030_0313_0317",
+            "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\train\\d415_20261030_new_s3_025.txt",
+            "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031538Z_99879947c6494ae5b7eb56cb9e262678\\images\\frame_000025.png"
+          },
+          "annotation_source": "assistant_visual_review",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [],
+  "updated_at": "2026-10-30T11:00:39.130763+00:00"
+}

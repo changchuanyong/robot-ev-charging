@@ -19,7 +19,8 @@ runs/*/weights/*
 
 # Live capture outputs and debug artifacts
 dataset/live/
-dataset/vision/
+# dataset/vision is tracked on purpose: the image library, labels and provenance
+# records are the training data of record, and a clone must be able to reproduce it.
 artifacts/*
 # Documentation evidence: keep only the small, explicitly cited records in Git.
 !artifacts/d415_preview/

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "library": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision",
+  "source_visits": 390,
+  "unique_images": 240,
+  "status_counts": {
+    "ready": 233,
+    "excluded": 7
+  },
+  "scope": "Original RGB only; duplicate files share one training identity. Excluded images retain reasons.",
+  "independent_validation": false
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "image_sha256": "1b913e5f6c8ac44cf84fb48bd523086612cb726d1bd500fe738d6212b9346117",
+  "image": "images/2026-10-30/1b913e5f6c8ac44cf84fb48bd523086612cb726d1bd500fe738d6212b9346117.png",
+  "label": "labels/2026-10-30/1b913e5f6c8ac44cf84fb48bd523086612cb726d1bd500fe738d6212b9346117.txt",
+  "label_sha256": "8838d320e2c7146eccb784d52c3c676cf74ad95de9234e2718999098895d1542",
+  "width": 1280,
+  "height": 720,
+  "date": "2026-10-30",
+  "status": "ready",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\hd_20261030T090020389602Z\\raw_manual_control_check.png",
+      "import_kind": "unmanifested_original_rgb",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\hd_20261030T090020389602Z\\raw_manual_control_check.png"
+    },
+    {
+      "review_batch": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\port_library_setup\\20261030",
+      "review_image_id": 3,
+      "visual_domain": "physical_printed_socket",
+      "bbox_definition": "visible socket body and flange, occluded extent clipped to visible evidence; charging gun fixture is a different object",
+      "occluded": false,
+      "human_reviewed": false,
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision\\images\\2026-10-30\\1b913e5f6c8ac44cf84fb48bd523086612cb726d1bd500fe738d6212b9346117.png"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:27.048953+00:00",
+  "annotation_source": "assistant_visual_review_20261030_pool",
+  "human_reviewed": false,
+  "label_candidates": [
+    {
+      "label_text": "0 0.692578125 0.7513888889 0.36171875 0.4666666667\n",
+      "label_sha256": "8838d320e2c7146eccb784d52c3c676cf74ad95de9234e2718999098895d1542",
+      "sources": [
+        {
+          "annotation_source": "assistant_visual_review_20261030_pool",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "pending",
+      "label_sha256": null,
+      "annotation_source": null,
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "changed_at": "2026-10-30T09:51:51.888201+00:00"
+    }
+  ],
+  "updated_at": "2026-10-30T11:00:40.210496+00:00",
+  "exclusion_reason": null
+}

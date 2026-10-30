@@ -1,0 +1,12 @@
+{
+  "images": 79,
+  "unique_images": 74,
+  "archived_annotations": 131,
+  "annotation_extensions": {
+    ".yaml": 1,
+    ".json": 51,
+    ".txt": 79
+  },
+  "index": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\config\\legacy_photo_index.json",
+  "legacy_directory_preserved": true
+}

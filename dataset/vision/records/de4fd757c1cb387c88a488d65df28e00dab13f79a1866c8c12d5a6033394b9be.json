@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "image_sha256": "de4fd757c1cb387c88a488d65df28e00dab13f79a1866c8c12d5a6033394b9be",
+  "image": "images/historical/de4fd757c1cb387c88a488d65df28e00dab13f79a1866c8c12d5a6033394b9be.jpg",
+  "label": "labels/historical/de4fd757c1cb387c88a488d65df28e00dab13f79a1866c8c12d5a6033394b9be.txt",
+  "label_sha256": "a095a31634ead505308aba3d43077231a5cc154cc454baa09550778b17d20e1b",
+  "width": 1920,
+  "height": 1080,
+  "date": "historical",
+  "status": "ready",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\val\\val_port_0015.jpg",
+      "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+      "original_split": "val",
+      "original_group": "historical_val",
+      "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\val\\val_port_0015.txt",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\val\\val_port_0015.jpg"
+    },
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\val\\val_port_0015.jpg",
+      "original_split": "val",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\val\\val_port_0015.jpg"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:21.320424+00:00",
+  "annotation_source": "existing_yolo_port_label",
+  "human_reviewed": false,
+  "label_candidates": [
+    {
+      "label_text": "0 0.675725 0.295491 0.311141 0.584541\n",
+      "label_sha256": "a095a31634ead505308aba3d43077231a5cc154cc454baa09550778b17d20e1b",
+      "sources": [
+        {
+          "source": {
+            "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\val\\val_port_0015.jpg",
+            "training_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\training_manifest.json",
+            "original_split": "val",
+            "original_group": "historical_val",
+            "snapshot_label": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\black_port_finetune\\20261030_v2\\dataset\\labels\\val\\val_port_0015.txt",
+            "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\yolo_port\\images\\val\\val_port_0015.jpg"
+          },
+          "annotation_source": "existing_yolo_port_label",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [],
+  "updated_at": "2026-10-30T11:00:35.606903+00:00"
+}

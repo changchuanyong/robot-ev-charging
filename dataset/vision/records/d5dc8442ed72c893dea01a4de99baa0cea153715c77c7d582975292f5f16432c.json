@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "image_sha256": "d5dc8442ed72c893dea01a4de99baa0cea153715c77c7d582975292f5f16432c",
+  "image": "images/2026-10-30/d5dc8442ed72c893dea01a4de99baa0cea153715c77c7d582975292f5f16432c.png",
+  "label": "labels/2026-10-30/d5dc8442ed72c893dea01a4de99baa0cea153715c77c7d582975292f5f16432c.txt",
+  "label_sha256": "f885477a9c73c77faeb97d9127db34deca238f27f613355a09e32ee5599e11ed",
+  "width": 1920,
+  "height": 1080,
+  "date": "2026-10-30",
+  "status": "ready",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\full-hd_20261030T085917526196Z\\captures\\20261030T085926Z_0183bdd8c5614195a65831d860479289\\images\\frame_000001.png",
+      "manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\full-hd_20261030T085917526196Z\\captures\\20261030T085926Z_0183bdd8c5614195a65831d860479289\\manifest.json",
+      "image": "images/frame_000001.png",
+      "session_id": "20261030T085926Z_0183bdd8c5614195a65831d860479289",
+      "received_at_utc": "2026-10-30T08:59:26.661436+00:00",
+      "camera_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\full-hd_20261030T085917526196Z\\captures\\20261030T085926Z_0183bdd8c5614195a65831d860479289\\camera.json",
+      "camera_sha256": "ea072daf51846597fa637a56e88264f9f6e479e1d20a2a6a21afcf9e983be33d",
+      "camera_serial": "349222063070",
+      "device_model": "D415",
+      "original_split": "unknown",
+      "metadata": {
+        "notes": "USB3 preview validation, not a training/test set",
+        "capture_config": {
+          "description": "D415 USB3 diagnostic preview: full-HD RGB, 30 fps. SDK intrinsics are read from the actual stream.",
+          "device_model": "D415",
+          "serial": "349222063070",
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "warmup_frames": 60,
+          "timeout_ms": 5000,
+          "output_root": "artifacts/d415_preview",
+          "rgb_options": {
+            "enable_auto_exposure": 1,
+            "auto_exposure_priority": 0
+          }
+        }
+      },
+      "preview_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\full-hd_20261030T085917526196Z\\captures\\20261030T085926Z_0183bdd8c5614195a65831d860479289\\preview_manifest.json",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\full-hd_20261030T085917526196Z\\captures\\20261030T085926Z_0183bdd8c5614195a65831d860479289\\images\\frame_000001.png"
+    },
+    {
+      "review_batch": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\port_library_setup\\20261030",
+      "review_image_id": 24,
+      "visual_domain": "physical_printed_socket",
+      "bbox_definition": "visible socket body and flange, occluded extent clipped to visible evidence; charging gun fixture is a different object",
+      "occluded": false,
+      "human_reviewed": false,
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision\\images\\2026-10-30\\d5dc8442ed72c893dea01a4de99baa0cea153715c77c7d582975292f5f16432c.png"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:26.902916+00:00",
+  "annotation_source": "assistant_visual_review_20261030_pool",
+  "human_reviewed": false,
+  "label_candidates": [
+    {
+      "label_text": "0 0.575390625 0.7333333333 0.31171875 0.4277777778\n",
+      "label_sha256": "f885477a9c73c77faeb97d9127db34deca238f27f613355a09e32ee5599e11ed",
+      "sources": [
+        {
+          "annotation_source": "assistant_visual_review_20261030_pool",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "pending",
+      "label_sha256": null,
+      "annotation_source": null,
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "changed_at": "2026-10-30T09:51:51.989727+00:00"
+    }
+  ],
+  "updated_at": "2026-10-30T11:00:40.067243+00:00",
+  "exclusion_reason": null
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "image_sha256": "bbd4f4949a95cfd171ceceac36a2168047600874833821c5b010c8d17f6ca02c",
+  "image": "images/2026-10-30/bbd4f4949a95cfd171ceceac36a2168047600874833821c5b010c8d17f6ca02c.png",
+  "label": "labels/2026-10-30/bbd4f4949a95cfd171ceceac36a2168047600874833821c5b010c8d17f6ca02c.txt",
+  "label_sha256": "e90ef054c0eb681c64b63a0e5db62ba8aeb525fbdbf272bcf0cd46beb7c407c1",
+  "width": 1280,
+  "height": 720,
+  "date": "2026-10-30",
+  "status": "ready",
+  "sources": [
+    {
+      "path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\images\\frame_000004.png",
+      "manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\manifest.json",
+      "image": "images/frame_000004.png",
+      "session_id": "20261030T071018Z_7989860f1feb4e22b4355519cd799188",
+      "received_at_utc": "2026-10-30T07:10:23.244681+00:00",
+      "camera_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\camera.json",
+      "camera_sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+      "camera_serial": "349222063070",
+      "device_model": "D415",
+      "original_split": "unknown",
+      "metadata": {
+        "notes": "Current USB3 connection; no sensor option writes; no robot connection"
+      },
+      "preview_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\preview_manifest.json",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\images\\frame_000004.png"
+    },
+    {
+      "review_batch": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\port_library_setup\\20261030",
+      "review_image_id": 20,
+      "visual_domain": "physical_printed_socket",
+      "bbox_definition": "visible socket body and flange, occluded extent clipped to visible evidence; charging gun fixture is a different object",
+      "occluded": true,
+      "human_reviewed": false,
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision\\images\\2026-10-30\\bbd4f4949a95cfd171ceceac36a2168047600874833821c5b010c8d17f6ca02c.png"
+    }
+  ],
+  "created_at": "2026-10-30T09:39:26.875909+00:00",
+  "annotation_source": "assistant_visual_review_20261030_pool",
+  "human_reviewed": false,
+  "label_candidates": [
+    {
+      "label_text": "0 0.65703125 0.6145833333 0.315625 0.3875\n",
+      "label_sha256": "e90ef054c0eb681c64b63a0e5db62ba8aeb525fbdbf272bcf0cd46beb7c407c1",
+      "sources": [
+        {
+          "annotation_source": "assistant_visual_review_20261030_pool",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "pending",
+      "label_sha256": null,
+      "annotation_source": null,
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "changed_at": "2026-10-30T09:51:51.969726+00:00"
+    }
+  ],
+  "updated_at": "2026-10-30T11:00:40.040211+00:00",
+  "exclusion_reason": null
+}

@@ -1,0 +1,36 @@
+{
+  "version": "6.0.0",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "port",
+      "points": [
+        [
+          388.26086956521755,
+          492.1739130434783
+        ],
+        [
+          588.2608695652176,
+          222.608695652174
+        ],
+        [
+          942.1739130434784,
+          313.91304347826093
+        ],
+        [
+          811.7391304347827,
+          608.6956521739131
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "polygon",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "train_port_0051.jpg",
+  "imageData": null,
+  "imageHeight": 1080,
+  "imageWidth": 1920
+}

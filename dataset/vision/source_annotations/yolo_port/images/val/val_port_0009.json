@@ -1,0 +1,36 @@
+{
+  "version": "6.0.0",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "port",
+      "points": [
+        [
+          665.6521739130436,
+          570.4347826086957
+        ],
+        [
+          749.1304347826089,
+          323.4782608695653
+        ],
+        [
+          1157.8260869565217,
+          347.8260869565218
+        ],
+        [
+          1227.391304347826,
+          606.9565217391305
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "polygon",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "val_port_0009.jpg",
+  "imageData": null,
+  "imageHeight": 1080,
+  "imageWidth": 1920
+}
