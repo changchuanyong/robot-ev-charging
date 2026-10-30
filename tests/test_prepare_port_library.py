@@ -207,6 +207,28 @@ class PrepareLibraryTests(unittest.TestCase):
         self.assertIn("0 0.50000000 0.50000000 0.40000000 0.40000000", page.read_text(encoding="utf-8"))
         self.assertIn("file:///", page.read_text(encoding="utf-8"))
 
+    def test_review_cli_uses_current_model_or_explicit_manual_choice(self):
+        weights = self.scratch / "selected.pt"
+        for options, expected in (([], weights), (["--no-suggestions"], None),
+                                  (["--weights", str(weights)], weights)):
+            with self.subTest(options=options):
+                with (patch.object(prepare, "sync_library", return_value={}),
+                      patch.object(prepare, "current_model_path", return_value=weights) as selected,
+                      patch.object(prepare, "write_review", return_value={}) as review):
+                    prepare.main(["--library", str(self.library), "--review", str(self.scratch / "review.html"),
+                                  *options])
+                self.assertEqual(review.call_args.args[2], expected)
+                if not options:
+                    selected.assert_called_once_with(verify=True)
+                else:
+                    selected.assert_not_called()
+
+    def test_sync_without_review_does_not_require_model(self):
+        with (patch.object(prepare, "sync_library", return_value={}),
+              patch.object(prepare, "current_model_path") as selected):
+            prepare.main(["--library", str(self.library)])
+        selected.assert_not_called()
+
     @unittest.skipUnless(shutil.which("node"), "Node unavailable for review interaction check")
     def test_review_export_requires_explicit_decision_and_edits_invalidate_acceptance(self):
         self.capture()

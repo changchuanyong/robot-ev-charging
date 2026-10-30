@@ -273,7 +273,7 @@ def main(argv=None):
     exposure_group.add_argument("--auto-exposure", action="store_true", help="Enable RGB auto exposure")
     parser.add_argument("--gain", type=float, help="Manual RGB gain in SDK option units")
     parser.add_argument("--zoom", action="store_true", help="Enlarge detected target for display; keep full raw images")
-    parser.add_argument("--vision-config", type=Path, default=ROOT / "config/realsense_config.json",
+    parser.add_argument("--vision-config", type=Path, default=ROOT / "config/d415_preview.json",
                         help="Detector and PnP settings only; no control output is written")
     parser.add_argument("--geometry", type=Path, default=ROOT / "config/geometry_nominal.json")
     parser.add_argument("--serial", help="Explicit D415 serial; otherwise use capture configuration")
@@ -321,6 +321,7 @@ def main(argv=None):
         frontend = DiagnosticFrontend(config)
         print("正在加载检测模型和几何…", flush=True)
         frontend._load()
+        config = frontend.config
         batch = args.batch or "d415_preview_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         if args.depth:
             from .rgbd_capture import CaptureRGBDCamera

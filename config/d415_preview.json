@@ -1,6 +1,6 @@
 {
-  "description": "Experimental D415 preview detector v2: 139 additional capture frames, 208 train images and 16 historical development-val images. New boxes are assistant visual reviews, not human-reviewed. Use with vision.preview --vision-config; no independent new test or hole-pose validation.",
-  "weights": "runs/detect_black_20261030_v2/weights/best.pt",
+  "description": "D415 RGB/depth diagnostic preview using the shared active detector. SDK intrinsics and nominal geometry do not authorize robot motion.",
+  "model_registry": "config/vision_model.json",
   "observed_layout_prior": "config/observed_layout_prior.json",
   "model_points": "config/charging_port_model.csv",
   "geometry_reference": null,

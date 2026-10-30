@@ -46,7 +46,7 @@ uv pip install --python .venv\Scripts\python.exe -r requirements-control.txt
 .venv\Scripts\python.exe -m vision.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
 ```
 
-详细配置、离线图像、标定样本和流内参导出格式见 [视觉说明](../vision/README.md)。实际相机运行会访问 D435，应在设备采集获准后执行。新流水线在内存中串行复用原视觉算法，不受旧 `latest_roi` 等文件的更新顺序影响。
+详细配置、离线图像、标定样本和流内参导出格式见 [视觉说明](../vision/README.md)。D435 检测权重通过 `config/vision_model.json` 与其他视觉入口统一，设备身份、内参验收及控制门槛仍由 D435 配置决定。模型更新后需重启视觉进程，并在相应设备和工况上验证；更换检测器不自动构成真机验收。实际相机运行会访问 D435，应在设备采集获准后执行。新流水线在内存中串行复用原视觉算法，不受旧 `latest_roi` 等文件的更新顺序影响。
 
 视觉消息输出 `T_camera_target`，平移为米。机器人反馈是当前 TCP；程序用独立 `T_flange_tool` 恢复法兰，再计算：
 

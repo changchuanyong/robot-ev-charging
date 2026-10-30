@@ -12,6 +12,7 @@ import time
 import numpy as np
 
 from .contracts import FramePacket, distort_normalized, empty_observation, intrinsics_signature, rectify_points, validate_camera
+from .model_config import resolve_model_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,7 +73,7 @@ def select_detection(boxes: list[dict], image_shape: tuple, target_window: list 
 
 class PosePipeline:
     def __init__(self, config: dict, detector=None):
-        self.config = config
+        self.config = resolve_model_config(config)
         self.target_id = config["target_id"]
         if not isinstance(self.target_id, str) or not self.target_id.strip():
             raise ValueError("target_id_required")
@@ -98,11 +99,9 @@ class PosePipeline:
         detector = self._detector
         if detector is None:
             from ultralytics import YOLO
+            self.config = resolve_model_config(self.config, verify=True)
             weights = Path(self.config["weights"])
-            if not weights.is_absolute():
-                weights = ROOT / weights
-            if not weights.is_file():
-                raise FileNotFoundError(f"YOLO weights missing: {weights}")
+            print(f"检测模型: {weights}", flush=True)
             detector = YOLO(str(weights))
         self.geometry_source = None
         if self.config.get("geometry_reference"):

@@ -14,6 +14,7 @@ import numpy as np
 
 from .contracts import distort_normalized, intrinsics_signature, rectify_points, validate_camera
 from .pipeline import PosePipeline, ROOT, select_detection
+from .model_config import resolve_model_config
 
 if str(ROOT / "live/python") not in sys.path:
     sys.path.insert(0, str(ROOT / "live/python"))
@@ -365,7 +366,7 @@ def main(argv=None):
     from .geometry_reference import load_geometry_reference
     sessions = [validate_capture_annotations(path, args.root) for path in args.annotations]
     geometries = [load_geometry_reference(path) for path in args.geometry]
-    config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+    config = resolve_model_config(json.loads(args.config.read_text(encoding="utf-8-sig")))
     cameras = [json.loads(path.read_text(encoding="utf-8-sig")) for path in args.camera_override]
     result = evaluate(sessions, geometries, config, root=args.root, camera_overrides=cameras,
                       tolerance_px=args.tolerance_px, frontend=None if args.manual_only else DiagnosticFrontend(config))
@@ -377,7 +378,7 @@ def main(argv=None):
     result["provenance"]["pipeline_config"] = config
     result["provenance"]["source_sha256"] = {
         name: sha256_file(ROOT / name) for name in (
-            "vision/pipeline.py", "vision/contracts.py", "live/python/pose_correspondence.py",
+            "vision/pipeline.py", "vision/model_config.py", "vision/contracts.py", "live/python/pose_correspondence.py",
             "live/python/observed_layout.py", "live/python/latest_candidate_contours.py",
             "live/python/center_fit.py", "live/python/enhance.py", "live/python/Canny.py")}
     result["provenance"]["frontend_assets"] = {}

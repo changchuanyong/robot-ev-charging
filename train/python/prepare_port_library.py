@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from vision.capture_files import atomic_capture_json
+from vision.model_config import current_model_path
 from vision.training_library import read_entries, register_image
 from vision.photo_sources import resolve_photo
 
@@ -199,11 +200,17 @@ def main(argv=None):
     parser.add_argument("--source", type=Path, action="append", default=[], help="Extra original-photo directory")
     parser.add_argument("--review", type=Path, help="Write a local editable box-review HTML")
     parser.add_argument("--all", action="store_true", help="Include ready/excluded images in review")
-    parser.add_argument("--weights", type=Path, help="Optional YOLO suggestions; never auto-accept")
+    suggestions = parser.add_mutually_exclusive_group()
+    suggestions.add_argument("--weights", type=Path, help="Explicit suggestion weights; default uses config/vision_model.json")
+    suggestions.add_argument("--no-suggestions", action="store_true", help="Draw boxes manually without loading YOLO")
     args = parser.parse_args(argv)
     print(json.dumps(sync_library(ROOT, args.library, args.source), ensure_ascii=False, indent=2))
     if args.review:
-        print(json.dumps(write_review(args.library, args.review, args.weights, args.all), ensure_ascii=False, indent=2))
+        weights = None if args.no_suggestions else (
+            args.weights.resolve() if args.weights is not None else current_model_path(verify=True))
+        if weights is not None:
+            print(f"预标注模型: {weights}")
+        print(json.dumps(write_review(args.library, args.review, weights, args.all), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

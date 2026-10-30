@@ -1,6 +1,6 @@
-# 人工复核后的视觉改进
+# 人工复核后的视觉改进（2026-10-27 历史记录）
 
-2026-10-27：使用用户返回的 24 张人工复核标注改进检测与孔名关联，默认入口已启用。原有 79 张图和这 24 张标注都是开发数据，不是独立测试集。
+2026-10-27 使用用户返回的 24 张人工复核标注改进检测与孔名关联，当时默认入口已启用。本文“默认版本”均指当时冻结的实验配置；当前检测模型由 `config/vision_model.json` 指定，日常操作见 [README](../README.md)。原有 79 张图和这 24 张标注都是开发数据，不是独立测试集。
 
 ## 实际改动
 
@@ -35,23 +35,13 @@
 
 默认版所有返回位姿的平均/中位/最大重投影残差为 10.285975 / 10.430807 / 17.075445 px。原优化版平均为 12.011638 px；两者返回图片和点数不同，这不是同样本精度改善证据。只有 24 张有人工复核，其他 55 张不能据此宣称无错点。原 Kinect 占位内参仍不具备真机验收效力。
 
-## 运行与复现
+## 历史证据与当前入口
 
-在项目根目录使用现有虚拟环境，默认选择新权重和新关联：
+本页数值来自下方列出的冻结报告。旧 `yolo_port` 已迁入统一图库，79 份历史文件合并为 74 张唯一原图；直接重跑当前默认批处理既会使用新的检测模型，也会改变重复图的计数口径，因此不能据此复算本页的 79 图结果。
 
-```powershell
-.venv\Scripts\python.exe -B -X utf8 live/python/batch_pipeline_eval.py --max-images 79 --output-dir artifacts/batch_eval_reviewed --save-visualizations
-```
+复现历史消融时，需要显式选择旧权重（`runs/detect_reviewed/weights/best.pt` 或 `runs/detect_retrain/weights/best.pt`）、对应版本的关联算法及冻结输入；`--legacy-layout` 可显式选择原关联。人工孔名和中心对照应继续使用原报告及原标注，不能只比较重投影残差。当前 D435 和批处理默认模型统一读取 `config/vision_model.json`，不再默认选择上述旧权重。
 
-与冻结基线比较人工孔名和中心，而非仅比较残差：
-
-```powershell
-.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_labeled_regression.py --annotations artifacts/keypoint_review_pilot/human_20261027_849095b2/reviewed_annotations.json --before artifacts/batch_eval_optimized/latest_details.json --after artifacts/batch_eval_reviewed/latest_details.json --output artifacts/batch_eval_reviewed/labeled_comparison.json
-```
-
-消融对照可用 `--model runs/detect_retrain/weights/best.pt` 保留旧检测器；再加 `--legacy-layout` 使用原关联。D435 使用 `config/realsense_config.json` 中的 `weights` 和 `observed_layout_prior`，将后者设为 `null` 可显式使用原关联。没有连接或移动硬件。
-
-原 Kinect 多进程启动器未做本轮整链路运行验收；其上游文件读写脚本仍存在中文路径兼容问题。本轮修复并验证的是批处理和候选提取入口的图片读写，日常离线检查使用上方批处理命令。
+原 Kinect 多进程启动器未做本轮整链路运行验收；其上游文件读写脚本仍存在中文路径兼容问题。本轮修复并验证的是批处理和候选提取入口的图片读写，当前离线检查命令见 [README](../README.md#批量评估)。
 
 重新拟合二维先验时应使用新文件名，工具拒绝覆盖已有先验：
 
@@ -59,11 +49,7 @@
 .venv\Scripts\python.exe -B -X utf8 train/python/fit_observed_layout.py --annotations artifacts/keypoint_review_pilot/human_20261027_849095b2/reviewed_annotations.json --output artifacts/observed_layout_prior_refit.json
 ```
 
-检测器训练参数保存在 `detector_training_manifest.json`。下面使用相同参数和另一个输出名复现；原 `train_port.py` 仍读取旧 `config/train_config.json`，不会自动更新新推理权重：
-
-```powershell
-.venv\Scripts\python.exe -B -X utf8 -c "from ultralytics import YOLO; YOLO('yolov8n.pt').train(data='yolo_port/dataset.yaml', epochs=100, imgsz=640, batch=8, device='cpu', workers=0, project='runs', name='detect_reviewed_repeat', exist_ok=False, seed=0, deterministic=True)"
-```
+历史检测器训练参数保存在 `detector_training_manifest.json`。旧 `yolo_port/dataset.yaml` 已移除，不再提供依赖该路径的训练命令；新的统一图库、固定分组和 GPU 训练使用 [README 中的训练入口](../README.md#数据集与训练)。当前训练完整成功后会更新共享模型记录，原历史报告与权重继续留档。
 
 本地证据目录 `artifacts/supervised_vision_20261027/` 包含训练/检测框/ROI 覆盖报告、两组消融报告与可视化、人工回归对照及测试日志。`final_comparison.md` 是最终人工对照，`final_default/latest_details.json` 是最终默认配置重跑的 79 图报告，已核对源码与先验哈希。原标注 SHA256 为 `849095b2ae9ce1a9c1d0199495b7655843ce7fb475c8b09e4039abeda01bb601`，新权重 SHA256 为 `9fb0889076f1e85485ca9bb6158f5cb559deed1457ff1889f7fd6938f3906264`。
 

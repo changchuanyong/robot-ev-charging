@@ -10,7 +10,7 @@
   "intrinsics_sha256": null,
   "calibration_version": null,
   "intrinsics_override_file": null,
-  "weights": "runs/detect_reviewed/weights/best.pt",
+  "model_registry": "config/vision_model.json",
   "observed_layout_prior": "config/observed_layout_prior.json",
   "model_points": "config/charging_port_model.csv",
   "geometry_reference": null,

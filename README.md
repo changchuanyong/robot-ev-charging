@@ -6,7 +6,7 @@
 
 2026-10-29 按打印件方案新增：分会话相机/几何误差诊断、RGB 内参独立图像检查、版本化孔口几何、有限试探与实际推进确认，以及 A/B/C/F 的 520 次任务编排。规则为 `finite-trial-v2`，旧 F 配置不能直接复用。软件与待采集项、4–6 周安排见 [打印件插装推进与验收](docs/printed_insertion_plan.md)；本次不代表已完成实物采集或真机插装实验。
 
-2026-10-27 已根据 24 张人工复核图更新视觉默认配置：修正 3 个训练框、重训检测器，并引入仅由 train 标注学习的二维孔位关联。190 个可见参考点中，返回正确点 106→118、错点 48→0、缺失 36→72；改善主要在减少误认，漏点仍需继续处理。结果、默认运行命令及数据边界见 [人工复核后的视觉改进](docs/supervised_vision_improvement.md)。
+当前检测器为 **YOLOv8n**，所有活动视觉入口从 `config/vision_model.json` 读取同一份模型记录。孔名关联继续使用人工复核 train 图学习的二维先验；算法与历次开发结果见 [人工复核后的视觉改进（历史记录）](docs/supervised_vision_improvement.md)。
 
 D415 采训练数据、D435 用于机械臂定位的流程见 [D415 数据采集说明](docs/d415_data_collection.md)：独立采集原图和相机参数，按拍摄批次分组，再生成九孔人工复核页面。
 
@@ -36,7 +36,7 @@ py -3.12 -m venv .venv
 
 本机 `.venv` 由 `uv` 创建，没有内置 pip；需要重新安装时可用 `uv pip install --python .venv/Scripts/python.exe -r requirements-gpu.txt`。训练默认 `--device 0`；GPU 不可用会明确报错，有意使用 CPU 时加 `--device cpu`。上述 GPU wheel 专用于 Windows 64 位/Python 3.12，其他平台应按 [PyTorch 官方安装说明](https://pytorch.org/get-started/locally/) 选择对应版本。
 
-实时检测默认读取 `runs/detect_reviewed/weights/best.pt`。本机已有该权重，但 `runs/` 和 `*.pt` 被 Git 忽略，**新克隆不会包含模型权重**：需要另行放入训练好的权重，或通过 `--vision-config` 指定 JSON 并设置其中的 `weights` 路径。只用 `vision.collect` 采集原图不需要检测权重。
+默认模型由 `config/vision_model.json` 统一指定。本次已验证的版本来自 `runs/detect_split_20261030T110042Z_105be6be/weights/best.pt`，之后的实际默认以该记录为准。D415 预览、D435 定位、Kinect 流水线、批量评估和图库预标注都使用这份记录；启动会核对权重文件与 SHA256，缺失或不符时明确报错。`runs/` 和 `*.pt` 被 Git 忽略，**新克隆不会包含模型权重**，换电脑需一并复制记录指向的文件。只用 `vision.collect` 采集原图不需要检测权重。
 
 连接 D415，关闭占用它的 RealSense Viewer 或其他采集进程。查看设备型号和完整序列号：
 
@@ -59,42 +59,20 @@ py -3.12 -m venv .venv
 | `D415 Visual Diagnostics` | 原始彩色画面、检测框、孔位候选、孔名、重投影点、逐孔残差及 mean/RMS/max |
 | `D415 Depth Diagnostics` | 原生深度图、有效深度比例、双流时间差、目标区域距离、候选表面平面法向及 PnP 一致性 |
 
-**彩色诊断示例**：暂停画面右侧显示帧信息、九孔状态与失败原因。此帧未检测到充电口，因此位姿和重投影残差显示 `--`。点击图片可查看原尺寸。
+**2026-10-30 实拍示例**：新模型检出 1 个接口框，置信度 0.9453；9 个可见孔均有定位，孔名关联通过，PnP 内点为 9/9。该帧重投影平均 **1.561 px**、RMS **1.649 px**、最大 **2.441 px**，通过当前视觉质量检查。
 
-[![D415 彩色诊断：暂停的室内实拍画面，右侧显示未检测到充电口及九孔未定位](docs/assets/readme/d415_rgb_preview.png)](docs/assets/readme/d415_rgb_preview.png)
+[![D415 实拍九孔识别：九个可见孔均已定位，PnP重投影RMS为1.649像素](docs/assets/readme/current_nine_hole_detection.png)](docs/assets/readme/current_nine_hole_detection.png)
 
-**同组数据的深度诊断示例**：黑色区域为无效深度，右侧显示约 73.6% 的非零深度比例和约 0.80 ms 的双流时间差。未确定目标时仅显示场景深度，目标距离、法向和 PnP 一致性保持为空。
+这是一帧的诊断结果，孔名依据配置模板，物理极性仍需与样件核对。SDK 内参与名义共面几何尚未独立验收，低重投影残差不代表毫米级精度或插装成功。此帧深度已读取，但候选平面因混合/非平面表面被拒绝；深度没有作为额外通道参与 YOLO 训练。
 
-[![D415 深度诊断：原生深度彩图、有效比例和双流时间差，未确定目标平面](docs/assets/readme/d415_depth_preview.png)](docs/assets/readme/d415_depth_preview.png)
+原图与诊断保存在 `artifacts/d415_preview/20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a/`。历次微调和旧图对照保留在 [黑色打印件实验记录](docs/black_connector_finetune.md)。
 
-两图来自 2026-10-29 的同组实拍数据（RGB 帧 562 / 深度帧 559），用于展示诊断界面，不代表打印件位姿或插装精度验证。彩色图是保存前绘制的叠加图；深度面板由保存后的同组数据重绘，因此保存计数分别为 0 和 1。
-
-**2026-10-30 黑色打印件 v2**：新增三个 D415 会话的 **139 张**图片，逐张复核目标框后完成 40 轮续训，总计 208 张 train＋16 张历史 val。新增图目标命中从 v1 的 **63/139 提升到 139/139**，仍有 1 个额外框；历史 val 仍为 15/16 命中，mAP50–95 从 0.752 提升到 0.780，但 mAP50 略降、额外框增加。新框由助手目视复核，尚未经用户人工复核；新图都参与训练，**不是独立测试结果，也不代表九孔位姿可用**。
-
-[![v2 新增训练图检测前后对照：左侧 v1 漏检，右侧 v2 绿色预测框检出，青色为助手复核框](docs/assets/readme/black_connector_v2_detection_comparison.png)](docs/assets/readme/black_connector_v2_detection_comparison.png)
-
-**首轮 v1 图片留档**：下面展示此前仅加入六张实拍训练图时的结果，左侧原模型漏检，右侧 v1 检出；青色为训练预标框。六图训练回看均检出。
-
-[![黑色打印件检测前后对照：左侧原模型没有预测框，右侧新模型绿色预测框覆盖样件](docs/assets/readme/black_connector_detection_comparison.png)](docs/assets/readme/black_connector_detection_comparison.png)
-
-试用上述 v2 权重和深度诊断（必须带 `--vision-config`，否则仍加载旧默认模型）；最新固定划分 GPU 训练的用法见下方“数据集与训练”：
-
-```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config config/d415_black_preview.json
-```
-
-**深度已用于诊断，未参与 YOLO 训练。** 新增 139 张的原始深度与相机参数已保留，本轮没有重新评估其深度质量。下图属于首轮 v1，使用同一训练帧的原始 RGB/Z16 和保存的 SDK 标定离线重算：RGB 帧 523 / 深度帧 519，配对时间差约 0.80 ms。框内测量像素覆盖仅 7.7%，平面因混合/非平面测量而被拒绝；674.5 mm 是框内有效测量的 Z 中位数，不能当作孔口距离。
-
-[![黑色打印件深度回放：目标区域大量无效深度，ROI测量像素覆盖7.7%，候选平面未通过检查](docs/assets/readme/black_connector_depth_replay.png)](docs/assets/readme/black_connector_depth_replay.png)
-
-首轮六组回放均未得到通过检查的候选平面，九孔匹配也尚未成功。本轮 v2 的三帧实际前端检查也没有得到通过全部预览检查的位姿。数据分组、完整对照、RGB/深度图片及复现命令见 [黑色打印件微调与深度回放](docs/black_connector_finetune.md)。这些都是已保存训练数据的离线检查，本轮没有重新连接相机或进行插装验证。
-
-2026-10-30 USB3 预览默认彩色 **1920×1080 / 30 fps**，深度 **640×480 / Z16 / 30 fps**。加 `--quality hd` 使用 **1280×720 / 30 fps**。每次从实际流读取并保存对应内参；启动失败不会自动更换分辨率。上述历史示例图来自旧 720p/15 fps 配置。
+USB3 预览默认彩色 **1920×1080 / 30 fps**，深度 **640×480 / Z16 / 30 fps**。加 `--quality hd` 使用 **1280×720 / 30 fps**。每次从实际流读取并保存对应内参；启动失败不会自动更换分辨率。
 
 黑色打印件推荐这样启动，`--zoom` 放大唯一检测目标以观察孔口：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config config/d415_black_preview.json --zoom
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --zoom
 ```
 
 窗口分别显示实测采集 FPS、分析 FPS 和帧年龄。采集线程持续取最新完整帧，分析线程保持图像、检测框、孔位和深度一致；30 fps 是请求的采集速率，不等于完整分析速率。曝光、档位及参数记录详见 [USB3 清晰度和曝光调节](docs/d415_data_collection.md#usb3-清晰度和曝光调节)。
@@ -160,7 +138,7 @@ artifacts/d415_preview/<UTC时间_唯一标识>/
 | `--capture-config` | `config/d415_preview_usb3.json` | D415 身份、彩色分辨率、帧率、预热与 RGB 选项 |
 | `--depth-config` | `config/d415_depth_usb3.json` | 深度流与配对时间差阈值；仅在 `--depth` 时生效 |
 | `--quality` | 遵循采集配置 | `full-hd` 显式选择 1080p/30，`hd` 选择 720p/30 |
-| `--vision-config` | `config/realsense_config.json` | 预览仅使用检测/PnP 参数，不执行其中的 D435 采集或控制输出配置 |
+| `--vision-config` | `config/d415_preview.json` | D415 检测/PnP 参数；通过 `config/vision_model.json` 读取当前模型 |
 | `--geometry` | `config/geometry_nominal.json` | 孔位几何；使用实测几何时需匹配 `--specimen` 和 `--printing-batch` |
 | `--output-root` | `artifacts/d415_preview` | 自定义会话根目录，必须在项目目录内 |
 
@@ -170,9 +148,9 @@ artifacts/d415_preview/<UTC时间_唯一标识>/
 - 深度黑色区域表示无效测量；有效比例只统计原生深度非零像素，不代表精度。未检测到充电口时只显示场景深度，目标距离和法向显示 `--`。
 - 候选平面来自检测 ROI 内的表面点；不同台阶或孔底不一定属于建模孔口平面。它不能直接证明 PnP 位姿正确，也不直接修正重投影残差。
 - 拍显示屏只能测到屏幕实际表面的深度，不能获得屏幕里 CAD 模型的三维深度；验证目标平面应使用实体打印件。
-- `YOLO weights missing`：检查权重路径；型号/序列号不匹配：重新列设备；无法启动指定流：检查占用和配置。具体错误会打印在终端，已建立会话时也会记录失败状态。
+- 权重缺失或哈希不符：检查共享模型记录及其文件，不会回退到旧模型；型号/序列号不匹配：重新列设备；无法启动指定流：检查占用和配置。具体错误会打印在终端，已建立会话时也会记录失败状态。
 
-本次相关 112 项测试通过，D415 双窗口、暂停、同帧保存及退出已实测；打印件目标平面和真实插装效果仍待实验。验证范围见 [实现与验证记录](docs/implementation_validation.md)。更完整的采集、深度指标和复核说明见 [D415 数据采集说明](docs/d415_data_collection.md)。
+D415 双窗口、暂停、同帧保存及退出已有实测记录；打印件目标平面和真实插装效果仍待实验。各阶段测试范围见 [实现与验证记录](docs/implementation_validation.md)，采集、深度指标和复核说明见 [D415 数据采集说明](docs/d415_data_collection.md)。
 
 ### 6. 只采 RGB 训练图片
 
@@ -197,7 +175,7 @@ artifacts/d415_preview/<UTC时间_唯一标识>/
 
 ## Kinect 历史流程（旧设备参考）
 
-以下保留原 Kinect 视觉程序说明，使用 `.yolo_env`、Kinect SDK 和历史近似内参。当前 D415 请按上方快速使用章节操作。
+以下保留 Kinect 设备专用流程，Python 命令统一使用项目 `.venv`，设备采集需要 Kinect SDK，并使用独立的历史近似内参。检测模型默认也读取 `config/vision_model.json`，相机参数仍属于 Kinect。当前 D415 请按上方快速使用章节操作。
 
 电动汽车充电口视觉检测与位姿估计项目。项目覆盖数据集整理、YOLO 充电口检测、ROI 后处理、孔位中心提取，以及面向机器人充电实验的 PnP 位姿估计。
 
@@ -237,6 +215,8 @@ robot-ev-charging/
 │  ├─ camera_intrinsics.json
 │  ├─ charging_port_model.csv
 │  ├─ live_pipeline_config.json
+│  ├─ vision_model.json       # 所有活动视觉入口共用的当前权重与哈希
+│  ├─ d415_preview.json      # D415 预览算法参数
 │  └─ train_config.json
 ├─ train/
 │  ├─ python/
@@ -267,22 +247,9 @@ robot-ev-charging/
 └─ runs/                # YOLO 训练输出，Git 忽略
 ```
 
-## Kinect 历史环境准备
+## Kinect 设备前提
 
-推荐环境：Windows、Python 3.9+。如果需要实时采集，需要安装 Microsoft Kinect SDK v2。
-
-```powershell
-python -m venv .yolo_env
-.yolo_env\Scripts\activate
-pip install -r requirements.txt
-```
-
-主要 Python 依赖：
-
-- `ultralytics`
-- `torch`
-- `opencv-python`
-- `numpy`
+Python 使用上方已配置的 Windows/Python 3.12 `.venv`。Kinect 实时采集另外需要 Microsoft Kinect SDK v2 和本机编译的 C++ 采集程序；仅运行已保存图片的批量评估不需要连接 Kinect。
 
 ## 数据集与训练
 
@@ -290,7 +257,7 @@ pip install -r requirements.txt
 
 所有充电接口原始 RGB 统一放在 `dataset/vision/`，按日期整理。旧 `yolo_port` 已迁移移除，采集会话中的原图、深度和相机参数保留。日期只用于整理，**每轮训练使用完整 train 集，每次验证使用完整 val 集，两者合起来覆盖全部可用图片**。完全相同的文件按 SHA256 合并为一张，所有原始路径保存在来源记录中；检测叠加图、深度彩图、训练拼图和裁剪副本不重复当作原图。
 
-2026-10-30 当前图库有 **233 张可训练接口图，7 条永久排除记录**。首次汇总为 245 份来源文件→240 张唯一 RGB；用户随后明确保留删除 10 月 28、29 日的副本，永久排除其中 6 张桌面图及 1 张显示屏模型图。同步不会恢复这些已排除副本。`yolo_port` 的 63 张 train＋16 张 val 全部纳入来源清单，精确重复合并后保留 74 张历史原图。已补齐新接口图标注并解决 5 组同图异框；新框由助手目视检查，`human_reviewed=false`，可继续人工修订。
+2026-10-30 本轮训练快照使用 **233 张可训练接口图，7 条永久排除记录**。首次汇总为 245 份来源文件→240 张唯一 RGB；用户随后明确保留删除 10 月 28、29 日的副本，永久排除其中 6 张桌面图及 1 张显示屏模型图。同步不会恢复这些已排除副本。`yolo_port` 的 63 张 train＋16 张 val 全部纳入来源清单，精确重复合并后保留 74 张历史原图。已补齐新接口图标注并解决 5 组同图异框；新框由助手目视检查，`human_reviewed=false`，可继续人工修订。此后新采集的图片先进入待标注状态，不计入这次训练成绩。
 
 固定划分在 `config/port_dataset_split.json`：**197 张 train、36 张 val（84.5% / 15.5%）**。相邻 03:13–03:15 三个会话的 139 张保持同一组；另外三个采集组整体进入 val。历史 74 张没有可靠会话记录，保留原有 58/16 分组，因此 val 是**开发验证集，不宣称严格独立测试集**。新训练从通用 COCO 预训练 `yolov8n.pt` 开始，不使用已经见过这些验证图的项目微调权重。
 
@@ -312,7 +279,7 @@ dataset/vision/
 **1. 采集与汇总。** `vision.preview`（含 `--depth`）和 `vision.collect` 每次保存时自动入库。只有原始 RGB 入库，深度继续留在采集会话；新图状态为 `pending`，不会把漏检自动当作背景。可用 `--library <目录>` 指定图库；专门的诊断会话可用 `--no-library`，该设置会被后续同步尊重。
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config config/d415_black_preview.json
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth
 .\.venv\Scripts\python.exe -B -X utf8 train/python/prepare_port_library.py
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library status
 ```
@@ -322,13 +289,13 @@ dataset/vision/
 **2. 给新增图片补标注。** 以下命令生成可编辑复核页；预标框不会直接写成有效标签。打开页面，在图上拖动添加框，或编辑下方归一化 YOLO 坐标，逐张点击“确认框并下一张”；无接口图点击“无接口，排除”。导出前不要关闭页面，未导出的编辑仅保留在当前页面中。
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 train/python/prepare_port_library.py --review artifacts/port_library_review.html --weights runs/detect_black_20261030_v2/weights/best.pt
+.\.venv\Scripts\python.exe -B -X utf8 train/python/prepare_port_library.py --review artifacts/port_library_review.html
 Start-Process artifacts/port_library_review.html
 # 在页面导出 reviewed_port_boxes.json 后，按实际下载路径导入：
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
 ```
 
-需要重新检查全部已有标签时，在生成复核页命令后加 `--all`；已删除副本的永久排除记录不会生成空白图片页。`--weights` 可省略，直接手动画框。不要直接改库内标签文件；通过复核页导入才能同步标签哈希和修改历史。页面标的是目标框，九孔身份与中心仍使用独立的九孔标注流程。
+预标注默认使用 `config/vision_model.json` 中的当前模型；加 `--no-suggestions` 可直接手动画框，`--weights 本地文件.pt` 可显式选择其他权重。需要重新检查全部已有标签时加 `--all`；已删除副本的永久排除记录不会生成空白图片页。不要直接改库内标签文件；通过复核页导入才能同步标签哈希和修改历史。页面标的是目标框，九孔身份与中心仍使用独立的九孔标注流程。
 
 **3. 给新会话指定集合。** 已登记组内的新图继承原集合；未知组不会被静默分配。补完标注后，先查看待分组项，再复制输出中的实际 `group_id` 分配到 train 或 val。相邻或重叠的采集应属于同一组；已固定组不能用此命令随意换集合。
 
@@ -351,13 +318,15 @@ Start-Process artifacts/port_library_review.html
 
 启动前自动同步并检查全库；有待标注、未分组、冲突、损坏、哈希不符或未登记图片时会报错，**不会静默跳过后宣称全部覆盖**。每次新建独立的训练目录，复制冻结原图、标签、划分及初始权重；快照中有独立的 `dataset/images/train`、`dataset/images/val` 和配套 labels。检查实际加载的图片与框、集合无重叠、train＋val 覆盖全部 ready 图。`epoch_coverage.jsonl` 要求每张 train 图每轮恰好作为主样本采样一次，尾批保留；另核验完整 val 覆盖。Mosaic 额外拼接图片不计入主样本次数，随机增强可能裁掉部分目标。训练开始后新增照片进入下一次快照。
 
-输出目录包含 `training_manifest.json`（图片和来源）、`training_report.json`（完成状态和参数）、`epoch_coverage.jsonl`、`validation_coverage.jsonl`、`weights/best.pt`、`weights/last.pt`。仅当状态为 `completed` 时才表示全部指定轮数及覆盖检查完成。成功后打印出的 `preview_config.json` 可直接使用：
+输出目录包含 `training_manifest.json`（图片和来源）、`training_report.json`（完成状态和参数）、`epoch_coverage.jsonl`、`validation_coverage.jsonl`、`weights/best.pt`、`weights/last.pt`。全部指定轮数、覆盖和权重检查成功后，训练入口才原子更新 `config/vision_model.json`；失败或中断不会替换当前模型。重新启动各视觉进程后使用更新后的模型，已经运行的窗口继续使用启动时加载的模型。
+
+日常预览仍使用同一条短命令；每轮独立保存的 `preview_config.json` 固定当轮权重，供历史实验回放：
 
 ```powershell
-# 将“本轮目录”替换成训练结束时打印的 detect_split_... 目录名：
+# 日常使用当前模型：
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth
+# 只在复现特定训练轮次时，替换为实际 detect_split_... 目录名：
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config "runs/本轮目录/preview_config.json"
-# 本机这次已完成的 GPU 训练，可直接运行：
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config runs/detect_split_20261030T110042Z_105be6be/preview_config.json
 ```
 
 现在的 36 张 val 不进入本轮优化器训练，但会用于选模，不能称为最终独立测试成绩。YOLO 仍只使用 RGB 和目标框，深度没有作为额外通道输入。最终泛化评价需要另拍独立样件/会话并冻结为 test，不参与训练或选模。
@@ -375,7 +344,7 @@ Start-Process artifacts/port_library_review.html
 启动完整实时流水线：
 
 ```powershell
-.yolo_env\Scripts\python.exe live\python\launch_pipeline.py
+.\.venv\Scripts\python.exe -B -X utf8 live\python\launch_pipeline.py
 ```
 
 流水线配置文件：
@@ -425,7 +394,7 @@ latest_pipeline_quality.json     # 流水线质量报告
 流水线产生输出后，可以运行：
 
 ```powershell
-.yolo_env\Scripts\python.exe live\python\pipeline_quality.py
+.\.venv\Scripts\python.exe -B -X utf8 live\python\pipeline_quality.py
 ```
 
 质量报告会检查：
@@ -435,7 +404,7 @@ latest_pipeline_quality.json     # 流水线质量报告
 - 候选点数量、布局距离和拟合中心漂移
 - PnP 重投影误差和相机内参状态
 
-历史 79 张样张（hybrid 边缘模式）评估结果，保留作旧版记录；当前版本请看上方人工复核报告：
+历史 79 张样张（hybrid 边缘模式）的旧版评估记录如下，不代表当前模型结果，也不能与迁移后去重的 74 张直接比较：
 
 ```text
 OK: 29 (36.7%)   Warn: 49   Fail: 1
@@ -448,14 +417,14 @@ OK: 29 (36.7%)   Warn: 49   Fail: 1
 不要只用单张样例调参数。可以用批量评估脚本一次性跑 20-50 张原图，统计每张图的 ROI、边缘、候选孔位、布局完整性和 PnP 误差：
 
 ```powershell
-.yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --max-images 50
+.\.venv\Scripts\python.exe -B -X utf8 live\python\batch_pipeline_eval.py --max-images 50
 ```
 
 推荐使用 hybrid 边缘模式以获得更好的小孔召回率：
 
 ```powershell
 $env:VISION_EDGE_METHOD='hybrid'
-.yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --max-images 50
+.\.venv\Scripts\python.exe -B -X utf8 live\python\batch_pipeline_eval.py --max-images 50
 ```
 
 默认输入目录为迁移后的历史 Kinect 图片；本入口仍使用历史固定内参，不要混入 D415/D435 图片评价重投影误差。新相机图像使用采集会话中记录的内参与对应诊断入口。
@@ -467,7 +436,7 @@ dataset/vision/images/historical
 也可以指定自己的图片目录：
 
 ```powershell
-.yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --image-dir path\to\images --max-images 30
+.\.venv\Scripts\python.exe -B -X utf8 live\python\batch_pipeline_eval.py --image-dir path\to\images --max-images 30
 ```
 
 ![Batch eval overview](docs/assets/readme/batch_eval_overview.png)
@@ -507,7 +476,7 @@ artifacts/batch_eval/YYYYMMDD_HHMMSS/
 如果希望有失败样例时让命令返回非零退出码，可加：
 
 ```powershell
-.yolo_env\Scripts\python.exe live\python\batch_pipeline_eval.py --strict-exit
+.\.venv\Scripts\python.exe -B -X utf8 live\python\batch_pipeline_eval.py --strict-exit
 ```
 
 ## 相机内参
@@ -558,21 +527,21 @@ dataset/live/latest_depth_status.json
 
 ```powershell
 $env:VISION_PIPELINE_MODE='1'
-.yolo_env\Scripts\python.exe live\python\latest_candidate_contours.py
-.yolo_env\Scripts\python.exe live\python\pnp2.py
+.\.venv\Scripts\python.exe -B -X utf8 live\python\latest_candidate_contours.py
+.\.venv\Scripts\python.exe -B -X utf8 live\python\pnp2.py
 ```
 
 调试时手动保持窗口打开：
 
 ```powershell
 $env:VISION_WAIT_FOR_KEY='1'
-.yolo_env\Scripts\python.exe live\python\pnp2.py
+.\.venv\Scripts\python.exe -B -X utf8 live\python\pnp2.py
 ```
 
 语法检查：
 
 ```powershell
-.yolo_env\Scripts\python.exe -m py_compile live\python\latest_candidate_contours.py live\python\layout_prior.py live\python\center_fit.py live\python\pnp2.py
+.\.venv\Scripts\python.exe -m py_compile live\python\latest_candidate_contours.py live\python\layout_prior.py live\python\center_fit.py live\python\pnp2.py
 ```
 
 ## 已知限制

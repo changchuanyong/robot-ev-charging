@@ -19,6 +19,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from vision.capture_files import atomic_capture_json
+from vision.model_config import publish_current_model
 from vision.training_library import normalize_label, read_entries, validate_library
 from train.python.dataset_split import read_split, split_entries
 
@@ -149,7 +150,8 @@ def prepare_training(*, root=ROOT_DIR, library=None, weights=None, project=None,
                     "coverage_unit": "primary_training_image", "dataset_yaml_sha256": _sha(run / "dataset.yaml"),
                     "code_sha256": {name: _sha(ROOT_DIR / name) for name in
                                     ("train/python/train_port.py", "vision/training_library.py",
-                                     "train/python/prepare_port_library.py", "train/python/dataset_split.py")},
+                                     "train/python/prepare_port_library.py", "train/python/dataset_split.py",
+                                     "vision/model_config.py")},
                     "evaluation": "held_out_development", "synchronization": synchronization,
                     "excluded": [{"image_sha256": entry["image_sha256"], "reason": entry["exclusion_reason"]}
                                  for entry in all_entries if entry["status"] == "excluded"]}
@@ -353,20 +355,21 @@ def train_all(run, manifest, config, *, root=ROOT_DIR):
         best = run / "weights/best.pt"
         if not best.is_file():
             raise ValueError("training_finished_without_best_weights")
-        preview = Path(root) / "config/d415_black_preview.json"
-        if not preview.exists():
-            preview = Path(root) / "config/realsense_config.json"
+        preview = Path(root) / "config/d415_preview.json"
         preview_config = json.loads(preview.read_text(encoding="utf-8"))
+        preview_config.pop("model_registry", None)
         preview_config["description"] = (
             f"YOLOv8n run {run.name}: {manifest['split_counts']['train']} train / "
             f"{manifest['split_counts']['val']} development-val images, {audit.completed_epochs} epochs "
             "from generic COCO pretrained weights. No independent test or hole-pose validation."
         )
         preview_config["weights"] = str(best.resolve())
+        preview_config["weights_sha256"] = _sha(best)
         atomic_capture_json(run / "preview_config.json", preview_config)
         _write_report(run, status="completed", completed_epochs=audit.completed_epochs,
                       best_weights=str(best.resolve()), best_weights_sha256=_sha(best),
                       preview_config=str((run / "preview_config.json").resolve()))
+        publish_current_model(best, root=root, training_report=run / "training_report.json")
     except BaseException as exc:
         _write_report(run, status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
                       error=f"{type(exc).__name__}: {exc}", completed_epochs=audit.completed_epochs)
@@ -444,6 +447,7 @@ def main(argv=None):
         print(f"训练完成；{report['completed_epochs']} 轮全部训练图及验证图覆盖检查通过。")
         print(f"新模型: {report['best_weights']}")
         print(f"预览配置: {report['preview_config']}")
+        print("当前模型已更新；下次 vision.preview --depth、D435 定位和批量评估使用此权重。")
 
 
 if __name__ == "__main__":

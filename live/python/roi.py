@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 import json
 from pathlib import Path
@@ -16,7 +17,10 @@ from ultralytics import YOLO
 # 你只改这里
 # ======================
 ROOT_DIR = Path(__file__).resolve().parents[2]
-MODEL_PATH = ROOT_DIR / "runs" / "detect_reviewed" / "weights" / "best.pt"
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from vision.model_config import current_model_path
+
 IMAGE_PATH = ROOT_DIR / "dataset" / "live" / "latest.jpg"
 
 OUT_DIR = ROOT_DIR / "dataset" / "live"
@@ -262,8 +266,9 @@ def save_recent_roi(roi, recent_files: deque):
 
 
 def main():
-    print("Loading model...")
-    model = YOLO(MODEL_PATH)
+    model_path = current_model_path(verify=True)
+    print(f"Loading model: {model_path}")
+    model = YOLO(model_path)
     print("Model loaded.")
     print(f"Watching image   : {IMAGE_PATH}")
     print(f"Latest ROI       : {ROI_LATEST_PATH}")

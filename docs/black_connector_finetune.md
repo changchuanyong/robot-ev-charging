@@ -1,18 +1,10 @@
-# 黑色打印件 YOLO 微调与试用
+# 黑色打印件 YOLO 微调与深度回放（历史记录）
 
-2026-10-30 当前版本为 **v2**：在首轮六张黑色样件微调的基础上，再加入三个 D415 会话的 **139 张**实拍图。当前试用权重为 `runs/detect_black_20261030_v2/weights/best.pt`，通过 `config/d415_black_preview.json` 选择。首轮 v1 的权重、数据和下方历史回放记录保留，默认 D435 配置保持原样。
+本文记录 2026-10-30 的两轮历史微调，保留当时数据、权重和结果，不作为当前启动指南。日常使用及新的 197 train / 36 val GPU 训练见 [README](../README.md#数据集与训练)，所有活动入口默认由 `config/vision_model.json` 选择当前模型。
+
+历史 **v2** 在首轮六张黑色样件微调的基础上，再加入三个 D415 会话的 **139 张**实拍图，权重为 `runs/detect_black_20261030_v2/weights/best.pt`。首轮 v1 的权重、数据和下方回放记录保留；当时 D435 配置未随这两轮微调切换。
 
 模型架构仍为 **YOLOv8n**，v1/v2 仅表示微调轮次。后续的 139 张全量九孔诊断及 20 张复核入口见 [九孔诊断与人工复核](black_port_keypoint_diagnosis.md)。
-
-## 直接试用
-
-在仓库根目录运行，沿用现有虚拟环境和 D415 采集配置：
-
-```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config config/d415_black_preview.json
-```
-
-只看 RGB 时去掉 `--depth`。F5 保存、F6 暂停/继续、Esc 退出；诊断继续写到 `artifacts/d415_preview/` 的新会话。`--vision-config` 明确选择本次实验权重，不加该参数仍使用原默认模型。`runs/`、`artifacts/` 和 `*.pt` 被 Git 忽略，新克隆需另外复制权重。
 
 ## 本轮 v2：新增数据和结果
 
@@ -32,7 +24,7 @@
 
 固定框检测采用 conf 0.25、NMS IoU 0.7；目标命中要求预测框与参考框 IoU≥0.5。每张参考图至多计一个匹配框，其他预测均记额外框（包括唯一但不匹配的预测）。mAP 单独以 conf 0.001、batch 8 在原 16 张 val 上计算。
 
-| 指标 | 初始 v1 | v2 best（当前） | v2 last |
+| 指标 | 初始 v1 | v2 best（该轮选用） | v2 last |
 | --- | ---: | ---: | ---: |
 | 新增 139 图目标命中（训练回看） | 63/139 | **139/139** | 139/139 |
 | 新增 139 图额外框数 | 3 | **1** | 1 |
@@ -50,7 +42,7 @@
 
 ### 实际前端离线检查
 
-使用当前预览配置、各会话原始 RGB 内参与 `geometry_nominal.json`，经 `vision.preview.process_frame` 检查三张已保存训练图，无相机或机器人连接：
+使用当时 v2 预览配置、各会话原始 RGB 内参与 `geometry_nominal.json`，经 `vision.preview.process_frame` 检查三张已保存训练图，无相机或机器人连接：
 
 | 图片 | 目标框 | 孔位/PnP 结果 |
 | --- | ---: | --- |
@@ -68,7 +60,7 @@
 - `dataset/` 与 `initial.pt`：冻结数据和初始 v1 权重；`training_params.json`、`effective_params.json`、`train.log`、`training_status.json` 保存设置与成功训练记录。
 - `evaluation/comparison.json`：全部检测、分组计数、mAP 与权重哈希；`evaluation/comparison_candidate_01_best/` 保存 12 张前后对照。
 - `preview_smoke/summary.json`：上述三帧实际前端检查，明确标记离线训练帧、未回放深度、非独立测试。
-- 当前 best SHA256：`537b5b21ef7184533d18bc9a91acbab33a64bda371bbaccb5150f126a263059b`。
+- 该轮 best SHA256：`537b5b21ef7184533d18bc9a91acbab33a64bda371bbaccb5150f126a263059b`。
 
 重新评估、检查前端或重训时使用尚不存在的输出名称/attempt，避免覆盖已完成记录：
 
@@ -78,7 +70,7 @@
 .\.venv\Scripts\python.exe -B -X utf8 artifacts/black_port_finetune/20261030_v2/run_training.py --attempt 2
 ```
 
-本轮脚本、训练数据、报告与权重位于 Git 忽略目录，换电脑需一并复制；`dataset.yaml` 和训练参数包含本机绝对路径，迁移时需另建参数副本并调整路径。这三个新会话拍摄时仍使用旧默认模型，下一次试用 v2 必须执行上方带 `--vision-config config/d415_black_preview.json` 的命令。
+本轮脚本、训练数据、报告与权重位于 Git 忽略目录，换电脑需一并复制；`dataset.yaml` 和训练参数包含本机绝对路径，迁移时需另建参数副本并调整路径。这三个会话拍摄时使用旧默认模型；复现实验必须显式指定本节的历史权重和冻结数据，不能使用随训练更新的当前模型代替。
 
 下一批请保留不同拍摄会话的完整样件图作为独立验证，覆盖远近、倾斜和背景变化，再复核目标框。不要把同会话相邻帧同时放入训练和测试。检测框稳定后，继续单独验证小孔提取、孔名关联与 PnP。
 

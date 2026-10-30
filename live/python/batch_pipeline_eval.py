@@ -20,6 +20,10 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 PY_DIR = Path(__file__).resolve().parent
 if str(PY_DIR) not in sys.path:
     sys.path.insert(0, str(PY_DIR))
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from vision.model_config import current_model_path
 
 import Canny  # noqa: E402
 import enhance  # noqa: E402
@@ -30,7 +34,6 @@ import roi as roi_step  # noqa: E402
 from observed_layout import DEFAULT_PRIOR_PATH, load_prior  # noqa: E402
 
 
-DEFAULT_MODEL_PATH = roi_step.MODEL_PATH
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "artifacts" / "batch_eval"
 DEFAULT_IMAGE_DIRS = [
     ROOT_DIR / "dataset" / "vision" / "images" / "historical",
@@ -424,7 +427,7 @@ def parse_args() -> argparse.Namespace:
         help="Image directory to evaluate recursively. Defaults to dataset/vision/images/historical for the fixed historical intrinsics.",
     )
     parser.add_argument("--max-images", type=int, default=50)
-    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
+    parser.add_argument("--model", type=Path, help="Explicit experiment weights; otherwise use config/vision_model.json")
     layout = parser.add_mutually_exclusive_group()
     layout.add_argument("--observed-layout-prior", type=Path, default=DEFAULT_PRIOR_PATH,
                         help="Learned 2D correspondence prior; physical PnP geometry stays in the CSV")
@@ -446,6 +449,7 @@ def main() -> int:
         print("No images found for batch evaluation.")
         return 1
 
+    args.model = current_model_path(verify=True) if args.model is None else args.model.resolve()
     if not args.model.exists():
         print(f"YOLO model not found: {args.model}")
         return 1

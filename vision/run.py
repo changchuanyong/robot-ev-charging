@@ -28,6 +28,7 @@ def main(argv=None) -> int:
     atomic_json(output, empty_observation(None, target, "vision_starting"))
     try:
         pipeline = PosePipeline(config)
+        config = pipeline.config
         if args.image:
             if not args.camera_config:
                 raise ValueError("--image requires the image's --camera-config")

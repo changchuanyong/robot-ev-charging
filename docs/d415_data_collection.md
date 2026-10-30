@@ -4,7 +4,7 @@
 
 上述纯 RGB 采集配置保留 2026-10-29 USB 2.1 时使用的 15 fps。2026-10-30 已确认更换连接后实际为 USB 3.2；下方带检测和深度的 `vision.preview` 改用独立 USB3 配置。每次采集均从实际彩色流重新读取内参，随图像保存，不使用旧 Kinect 参数。
 
-机械臂上的 D435 仍使用 `vision.run` 和 `config/realsense_config.json`，其型号限制、内参验证及控制门槛保持原样。D415 的图片可以用于训练二维检测/孔位模型，后续应以独立拍摄的 D435 数据验证迁移效果。
+机械臂上的 D435 使用 `vision.run` 和 `config/realsense_config.json`，D415 预览使用 `config/d415_preview.json`；两者通过 `config/vision_model.json` 共用当前检测权重，各自保留设备身份、内参及控制门槛。D415 的图片可以用于训练二维检测/孔位模型，后续应以独立拍摄的 D435 数据验证迁移效果。
 
 ## 实时检测、孔位与残差预览
 
@@ -27,16 +27,16 @@
 
 默认彩色为 **1920×1080 / BGR8 / 30 fps**（`config/d415_preview_usb3.json`），深度为 **640×480 / Z16 / 30 fps**（`config/d415_depth_usb3.json`）。启动预热 60 帧，RGB 自动曝光开启，自动曝光优先级设为 0。设备不支持所请求的模式时明确报错，不静默降分辨率。
 
-使用本机黑色打印件 v2 权重，启动时放大唯一检测目标：
+使用当前模型，启动时放大唯一检测目标：
 
 ```powershell
-.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --vision-config config/d415_black_preview.json --zoom
+.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --zoom
 ```
 
 如果希望降低 RGB 数据量，使用 **1280×720 / 30 fps** 档，深度仍为 640×480 / 30 fps：
 
 ```powershell
-.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --quality hd --vision-config config/d415_black_preview.json --zoom
+.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --quality hd --zoom
 ```
 
 `--quality full-hd` 显式选择 1080p/30，`--quality hd` 选择 720p/30；不传该参数时遵循 `--capture-config`。原图始终按实际采集分辨率无损保存，预览主图区按 1280 宽显示，侧栏独立绘制；每个新会话保存该分辨率实际内参，不能把旧 720p 的 `camera.json` 用于 1080p 图片。
@@ -63,7 +63,7 @@ Windows RGB 曝光采用离散档位，例如本机 156→312；快捷键按这�
 | 1920×1080/30 | 29.68 | 29.51 | 4.90 | 78 ms |
 | 1280×720/30 | 29.76 | 29.55 | 7.12 | 47 ms |
 
-本机没有可用的 CUDA 推理设备；以上是两次短时、实际桌面场景的结果，目标和遮挡有所变化，不是固定图像的算法速度对照。1080p 提供更多原始像素；需要更快的完整诊断刷新时优先 `--quality hd`。曝光从 156 调到 312、增益从 64 调到 70 后，实拍黑色孔口轮廓更明显，但白色背景过曝，不能作为统一最佳曝光。两次结束后均读回原始 RGB 选项并确认恢复。孔名关联和位姿检查仍有失败，本轮不宣称九孔识别率或位姿精度提高。
+上述实测发生在切换 CUDA 环境之前，使用 CPU，且是两次短时、实际桌面场景的结果；目标和遮挡有所变化，不是固定图像的算法速度对照。当前环境已支持 RTX 5080，不能把此表当作当前 GPU 的速度测试。1080p 提供更多原始像素；需要更快的完整诊断刷新时可试用 `--quality hd` 并检查实测 FPS。曝光从 156 调到 312、增益从 64 调到 70 后，实拍黑色孔口轮廓更明显，但白色背景过曝，不能作为统一最佳曝光。两次结束后均读回原始 RGB 选项并确认恢复。孔名关联和位姿检查仍有失败，该历史检查不宣称九孔识别率或位姿精度提高。
 
 完整报告及原图保存在：
 
@@ -78,7 +78,7 @@ Windows RGB 曝光采用离散档位，例如本机 156→312；快捷键按这�
 
 诊断会话默认 `split=unknown`；可用 `--batch`、`--specimen`、`--printing-batch` 和 `--notes` 记录实际采集条件。需按训练/验证/测试预分组的大批量采集仍使用下方 `vision.collect`。退出预览后，用该会话的 `manifest.json` 接入本文的九孔人工复核流程。
 
-切换几何使用 `--geometry 路径.json`；实测几何须同时提供匹配的样件与打印批次。更换相机用 `--serial`，流配置用 `--capture-config`。诊断算法配置通过 `--vision-config` 指定，其中仅使用检测和 PnP 参数，不执行相机控制配置或写入控制输出路径。
+切换几何使用 `--geometry 路径.json`；实测几何须同时提供匹配的样件与打印批次。更换相机用 `--serial`，流配置用 `--capture-config`。诊断算法默认读取 `config/d415_preview.json`，可通过 `--vision-config` 显式选择固定轮次的预览配置；诊断不写入机器人控制输出路径。训练成功后更新共享模型记录，重启预览才能加载新模型；旧实验权重需显式选择，不会自动回退使用。
 
 有限次启动检查（分析三帧，自动保存第一帧后退出）：
 
@@ -212,7 +212,7 @@ review/review.html
 
 只接受已结束且有完整图片的会话；录制中、空会话、内参或原图变动、路径越界均拒绝。失败/中断会话中已成功保存的图片也可复核。
 
-现有 `fit_observed_layout.py` 可读取人工确认后的 schema 2，并只使用 train 图片；先积累足够的不同视角再拟合。此次没有自动导入 YOLO 数据集、重训或替换运行权重，也没有给原图补充未经人工确认的检测框。旧 `evaluate_keypoint_annotations.py --batch-report` 是 Kinect 开发基线流程，不能直接用于这些新采集标注。
+现有 `fit_observed_layout.py` 可读取人工确认后的 schema 2，并只使用 train 图片；先积累足够的不同视角再拟合。九孔复核不会自动重训或替换检测器。采集原始 RGB 会自动加入统一图库，目标框标注、按会话分组及训练方法见 [统一图库与训练](../README.md#数据集与训练)。旧 `evaluate_keypoint_annotations.py --batch-report` 是 Kinect 开发基线流程，不能直接用于这些新采集标注。
 
 ## 拍什么更有用
 

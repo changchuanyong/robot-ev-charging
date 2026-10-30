@@ -14,6 +14,7 @@ import numpy as np
 from .capture_files import atomic_capture_json as atomic_json
 from .capture_session import CaptureSession
 from .contracts import intrinsics_signature, validate_camera
+from .model_config import resolve_model_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -72,13 +73,13 @@ class PreviewSession:
             # Calibration cannot silently turn nonfinite values into null.
             self._depth_calibration = json.loads(json.dumps(depth_calibration, allow_nan=False))
             self._validate_depth_calibration()
-        pipeline = _copy(pipeline_config)
+        pipeline = _copy(resolve_model_config(pipeline_config))
         assets = {key: _asset(pipeline.get(key)) for key in
                   ("weights", "observed_layout_prior", "model_points", "geometry_reference")}
         code = {name: _asset(name) for name in
                 ("vision/preview.py", "vision/preview_render.py", "vision/preview_session.py",
                  "vision/preview_capture.py", "vision/rgb_controls.py", "vision/collect.py",
-                 "vision/diagnose.py", "vision/capture_session.py", "vision/capture_files.py", "vision/contracts.py",
+                 "vision/diagnose.py", "vision/model_config.py", "vision/capture_session.py", "vision/capture_files.py", "vision/contracts.py",
                  "live/python/pose_correspondence.py", "live/python/pnp2.py")}
         if self._depth_calibration is not None:
             code.update({name: _asset(name) for name in
