@@ -130,8 +130,8 @@ Start-Process artifacts/port_library_review.html
 
 ## Git 跟踪
 
-- **跟踪**：源码、`config/`、`dataset/vision/`、`yolov8n.pt`、`runs/*/weights/{best,last}.pt`、README 引用的少量 artifacts 证据。
-- **忽略**：`dataset/live/`、`artifacts/` 其余内容、`runs/` 其他文件、缓存与 C/C++ 编译产物。
+- **跟踪**：源码、`config/`、`dataset/vision/`、`yolov8n.pt`、`runs/*/weights/{best,last}.pt`。
+- **忽略**：`artifacts/`（采集、诊断与验证输出）、`dataset/live/`、`runs/` 其他文件、缓存与 C/C++ 编译产物。
 
 ## 已知限制
 
