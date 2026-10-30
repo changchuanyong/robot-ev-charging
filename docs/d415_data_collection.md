@@ -173,7 +173,9 @@ artifacts/captures/<UTC时间_唯一标识>/
 
 ## 先使用 SDK 内参做视觉分析
 
-当前先使用设备 SDK 内参，不要求先拍标定板。`config/d415_camera_intrinsics.json` 保存本机于 2026-10-29 从该 D415 的 1280×720 / 15 fps 彩色流实际读取的参数，来源记录为 `artifacts/d415_intrinsics/20261029T080843Z_d57ef983/readout.json`。它保留 `validated=false`，可以计算检测点、PnP 位姿及重投影残差；不将设备参数标记为独立验收结果。
+当前先使用设备 SDK 内参，不要求先拍标定板。`config/d415_camera_intrinsics.json`（受版本管理，含 `intrinsics_sha256` 参数指纹）保存本机于 2026-10-29 从该 D415 的 1280×720 / 15 fps 彩色流实际读取的参数。它保留 `validated=false`，可以计算检测点、PnP 位姿及重投影残差；不将设备参数标记为独立验收结果。
+
+内参、标定和验收类记录以版本管理内的 `config/` 为准。原始读数快照保存在 `config/d415_intrinsics/`：`readout.json` 记录设备序列号、固件版本、USB 速率、彩色流配置及连续 15 帧的设备时间戳，`camera.json` 是其 `camera_file_sha256` 所指向的参数文件（sha256 `09293ac2…b16cc7`），参数与 `config/d415_camera_intrinsics.json` 一致。`artifacts/` 只存放可再生成的运行产物，不承担长期保存职责。
 
 单张同相机、同分辨率的原始图片可以这样分析（替换实际图片路径）：
 

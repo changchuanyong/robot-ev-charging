@@ -1,0 +1,116 @@
+{
+  "kind": "live_sdk_intrinsics_readout",
+  "created_at_utc": "2026-10-29T08:08:43.409730+00:00",
+  "device": {
+    "name": "RealSense D415",
+    "serial_number": "349222063070",
+    "firmware_version": "5.17.0.10",
+    "usb_type_descriptor": "2.1"
+  },
+  "sdk_version": "2.59.1.11053",
+  "camera_file": "camera.json",
+  "camera_file_sha256": "09293ac20b33a1e65f68f0239b031639d586a361a7687411240023bb58b16cc7",
+  "actual_color_profile": {
+    "width": 1280,
+    "height": 720,
+    "fps": 15,
+    "format": "bgr8"
+  },
+  "warmup_frames": 30,
+  "verified_frames": 15,
+  "frames": [
+    {
+      "frame_number": 31,
+      "device_timestamp_ms": 1793261320226.1428,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.366171+00:00"
+    },
+    {
+      "frame_number": 32,
+      "device_timestamp_ms": 1793261320293.316,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.433173+00:00"
+    },
+    {
+      "frame_number": 33,
+      "device_timestamp_ms": 1793261320360.4863,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.500449+00:00"
+    },
+    {
+      "frame_number": 34,
+      "device_timestamp_ms": 1793261320427.6538,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.567983+00:00"
+    },
+    {
+      "frame_number": 35,
+      "device_timestamp_ms": 1793261320494.8186,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.635152+00:00"
+    },
+    {
+      "frame_number": 36,
+      "device_timestamp_ms": 1793261320561.9807,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.702183+00:00"
+    },
+    {
+      "frame_number": 37,
+      "device_timestamp_ms": 1793261320629.14,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.768928+00:00"
+    },
+    {
+      "frame_number": 38,
+      "device_timestamp_ms": 1793261320696.2964,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.836428+00:00"
+    },
+    {
+      "frame_number": 39,
+      "device_timestamp_ms": 1793261320763.4502,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.903663+00:00"
+    },
+    {
+      "frame_number": 40,
+      "device_timestamp_ms": 1793261320830.601,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:40.970683+00:00"
+    },
+    {
+      "frame_number": 41,
+      "device_timestamp_ms": 1793261320897.7493,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:41.037879+00:00"
+    },
+    {
+      "frame_number": 42,
+      "device_timestamp_ms": 1793261320964.8945,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:41.104831+00:00"
+    },
+    {
+      "frame_number": 43,
+      "device_timestamp_ms": 1793261321032.037,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:41.172186+00:00"
+    },
+    {
+      "frame_number": 44,
+      "device_timestamp_ms": 1793261321099.1836,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:41.239592+00:00"
+    },
+    {
+      "frame_number": 45,
+      "device_timestamp_ms": 1793261321166.3774,
+      "timestamp_domain": "global_time",
+      "received_at_utc": "2026-10-29T08:08:41.306903+00:00"
+    }
+  ],
+  "stream_stopped": true,
+  "independent_calibration_validated": false,
+  "interpretation": "Actual device color-stream SDK intrinsics; no independent board calibration performed."
+}
