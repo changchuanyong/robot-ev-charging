@@ -2,9 +2,9 @@
 
 `vision.run` 在内存中顺序复用现有 YOLO、增强、Canny、孔位筛选、椭圆中心和 PnP 算法。每次调用只处理一张图像，不读取 `latest_roi.jpg` 等共享中间文件。旧视觉程序仍可独立使用；机器人应消费新的 `latest_control_pose.json`。
 
-当前检测权重统一由 `config/vision_model.json` 指定，D435 的 `config/realsense_config.json` 与 D415 预览均引用这份记录。启动核对权重文件与 SHA256；训练完整成功后更新记录，已运行的进程需重启才能加载新模型。`config/observed_layout_prior.json` 根据人工复核的 train 图学习孔名关联，仅输出实际内孔口中心；PnP 仍使用原三维模型。开发对照及剩余漏点见 [人工复核后的视觉改进（历史记录）](../docs/supervised_vision_improvement.md)。共享检测权重不代表实际 D435 图像、几何或位姿已验收。
+当前检测权重统一由 `config/vision_model.json` 指定，D435 的 `config/realsense_config.json` 与 D415 预览均引用这份记录。启动核对权重文件与 SHA256；训练完整成功后更新记录，已运行的进程需重启才能加载新模型。`config/observed_layout_prior.json` 根据人工复核的 train 图学习孔名关联，仅输出实际内孔口中心；PnP 仍使用原三维模型。共享检测权重不代表实际 D435 图像、几何或位姿已验收。
 
-使用 D415 采集训练图片时，运行独立的 `python -m vision.collect`；具体命令、批次划分和九孔复核见 [D415 数据采集说明](../docs/d415_data_collection.md)。D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
+使用 D415 采集训练图片时，运行独立的 `python -m vision.collect`；D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
 
 ## 启动及输出
 
@@ -61,7 +61,7 @@ max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 
 只有参数指纹、深度范围与残差范围都匹配，输出中才附带预算。程序不把像素误差直接换算为位置误差，也不把这些预算称为 PnP 统计协方差。实际预算如何由独立测量确定，需要随版本保留实验依据。
 
-新相机检查、schema 2 误差对照与已验收内参覆盖见 [相机与几何诊断](../docs/camera_geometry_diagnostics.md)。`geometry_reference` 可指向 `geometry_reference.template.json` 填写后的实测副本，优先于旧 `model_points` CSV；配置为标称或未验收几何时保留诊断位姿但不放行。正式实验控制器进一步核对该几何与当前样件冻结的版本和哈希。
+`geometry_reference` 可指向 `geometry_reference.template.json` 填写后的实测副本，优先于旧 `model_points` CSV；配置为标称或未验收几何时保留诊断位姿但不放行。正式实验控制器进一步核对该几何与当前样件冻结的版本和哈希。
 
 ## 手眼标定
 

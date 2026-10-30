@@ -65,7 +65,7 @@ GPU 自检：
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth
 ```
 
-同一规则适用于所有相机命令：非管理员时把 `-m vision.preview` / `-m vision.collect` 换成 `-m vision.launch vision.preview` / `-m vision.launch vision.collect`。`vision.launch` 只给**当前进程**启用权限，不改系统设置、不落盘；原理与安全边界见 [Windows 权限说明](docs/windows_realsense_privilege.md)。
+同一规则适用于所有相机命令：非管理员时把 `-m vision.preview` / `-m vision.collect` 换成 `-m vision.launch vision.preview` / `-m vision.launch vision.collect`。`vision.launch` 只给**当前进程**启用权限，不改系统设置、不落盘；进程退出即失效。根因是 librealsense 2.59.1 给全局互斥体设了带 `SE_SACL_PRESENT` 的安全描述符，创建该内核对象需要 `SeSecurityPrivilege`，普通令牌返回 1314，SDK 再报成 `CreateNamedMutex returned Mutex_TotalFailure`。
 
 查看设备型号与完整序列号：
 
@@ -84,9 +84,7 @@ GPU 自检：
 | `D415 Visual Diagnostics` | 原始彩色画面、检测框、孔位候选、孔名、重投影点、逐孔残差及 mean/RMS/max |
 | `D415 Depth Diagnostics` | 原生深度图、有效深度比例、双流时间差、目标区域距离、候选表面平面法向及 PnP 一致性 |
 
-![D415 深度窗口：暂停在场景深度、未检出目标的一帧](docs/assets/readme/d415_depth_preview.png)
-
-上图是 2026-10-29 的暂停画面（当时 1280×720/15 fps 配置）：未检出充电口，状态 `scene_only`，只显示场景深度。窗口里的颜色是按 0.15–1.50 m 截断的**伪彩色显示**，黑色表示没有有效测量；数值以原始 Z16 为准（保存后从 `depth/frame_000001.png` 读取）。检出目标后，ROI 覆盖、ROI 距离和候选平面项才会出现数值。
+2026-10-29 的暂停画面（当时 1280×720/15 fps 配置）中未检出充电口，状态 `scene_only`，只显示场景深度。窗口里的颜色是按 0.15–1.50 m 截断的**伪彩色显示**，黑色表示没有有效测量；数值以原始 Z16 为准（保存后从 `depth/frame_000001.png` 读取）。检出目标后，ROI 覆盖、ROI 距离和候选平面项才会出现数值。
 
 | 显示项 | 含义 | 什么时候有值 |
 | --- | --- | --- |
@@ -102,11 +100,9 @@ GPU 自检：
 
 **2026-10-30 实拍示例**：新模型检出 1 个接口框，置信度 0.9453；9 个可见孔均有定位，孔名关联通过，PnP 内点为 9/9。该帧重投影平均 **1.561 px**、RMS **1.649 px**、最大 **2.441 px**，通过当前视觉质量检查。
 
-[![D415 实拍九孔识别：九个可见孔均已定位，PnP重投影RMS为1.649像素](docs/assets/readme/current_nine_hole_detection.png)](docs/assets/readme/current_nine_hole_detection.png)
-
 这是一帧的诊断结果，孔名依据配置模板，物理极性仍需与样件核对。SDK 内参与名义共面几何尚未独立验收，低重投影残差不代表毫米级精度或插装成功。同一帧的深度可以测量，但候选平面没有通过接受条件，见 [实测与适用边界](#实测与适用边界)；深度没有作为额外通道参与 YOLO 训练。
 
-原图与诊断保存在 `artifacts/d415_preview/20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a/`。历次微调和旧图对照保留在 [黑色打印件实验记录](docs/black_connector_finetune.md)。
+原图与诊断保存在 `artifacts/d415_preview/20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a/`。
 
 USB3 预览默认彩色 **1920×1080 / 30 fps**，深度 **640×480 / Z16 / 30 fps**。加 `--quality hd` 使用 **1280×720 / 30 fps**。每次从实际流读取并保存对应内参；启动失败不会自动更换分辨率。内参不要求先拍标定板，SDK 参数与名义几何仍标为未独立验证。
 
@@ -116,7 +112,7 @@ USB3 预览默认彩色 **1920×1080 / 30 fps**，深度 **640×480 / Z16 / 30 f
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth --zoom
 ```
 
-窗口分别显示实测采集 FPS、分析 FPS 和帧年龄。采集线程持续取最新完整帧，分析线程保持图像、检测框、孔位和深度一致；30 fps 是请求的采集速率，不等于完整分析速率。曝光、档位及参数记录详见 [USB3 清晰度和曝光调节](docs/d415_data_collection.md#usb3-清晰度和曝光调节)。
+窗口分别显示实测采集 FPS、分析 FPS 和帧年龄。采集线程持续取最新完整帧，分析线程保持图像、检测框、孔位和深度一致；30 fps 是请求的采集速率，不等于完整分析速率。
 
 只看彩色视觉、暂不开深度：
 
@@ -180,9 +176,7 @@ print("有效比例", round(valid.size / depth.size, 4))
 print("场景中位距离 mm", round(float(np.median(valid)) * scale * 1000, 1))
 ```
 
-![保存的原始深度按 0.15–1.50 m 生成的伪彩色图，不能用于测量或反算](docs/assets/readme/d415_depth_saved.png)
-
-上图和窗口颜色都由同一份原始数据按 0.15–1.50 m 生成：超出范围只截断颜色，黑色是无有效测量。**伪彩色不能反算原始深度，也不能用于测量**；测量只认 `depth/frame_000001.png`。会话里的可用深度还会按图像 SHA 复制进统一图库 `dataset/vision/depth/`，训练仍只读 RGB。
+窗口颜色和保存的伪彩色图都由同一份原始数据按 0.15–1.50 m 生成：超出范围只截断颜色，黑色是无有效测量。**伪彩色不能反算原始深度，也不能用于测量**；测量只认 `depth/frame_000001.png`。会话里的可用深度还会按图像 SHA 复制进统一图库 `dataset/vision/depth/`，训练仍只读 RGB。
 
 配对与对齐：
 
@@ -190,7 +184,7 @@ print("场景中位距离 mm", round(float(np.median(valid)) * scale * 1000, 1))
 - 深度 640×480 与彩色 1920×1080 **没有对齐**；同名只表示同一帧，不表示同一像素。
 - 是否真的写入深度，看 `diagnostics/*.json` 的 `depth_capture.available`、`file`、`file_sha256` 和 `raw_pixels_sha256`。
 
-预览默认 `split=unknown`，自动孔位不是人工真值。会话结束后，按 [九孔复核流程](docs/d415_data_collection.md#接入九孔复核) 用其 `manifest.json` 生成复核页；逐文件说明和元数据见 [D415 数据采集说明](docs/d415_data_collection.md#可选深度辅助诊断)。
+预览默认 `split=unknown`，自动孔位不是人工真值。会话结束后，用其 `manifest.json` 生成复核页。
 
 ### 参数
 
@@ -238,7 +232,7 @@ print("场景中位距离 mm", round(float(np.median(valid)) * scale * 1000, 1))
 - 拍显示屏只能测到屏幕实际表面，不能重建屏幕里的虚拟模型；验证目标平面要用实体打印件。
 - 权重缺失/哈希不符、型号或序列号不符、指定流启动失败：按终端错误处理；已建立的会话会记录失败状态。
 
-深度结果只用于诊断，不驱动机械臂；SDK 参数未独立验证。实测限制与验证范围见 [实现与验证记录](docs/implementation_validation.md)，采集与复核说明见 [D415 数据采集说明](docs/d415_data_collection.md)。
+深度结果只用于诊断，不驱动机械臂；SDK 参数未独立验证。
 
 ### 只采集 RGB 训练图
 
@@ -248,7 +242,7 @@ print("场景中位距离 mm", round(float(np.median(valid)) * scale * 1000, 1))
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.collect --batch d415_session01 --split unknown --notes "打印件，多角度"
 ```
 
-这个入口使用**空格/S 保存、Q/Esc 退出**，输出在 `artifacts/captures/`；F5/F6 和深度功能属于上面的 `vision.preview`。原图与参数的划分、复核和训练衔接见 [采集说明](docs/d415_data_collection.md)。`vision.collect` 也支持 `--list-devices`、`--device-model D435`、`--max-images`、`--interval` 和 `--library/--no-library`。
+这个入口使用**空格/S 保存、Q/Esc 退出**，输出在 `artifacts/captures/`；F5/F6 和深度功能属于上面的 `vision.preview`。`vision.collect` 也支持 `--list-devices`、`--device-model D435`、`--max-images`、`--interval` 和 `--library/--no-library`。
 
 ## 统一图库与标注
 
@@ -351,7 +345,7 @@ Start-Process artifacts/port_library_review.html
 
 ## 离线控制与仿真
 
-控制程序的配置、标定和真机运行步骤见 [控制与实验运行说明](docs/control_usage.md)。离线仿真不连接硬件：
+离线仿真不连接硬件：
 
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 -m control.simulate --scenario nominal
@@ -434,8 +428,7 @@ robot-ev-charging/
 │  └─ cpp/                 Kinect 采集源码（历史）
 ├─ control/                力觉–视觉控制、实验与离线验证
 ├─ artifacts/              采集会话与诊断输出（Git 忽略，少量文档证据例外）
-├─ runs/                   YOLO 训练输出（仅 weights/best.pt、last.pt 跟踪）
-└─ docs/                   说明、实验记录与论文图表
+└─ runs/                   YOLO 训练输出（仅 weights/best.pt、last.pt 跟踪）
 ```
 
 ## 已知限制
@@ -451,10 +444,10 @@ robot-ev-charging/
 
 **跟踪：**
 
-- 源码、`config/`、`docs/`（含论文图表）。
+- 源码与 `config/`。
 - `dataset/vision/`：图库原始 RGB、深度、标签、records、来源记录和 `sync_report.json`（训练数据以 Git 为准）。
 - 权重：`yolov8n.pt`、`runs/*/weights/best.pt`、`runs/*/weights/last.pt`。
-- `artifacts/d415_preview/` 中少量被文档引用的证据会话，以及 `artifacts/software_validation/`、`artifacts/control_validation_v2/` 的关键报告。
+- `artifacts/d415_preview/` 中少量被 README 引用的证据会话，以及 `artifacts/software_validation/`、`artifacts/control_validation_v2/` 的关键报告。
 
 **忽略：**
 
@@ -469,4 +462,4 @@ robot-ev-charging/
 
 `live/cpp/`、`live/python/`、`train/cpp/` 和 `config/camera_intrinsics.json` 保留的是 2026-10 之前的 Kinect v2 采集与实时流水线，需要 Microsoft Kinect SDK v2、Kinect 设备以及自行编译的采集程序（仓库不含 `.exe`）。当前 D415 流程不依赖它们。
 
-历史流水线的步骤、质量报告、内参工具和深度探针说明见 [实现与验证记录](docs/implementation_validation.md)、[视觉优化记录](docs/vision_optimization.md) 与 [视觉模块说明](vision/README.md)；批量评估仍可用这批历史图片运行（见上节）。
+历史流水线的步骤、质量报告、内参工具和深度探针说明未随仓库保留；批量评估仍可用这批历史图片运行（见上节），视觉模块接口见 [视觉模块说明](vision/README.md)。

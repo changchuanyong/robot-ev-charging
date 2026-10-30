@@ -6,7 +6,7 @@ Usage:
 The launcher re-launches itself through the UAC prompt when the current token is not
 elevated, enables the privilege inside the new process, and then runs the requested
 module exactly as ``python -m <module> <args...>`` would. Nothing is stored: the privilege
-lives only for that process. See docs/windows_realsense_privilege.md for the background.
+lives only for that process. See README.md for the background.
 
 Using ``.venv\\Scripts\\python.exe`` directly also sidesteps the PowerShell execution-policy
 issue with Activate.ps1, which is unrelated to the camera privilege.
