@@ -1,10 +1,12 @@
 {
   "model_file": "yolov8n.pt",
-  "data_file": "yolo_port/dataset.yaml",
+  "pretrained_weights_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+  "library": "dataset/vision",
+  "split_config": "config/port_dataset_split.json",
   "project_dir": "runs",
-  "run_name": "detect_retrain",
-  "epochs": 100,
+  "run_name": "detect_split",
+  "epochs": 40,
   "imgsz": 640,
-  "batch": 8,
-  "device": 0
+  "batch": 16,
+  "device": "0"
 }

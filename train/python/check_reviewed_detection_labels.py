@@ -14,7 +14,10 @@ import numpy as np
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT_DIR / "live" / "python"))
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 from keypoint_annotations import normalized_image_key, validate_annotations  # noqa: E402
+from vision.photo_sources import library_label, resolve_photo
 
 
 def detection_bbox(path: Path, width: int, height: int) -> list[float]:
@@ -45,23 +48,28 @@ def check_annotations(annotations: dict, root: Path) -> dict:
         if entry["review_status"] != "reviewed":
             skipped.append(key)
             continue
-        image_path = (root / key).resolve()
+        original_path = (root / key).resolve()
         split = entry["split"]
-        expected_image = root / "yolo_port" / "images" / split / image_path.name
-        if image_path != expected_image or split not in {"train", "val"}:
-            raise ValueError(f"Expected a yolo_port train/val image: {key}")
-        label_path = root / "yolo_port" / "labels" / split / (image_path.stem + ".txt")
+        expected_image = root / "yolo_port" / "images" / split / original_path.name
+        migrated = key.startswith("dataset/vision/images/") or (root / "config/legacy_photo_index.json").exists()
+        if not migrated and (original_path != expected_image or split not in {"train", "val"}):
+            raise ValueError(f"Expected a known library or historical train/val image: {key}")
+        label_path = root / "yolo_port" / "labels" / split / (original_path.stem + ".txt")
         visible = {name: point["xy"] for name, point in entry["points"].items()
                    if point["visibility"] == "visible"}
         row = {"image": key, "label_file": label_path.relative_to(root).as_posix(),
                "visible_point_count": len(visible), "bbox_xyxy": None, "outside_points": {}, "errors": []}
         try:
+            image_path = resolve_photo(key, root=root)
             image_bytes = image_path.read_bytes()
             if hashlib.sha256(image_bytes).hexdigest() != entry["image_sha256"]:
                 raise ValueError("Image content differs from reviewed annotations")
             image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
             if image is None or image.shape[1::-1] != (entry["width"], entry["height"]):
                 raise ValueError("Image dimensions differ from reviewed annotations")
+            if migrated:
+                label_path = library_label(entry["image_sha256"], root=root)
+                row["label_file"] = label_path.relative_to(root).as_posix()
             box = detection_bbox(label_path, entry["width"], entry["height"])
             row["bbox_xyxy"] = box
             row["outside_points"] = {name: xy for name, xy in visible.items()

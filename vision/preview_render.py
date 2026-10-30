@@ -38,6 +38,21 @@ def _number(value, digits=2):
         return "--"
 
 
+def _fit_text(draw, value, font, width, *, ellipsis="…"):
+    """Fit one display line; SDK exceptions may contain multiple lines."""
+    text = " ".join(str(value).split())
+    if draw.textlength(text, font=font) <= width:
+        return text
+    left, right = 0, len(text)
+    while left < right:
+        middle = (left + right + 1) // 2
+        if draw.textlength(text[:middle] + ellipsis, font=font) <= width:
+            left = middle
+        else:
+            right = middle - 1
+    return text[:left] + ellipsis
+
+
 def _point(value):
     try:
         point = np.asarray(value, dtype=float)
@@ -115,7 +130,34 @@ def _reason(value, chinese):
     return translations.get(key, text) if chinese else text
 
 
-def render_preview(image, diagnostic, *, saved_count=0, paused=False, message=""):
+def _zoom_target(image, frontend):
+    """Fit the unique detected target into the image area; no pixel coordinates change."""
+    boxes = frontend.get("detected_boxes", [])
+    if len(boxes) != 1:
+        return image, False
+    try:
+        box = np.asarray(boxes[0].get("xyxy"), dtype=float)
+        if box.shape != (4,) or not np.isfinite(box).all():
+            return image, False
+        height, width = image.shape[:2]
+        left, top = np.floor(np.clip(box[:2], [0, 0], [width, height])).astype(int)
+        right, bottom = np.ceil(np.clip(box[2:], [0, 0], [width, height])).astype(int)
+        if right - left < 2 or bottom - top < 2:
+            return image, False
+        crop = image[top:bottom, left:right]
+        factor = min(width / crop.shape[1], height / crop.shape[0])
+        size = (max(1, round(crop.shape[1] * factor)), max(1, round(crop.shape[0] * factor)))
+        enlarged = cv2.resize(crop, size, interpolation=cv2.INTER_LINEAR)
+        view = np.full_like(image, (29, 25, 22))
+        x, y = (width - size[0]) // 2, (height - size[1]) // 2
+        view[y:y + size[1], x:x + size[0]] = enlarged
+        return view, True
+    except (TypeError, ValueError, OverflowError):
+        return image, False
+
+
+def render_preview(image, diagnostic, *, saved_count=0, paused=False, message="",
+                   runtime=None, zoom=False, display_width=None):
     """Return a BGR image with raw-pixel overlays and a Chinese diagnostic panel."""
     if (not isinstance(image, np.ndarray) or image.dtype != np.uint8
             or image.ndim != 3 or image.shape[2] != 3):
@@ -123,28 +165,42 @@ def render_preview(image, diagnostic, *, saved_count=0, paused=False, message=""
     height, width = image.shape[:2]
     if height == 0 or width == 0:
         raise ValueError("preview_requires_nonempty_image")
-    canvas = np.full((max(height, 720), width + PANEL_WIDTH, 3), (29, 25, 22), dtype=np.uint8)
-    canvas[:height, :width] = image
+    if display_width is not None and (type(display_width) is not int or display_width < 1):
+        raise ValueError("positive_integer_display_width_required")
+    frame = diagnostic.get("frame", {})
+    rgb_settings = frame.get("rgb_settings", {}).get("sensor_options", {}).get("values", {})
+    extended = runtime is not None or bool(rgb_settings) or zoom
+    view = image.copy()
     frontend, pose = diagnostic.get("frontend", {}), diagnostic.get("pose", {})
-    _overlay(canvas[:height, :width], frontend, pose)
-    panel = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
+    _overlay(view, frontend, pose)
+    zoomed = False
+    if zoom:
+        view, zoomed = _zoom_target(view, frontend)
+    if display_width is not None and display_width != width:
+        display_height = max(1, round(height * display_width / width))
+        view = cv2.resize(view, (display_width, display_height),
+                          interpolation=cv2.INTER_AREA if display_width < width else cv2.INTER_LINEAR)
+    view_height, view_width = view.shape[:2]
+    canvas = np.full((max(view_height, 864 if extended else 720), view_width + PANEL_WIDTH, 3),
+                     (29, 25, 22), dtype=np.uint8)
+    canvas[:view_height, :view_width] = view
+    # Only the text panel passes through Pillow; raw RGB pixels stay in BGR.
+    panel = Image.new("RGB", (PANEL_WIDTH, canvas.shape[0]), (22, 25, 29))
     draw = ImageDraw.Draw(panel)
     font, chinese = _font(17)
     title_font, _ = _font(23)
-    x, right = width + 20, width + PANEL_WIDTH - 20
+    x, right = 20, PANEL_WIDTH - 20
     normal, muted = (225, 230, 235), (164, 175, 187)
 
     def caption(zh, en):
         return zh if chinese else en
 
     def line(text, y, *, fill=normal, selected_font=font):
-        text = str(text)
-        while text and draw.textlength(text, font=selected_font) > right - x:
-            text = text[:-2] + "…" if chinese else text[:-4] + "..."
+        text = _fit_text(draw, text, selected_font, right - x, ellipsis="…" if chinese else "...")
         draw.text((x, y), text, font=selected_font, fill=fill)
 
     line(caption("D415 实时视觉诊断", "D415 visual diagnostics"), 17, selected_font=title_font)
-    camera, frame = diagnostic.get("camera", {}), diagnostic.get("frame", {})
+    camera = diagnostic.get("camera", {})
     line(f"{camera.get('serial', '--')}  |  {camera.get('image_width', width)} x "
          f"{camera.get('image_height', height)} @ {camera.get('fps', '--')} fps", 53, fill=muted)
     line(caption(f"帧 {frame.get('frame_number', '--')}  ·  设备时间 {_number(frame.get('device_timestamp_ms'), 1)} ms",
@@ -194,4 +250,21 @@ def render_preview(image, diagnostic, *, saved_count=0, paused=False, message=""
     else:
         line(message or caption(f"已保存 {saved_count} 帧", f"Saved {saved_count} frames"), 649, fill=(132, 198, 235))
     line(caption("F5 保存   F6 暂停/继续   Esc 退出", "F5 save | F6 pause/resume | Esc quit"), 685)
-    return cv2.cvtColor(np.asarray(panel), cv2.COLOR_RGB2BGR)
+    if extended:
+        stats = runtime or {}
+        line(caption(f"实测 FPS：采集 {_number(stats.get('capture_fps'), 1)} / 分析 {_number(stats.get('analysis_fps'), 1)} / 绘制 {_number(stats.get('render_fps'), 1)}",
+                     f"Measured FPS: capture {_number(stats.get('capture_fps'), 1)} / analysis {_number(stats.get('analysis_fps'), 1)} / render {_number(stats.get('render_fps'), 1)}"), 718)
+        line(caption(f"画面年龄：{_number(stats.get('frame_age_ms'), 0)} ms · 配置 FPS 非实测值",
+                     f"Frame age: {_number(stats.get('frame_age_ms'), 0)} ms | configured FPS differs"), 742, fill=muted)
+        auto = rgb_settings.get("enable_auto_exposure")
+        mode = caption("自动", "Auto") if auto == 1 else caption("手动", "Manual") if auto == 0 else "--"
+        line(caption(f"RGB 曝光 {mode} {_number(rgb_settings.get('exposure'), 0)} · 增益 {_number(rgb_settings.get('gain'), 0)}（SDK缓存）",
+                     f"RGB {mode} exposure {_number(rgb_settings.get('exposure'), 0)} / gain {_number(rgb_settings.get('gain'), 0)} (SDK cached)"), 766, fill=muted)
+        view_label = (caption("局部放大，原图完整保存", "Target zoom; full original saved") if zoomed else
+                      caption("局部放大等待唯一目标", "Zoom awaits one target") if zoom else
+                      caption("完整画面，Z 切换局部放大", "Full image; Z toggles target zoom"))
+        line(view_label, 790, fill=(132, 198, 235))
+        line(caption("A 自动曝光 · [ ] 曝光 · - = 增益", "A auto exposure | [ ] exposure | - = gain"), 814)
+        line(caption("Z 局部放大 · 调节只影响后续采集帧", "Z target zoom | settings affect later frames"), 838, fill=muted)
+    canvas[:, view_width:] = cv2.cvtColor(np.asarray(panel), cv2.COLOR_RGB2BGR)
+    return canvas

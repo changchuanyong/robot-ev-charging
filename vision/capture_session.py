@@ -12,7 +12,8 @@ import uuid
 import cv2
 import numpy as np
 
-from .contracts import atomic_json, intrinsics_signature, validate_camera
+from .capture_files import atomic_capture_json as atomic_json
+from .contracts import intrinsics_signature, validate_camera
 
 
 KIND = "realsense_rgb_capture"

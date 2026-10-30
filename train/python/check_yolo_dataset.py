@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import argparse
+import sys
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-DATASET_DIR = ROOT_DIR / "yolo_port"
+DATASET_DIR = ROOT_DIR / "dataset/vision"
 SPLITS = ("train", "val")
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 
@@ -100,16 +102,15 @@ def check_split(split: str) -> int:
     )
 
 
-def main() -> None:
-    print(f"Dataset: {DATASET_DIR}")
-
-    issue_count = 0
-    for split in SPLITS:
-        issue_count += check_split(split)
-
-    print(f"\nTotal blocking issues: {issue_count}")
-    if issue_count > 0:
-        raise SystemExit(1)
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description="检查统一图库的图片、标签、哈希和待处理状态")
+    parser.add_argument("--library", type=Path, default=DATASET_DIR)
+    args = parser.parse_args(argv)
+    if str(ROOT_DIR) not in sys.path:
+        sys.path.insert(0, str(ROOT_DIR))
+    from vision.training_library import validate_library
+    entries = validate_library(args.library)
+    print(f"Dataset: {args.library.resolve()}\nReady images: {len(entries)}\nTotal blocking issues: 0")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,8 @@ sys.path.insert(0, str(ROOT))
 
 from keypoint_annotations import LABELS, sha256_file, validate_annotations
 from prepare_capture_review import build_capture_annotations, prepare
-from prepare_keypoint_review import TEMPLATE_PATH
+from prepare_keypoint_review import TEMPLATE_PATH, render_review, require_same_manifest
+from vision.diagnose import validate_capture_annotations
 from vision.contracts import intrinsics_signature
 
 
@@ -66,6 +67,117 @@ class CaptureReviewTests(unittest.TestCase):
 
     def build(self):
         return build_capture_annotations(self.manifest_path, self.root)
+
+    def build_three_frames(self):
+        for number in (2, 3):
+            image = np.full((120, 160, 3), number * 40, dtype=np.uint8)
+            path = self.session / f"images/frame_{number:06d}.png"
+            path.write_bytes(cv2.imencode(".png", image)[1].tobytes())
+            frame = copy.deepcopy(self.manifest["frames"][0])
+            frame.update(image=path.relative_to(self.session).as_posix(),
+                         image_sha256=sha256_file(path), frame_number=number + 10)
+            self.manifest["frames"].append(frame)
+        self.write_manifest()
+        return self.build()
+
+    @staticmethod
+    def page_payload(html):
+        return json.loads(html.split('<script id="payload" type="application/json">', 1)[1].split("</script>", 1)[0])
+
+    def test_review_selection_changes_display_only_and_keeps_full_bound_seed(self):
+        data = self.build_three_frames()
+        original = copy.deepcopy(data)
+        selected = [data["images"][2]["image"], data["images"][0]["image"]]
+        payload = self.page_payload(render_review(data, self.root, review_images=selected))
+        self.assertEqual(payload["review_indices"], [2, 0])
+        self.assertEqual(payload["annotations"], original)
+        self.assertEqual({entry["image"] for entry in payload["images"]}, set(selected))
+        self.assertEqual(len(payload["images"]), 2)
+        require_same_manifest(payload["annotations"], self.build())
+        full = self.page_payload(render_review(data, self.root))
+        self.assertNotIn("review_indices", full)
+        self.assertEqual(len(full["images"]), 3)
+        self.assertEqual(full["annotations"], original)
+        self.assertEqual(data, original)
+
+    def test_invalid_review_selection_and_changed_unselected_image_are_rejected(self):
+        data = self.build_three_frames()
+        name = data["images"][0]["image"]
+        for selected in ([], name, [name, name], [name, name.replace("/", "\\")],
+                         ["images/absent.png"], ["../outside.png"]):
+            with self.subTest(selected=selected), self.assertRaises(ValueError):
+                render_review(data, self.root, review_images=selected)
+        hidden = self.root / data["images"][1]["image"]
+        hidden.write_bytes(hidden.read_bytes() + b"changed")
+        with self.assertRaisesRegex(ValueError, "Image changed"):
+            render_review(data, self.root, review_images=[name])
+
+    @unittest.skipUnless(shutil.which("node"), "Node unavailable for browser navigation/export check")
+    def test_filtered_browser_navigation_export_and_capture_validation(self):
+        data = self.build_three_frames()
+        data["images"][2]["points"]["PE"].update(
+            xy=[80., 70.], visibility="visible", source="ai_visual", note="synthetic preannotation")
+        html = render_review(data, self.root,
+                             review_images=[data["images"][2]["image"], data["images"][0]["image"]])
+        payload = self.page_payload(html)
+        browser = html.split("<script>\n", 1)[1].split("</script>", 1)[0]
+        setup = r"""
+const assert=require('node:assert/strict'), elements=new Map(), events={};
+const context=new Proxy({}, {get:(target,key)=>target[key]??(()=>{})});
+function element(){return {style:{},parentElement:{style:{}},classList:{toggle(){}},value:'',checked:false,
+  children:[],textContent:'',files:[],disabled:false,append(...items){this.children.push(...items)},
+  replaceChildren(...items){this.children=items},addEventListener(){},click(){},
+  getBoundingClientRect(){return {width:800,height:600,left:0,top:0}},getContext(){return context}}}
+const document={activeElement:{tagName:'BODY'},createElement:element,
+  getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id)},
+  addEventListener(name,callback){events[name]=callback}};
+const window={devicePixelRatio:1,confirm:()=>true}, localStorage={getItem:()=>null,setItem(){}};
+const Image=class{constructor(){this.width=160;this.height=120}set src(value){this.onload()}};
+const ResizeObserver=class{observe(){}};
+let exportedBlob;
+const URL={createObjectURL(blob){exportedBlob=blob;return 'blob:test'},revokeObjectURL(){}};
+const setTimeout=()=>{};
+"""
+        setup += "document.getElementById('payload').textContent=" + json.dumps(json.dumps(payload)) + ";\n"
+        checks = r"""
+(async()=>{
+  assert.equal(data.images.length,3);assert.equal(imageIndex,2);
+  assert.deepEqual(elements.get('imageSelect').children.map(item=>item.value),['2','0']);
+  assert.equal(elements.get('prev').disabled,true);assert.equal(elements.get('next').disabled,false);
+  assert.match(elements.get('batchNotice').textContent,/AI 视觉预标注/);
+  assert.match(elements.get('batchNotice').textContent,/页面显示 2 张，导出保留全会话 3 张/);
+  elements.get('next').onclick();assert.equal(imageIndex,0);
+  assert.equal(elements.get('next').disabled,true);
+  elements.get('prev').onclick();assert.equal(imageIndex,2);
+  events.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(imageIndex,0);
+  events.keydown({key:'ArrowLeft',preventDefault(){}});assert.equal(imageIndex,2);
+  elements.get('imageSelect').value='0';elements.get('imageSelect').onchange();assert.equal(imageIndex,0);
+  changeImage(1);assert.equal(imageIndex,0);
+  changeImage(2);
+  for(const point of Object.values(current().points))Object.assign(point,{xy:null,visibility:'uncertain',source:'ai_visual'});
+  document.getElementById('reviewer').value='synthetic_test';elements.get('confirm').onclick();
+  assert.equal(current().review_status,'reviewed');assert.equal(current().points.PE.source,'ai_visual');
+  assert.equal(elements.get('progress').textContent,'已复核 1 / 2');
+  elements.get('export').onclick();
+  const exported=JSON.parse(await exportedBlob.text());
+  assert.equal(exported.images.length,3);assert.deepEqual(exported.images[1],seed.images[1]);
+  const subset=structuredClone(exported);subset.images.splice(1,1);assert.throws(()=>validate(subset));
+  const tampered=structuredClone(exported);tampered.images[1].image_sha256='0'.repeat(64);assert.throws(()=>validate(tampered));
+  elements.get('importFile').files=[{text:async()=>JSON.stringify(exported)}];
+  await elements.get('importFile').onchange();assert.deepEqual(data,exported);assert.equal(imageIndex,2);
+  console.log(JSON.stringify(exported));
+})().catch(error=>{console.error(error);process.exitCode=1});
+"""
+        result = subprocess.run([shutil.which("node"), "-"], input=setup + browser + checks,
+                                encoding="utf-8", capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        exported = json.loads(result.stdout)
+        exported_path = self.root / "reviewed_subset_full_session.json"
+        exported_path.write_text(json.dumps(exported), encoding="utf-8")
+        verified, camera = validate_capture_annotations(exported_path, self.root)
+        self.assertEqual(verified, exported)
+        self.assertEqual(camera["serial"], self.camera["serial"])
+        self.assertEqual(sum(row["review_status"] == "reviewed" for row in verified["images"]), 1)
 
     def test_preparation_preserves_originals_and_creates_only_unlabeled_points(self):
         inputs = (self.image_path, self.camera_path, self.manifest_path)

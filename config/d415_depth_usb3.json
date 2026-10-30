@@ -1,0 +1,7 @@
+{
+  "description": "D415 USB3 diagnostic depth paired with the 30 fps RGB preview.",
+  "width": 640,
+  "height": 480,
+  "fps": 30,
+  "max_pair_skew_ms": 40.0
+}

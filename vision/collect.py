@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -12,6 +13,7 @@ import cv2
 import numpy as np
 
 from .contracts import intrinsics_signature, validate_camera
+from .rgb_controls import RGBControls, validate_rgb_options
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +30,8 @@ def list_devices(rs=None) -> list[dict]:
 
 
 def validate_config(config: dict) -> None:
+    if "rgb_options" in config:
+        validate_rgb_options(config["rgb_options"])
     if config.get("device_model") not in {"D415", "D435"}:
         raise ValueError("数据采集配置的 device_model 必须明确为 D415 或 D435")
     if not isinstance(config.get("serial"), str) or not config["serial"].strip():
@@ -45,6 +49,12 @@ class CaptureColorCamera:
         validate_config(config)
         self.config = dict(config)
         self.pipeline = None
+        self.rgb_controls = None
+
+    def _start_rgb_controls(self, device, rs):
+        if "rgb_options" in self.config:
+            self.rgb_controls = RGBControls(device, rs)
+            self.rgb_controls.apply(self.config["rgb_options"])
 
     def __enter__(self):
         import pyrealsense2 as rs
@@ -84,6 +94,7 @@ class CaptureColorCamera:
             }
             validate_camera(self.camera, (intrinsics.height, intrinsics.width, 3))
             self.camera["intrinsics_sha256"] = intrinsics_signature(self.camera)
+            self._start_rgb_controls(device, rs)
             for _ in range(self.config["warmup_frames"]):
                 self.read()
         except BaseException:
@@ -100,18 +111,25 @@ class CaptureColorCamera:
         if not color:
             raise ValueError("采集相机没有返回彩色帧")
         image = np.asanyarray(color.get_data()).copy()
-        return image, {"frame_number": color.get_frame_number(),
-                       "device_timestamp_ms": color.get_timestamp(),
-                       "timestamp_domain": color.get_frame_timestamp_domain().name,
-                       "received_at_utc": received_at}
+        metadata = {"frame_number": color.get_frame_number(),
+                    "device_timestamp_ms": color.get_timestamp(),
+                    "timestamp_domain": color.get_frame_timestamp_domain().name,
+                    "received_at_utc": received_at}
+        if self.rgb_controls is not None:
+            metadata["rgb_settings"] = self.rgb_controls.frame_settings(color)
+        return image, metadata
 
     def close(self):
         pipeline, self.pipeline = self.pipeline, None
-        if pipeline is not None:
-            try:
-                pipeline.stop()
-            except RuntimeError:
-                pass
+        try:
+            if self.rgb_controls is not None:
+                self.rgb_controls.restore()
+        finally:
+            if pipeline is not None:
+                try:
+                    pipeline.stop()
+                except RuntimeError:
+                    pass
 
     def __exit__(self, *_):
         self.close()
@@ -121,7 +139,46 @@ class CaptureColorCamera:
 D415ColorCamera = CaptureColorCamera
 
 
-def collect(camera, session, interval: float = 0, max_images: int = 0) -> int:
+def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | None) -> bool:
+    """Register committed raw RGB; library errors never roll back a capture."""
+    if library_root is None:
+        return True
+    try:
+        from .training_library import register_image
+
+        session_path = Path(session_path).resolve()
+        manifest_path = session_path / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        image_path = (session_path / saved["image"]).resolve()
+        if not image_path.is_relative_to(session_path / "images"):
+            raise ValueError("图库只接收会话 images/ 中的原始 RGB")
+        records = [item for item in manifest["frames"] if item["image"] == saved["image"]]
+        if len(records) != 1 or records[0]["image_sha256"] != saved["image_sha256"]:
+            raise ValueError("保存记录与会话清单不一致")
+        if hashlib.sha256(image_path.read_bytes()).hexdigest() != saved["image_sha256"]:
+            raise ValueError("保存后的原始 RGB 校验失败")
+        camera_path = session_path / manifest["camera_file"]
+        camera = json.loads(camera_path.read_text(encoding="utf-8"))
+        register_image(
+            image_path, library_root=library_root,
+            date=saved["received_at_utc"][:10],
+            source={"kind": manifest["kind"], "session_manifest": str(manifest_path),
+                    "image": saved["image"], "image_sha256": saved["image_sha256"],
+                    "received_at_utc": saved["received_at_utc"],
+                    "session_id": manifest["session_id"], "batch_id": manifest["batch_id"],
+                    "original_split": manifest["split"], "metadata": manifest.get("metadata", {}),
+                    "camera_file": str(camera_path), "camera_sha256": manifest["camera_sha256"],
+                    "camera_serial": camera["serial"], "device_name": camera["device_name"]},
+        )
+        print(f"原图已加入统一图库: {library_root}；新图需确认标注后训练。", flush=True)
+        return True
+    except Exception as exc:
+        print(f"原图已保存，但统一图库同步失败，待重新同步: {type(exc).__name__}: {exc}", flush=True)
+        return False
+
+
+def collect(camera, session, interval: float = 0, max_images: int = 0, *,
+            library_root: Path | None = None) -> int:
     """Space/S saves the current full frame. A display overlay never enters PNGs."""
     count = 0
     next_save = time.monotonic() + interval
@@ -139,11 +196,14 @@ def collect(camera, session, interval: float = 0, max_images: int = 0) -> int:
                 break
             now = time.monotonic()
             if key in (32, ord("s"), ord("S")) or (interval > 0 and now >= next_save):
-                saved = session.save(image, **metadata)
+                save_metadata = {key: value for key, value in metadata.items() if key != "rgb_settings"}
+                saved = session.save(image, **save_metadata)
                 if saved is not None:
                     count += 1
                     message = "Saved | SPACE/S: save | Q/ESC: finish"
                     print(f"已保存 {count}: {saved['image']}", flush=True)
+                    if not register_saved_rgb(session.path, saved, library_root):
+                        message = "Saved; library sync pending | SPACE/S: save | Q/ESC: finish"
                 else:
                     message = "Duplicate skipped | SPACE/S: save | Q/ESC: finish"
                     print("相同帧或完全相同图片已跳过", flush=True)
@@ -173,6 +233,10 @@ def main(argv=None) -> int:
     parser.add_argument("--source-kind", choices=("printed_connector", "real_connector", "unknown"), default="unknown")
     parser.add_argument("--conditions", type=Path, help="JSON 工况：distance/tilt/image_position 等分层字段")
     parser.add_argument("--output-root", type=Path, help="项目内的数据目录，默认 artifacts/captures")
+    library_group = parser.add_mutually_exclusive_group()
+    library_group.add_argument("--library", type=Path, default=ROOT / "dataset/vision",
+                               help="统一 RGB 图库，默认 dataset/vision；新图待标注")
+    library_group.add_argument("--no-library", action="store_true", help="仅保存诊断会话，不加入训练图库")
     parser.add_argument("--interval", type=float, default=0, help="自动保存间隔秒数；默认 0 为手动")
     parser.add_argument("--max-images", type=int, default=0, help="保存指定张数后结束；0 为按键结束")
     args = parser.parse_args(argv)
@@ -195,14 +259,18 @@ def main(argv=None) -> int:
         output = (output if output.is_absolute() else ROOT / output).resolve()
         if not output.is_relative_to(ROOT):
             raise ValueError("采集输出需在项目目录内，以便连接九孔复核页面")
+        library_root = None if args.no_library else (
+            args.library if args.library.is_absolute() else ROOT / args.library).resolve()
         from .capture_session import CaptureSession
         metadata = {"specimen_id": args.specimen, "printing_batch_id": args.printing_batch,
                     "geometry_version": args.geometry_version, "source_kind": args.source_kind,
+                    "training_library_enabled": library_root is not None,
+                    "training_library_path": str(library_root) if library_root is not None else None,
                     "conditions": json.loads(args.conditions.read_text(encoding="utf-8-sig")) if args.conditions else {}}
         with CaptureColorCamera(config) as camera:
             session = CaptureSession(output, camera.camera, args.batch, args.split, args.notes, metadata=metadata)
             print(f"采集目录: {session.path}\n空格/S 保存原图，Q/ESC 结束；Ctrl+C 中断。", flush=True)
-            collect(camera, session, args.interval, args.max_images)
+            collect(camera, session, args.interval, args.max_images, library_root=library_root)
     except KeyboardInterrupt:
         status, code = "interrupted", 130
         print("采集已中断，已保存的数据保留。")

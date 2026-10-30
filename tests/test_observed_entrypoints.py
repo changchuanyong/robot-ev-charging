@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 
 from vision.pipeline import PosePipeline, ROOT
+from vision.photo_sources import resolve_photo
 
 sys.path.insert(0, str(ROOT / "live" / "python"))
 import Canny
@@ -27,8 +28,12 @@ from center_fit import export_fitted_centers
 class ObservedEntrypointTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        try:
+            cls.image_path = resolve_photo("yolo_port/images/val/val_port_0001.jpg", root=ROOT)
+        except FileNotFoundError as exc:
+            raise unittest.SkipTest(f"需要另行复制本地 dataset/vision 图库: {exc}") from exc
         cls.image = cv2.imdecode(np.frombuffer(
-            (ROOT / "yolo_port/images/val/val_port_0001.jpg").read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
+            cls.image_path.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
         cls.prior = observed_layout.load_prior(observed_layout.DEFAULT_PRIOR_PATH)
         cls.matrix = np.array([[1053.62, 0., 950.39], [0., 1047.51, 527.34], [0., 0., 1.]])
         # Human-reviewed approximate centers; this is a regression fixture,
@@ -67,7 +72,7 @@ class ObservedEntrypointTests(unittest.TestCase):
         with patch.object(Path, "mkdir"), patch.object(Path, "write_bytes") as save:
             output = ROOT / "artifacts" / "复核"
             row = batch_pipeline_eval.evaluate_one_image(
-                ROOT / "yolo_port/images/val/val_port_0001.jpg", pipeline._detector,
+                self.image_path, pipeline._detector,
                 pipeline.model, self.matrix, np.zeros(5), False, output, self.prior)
             self.assertTrue(save.call_args.args[0].startswith(b"\xff\xd8"))
         self.assertEqual(set(row["image_points_full"]), set(measured))

@@ -11,8 +11,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from .capture_files import atomic_capture_json as atomic_json
 from .capture_session import CaptureSession
-from .contracts import atomic_json, intrinsics_signature, validate_camera
+from .contracts import intrinsics_signature, validate_camera
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,7 +77,8 @@ class PreviewSession:
                   ("weights", "observed_layout_prior", "model_points", "geometry_reference")}
         code = {name: _asset(name) for name in
                 ("vision/preview.py", "vision/preview_render.py", "vision/preview_session.py",
-                 "vision/diagnose.py", "vision/capture_session.py", "vision/contracts.py",
+                 "vision/preview_capture.py", "vision/rgb_controls.py", "vision/collect.py",
+                 "vision/diagnose.py", "vision/capture_session.py", "vision/capture_files.py", "vision/contracts.py",
                  "live/python/pose_correspondence.py", "live/python/pnp2.py")}
         if self._depth_calibration is not None:
             code.update({name: _asset(name) for name in

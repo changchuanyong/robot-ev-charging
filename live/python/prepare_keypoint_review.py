@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import sys
 
 import cv2
 import numpy as np
@@ -15,6 +16,9 @@ from keypoint_annotations import LABELS, normalized_image_key, sha256_file, vali
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from vision.photo_sources import resolve_photo
 TEMPLATE_PATH = Path(__file__).with_name("keypoint_review.html")
 EDITABLE_FIELDS = {"points", "review_status", "reviewer", "reviewed_at", "notes"}
 
@@ -23,7 +27,7 @@ def repo_path(root: Path, value: str) -> Path:
     path = (root / normalized_image_key(value)).resolve()
     if not path.is_relative_to(root.resolve()):
         raise ValueError(f"Path escapes repository: {value}")
-    return path
+    return resolve_photo(value, root=root) if str(value).replace("\\", "/").startswith("yolo_port/") else path
 
 
 def build_annotations(selection: dict, batch: dict, root: Path, batch_report_path: Path) -> dict:
@@ -123,19 +127,36 @@ def require_same_manifest(annotations: dict, expected: dict) -> None:
             raise ValueError(f"Annotation image metadata differs: {original['image']}")
 
 
-def render_review(annotations: dict, root: Path, template_path: Path = TEMPLATE_PATH) -> str:
+def render_review(annotations: dict, root: Path, template_path: Path = TEMPLATE_PATH, *,
+                  review_images: list[str] | None = None) -> str:
     validate_annotations(annotations)
+    indices = list(range(len(annotations["images"])))
+    if review_images is not None:
+        if not isinstance(review_images, list) or not review_images:
+            raise ValueError("review_images must be a nonempty list")
+        names = [normalized_image_key(name) for name in review_images]
+        if len(names) != len(set(names)):
+            raise ValueError("Duplicate review_images selection")
+        by_name = {normalized_image_key(row["image"]): index
+                   for index, row in enumerate(annotations["images"])}
+        if any(name not in by_name for name in names):
+            raise ValueError("review_images must belong to the annotation seed")
+        indices = [by_name[name] for name in names]
+    selected = set(indices)
     images = []
-    for row in annotations["images"]:
+    for index, row in enumerate(annotations["images"]):
         path = repo_path(root, row["image"])
         content = path.read_bytes()
         if hashlib.sha256(content).hexdigest() != row["image_sha256"]:
             raise ValueError(f"Image changed: {row['image']}")
-        mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
-        images.append({"image": row["image"], "src": f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"})
+        if index in selected:
+            mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+            images.append({"image": row["image"], "src": f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"})
     annotation_json = json.dumps(annotations, ensure_ascii=False, sort_keys=True, allow_nan=False)
     payload = {"annotations": annotations, "images": images,
                "seed_sha256": hashlib.sha256(annotation_json.encode("utf-8")).hexdigest()}
+    if review_images is not None:
+        payload["review_indices"] = indices
     serialized = json.dumps(payload, ensure_ascii=False, allow_nan=False).replace("<", "\\u003c")
     template = template_path.read_text(encoding="utf-8")
     if template.count("__KEYPOINT_PAYLOAD__") != 1:

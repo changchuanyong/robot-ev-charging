@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .preview_render import _font, _number
+from .preview_render import _fit_text, _font, _number
 
 
 DISPLAY_NEAR_M, DISPLAY_FAR_M = .15, 1.5
@@ -46,17 +46,21 @@ def render_depth(packet, diagnostic, *, paused=False, saved_count=0, message="")
     legend = np.linspace(DISPLAY_NEAR_M, DISPLAY_FAR_M, 600).reshape(1, -1)
     ramp = np.repeat(np.rint(legend * 10000).astype(np.uint16), 18, axis=0)
     canvas[578:596, 20:620] = colorize_depth(ramp, .0001)
-    panel = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
-    draw = ImageDraw.Draw(panel)
+    # The native depth image and color ramp never pass through Pillow.
+    regions = [(0, 0, 662, 72), (0, 596, 662, 124), (662, 0, 478, 720)]
+    panels = [Image.new("RGB", (width, height), (22, 25, 29)) for _, _, width, height in regions]
+    draws = [ImageDraw.Draw(panel) for panel in panels]
     font, chinese = _font(17)
     title_font, _ = _font(23)
     normal, muted = (225, 230, 235), (164, 175, 187)
 
     def text(zh, en, x, y, *, title=False, fill=normal, width=442):
+        index = 2 if x >= 662 else 1 if y >= 596 else 0
+        draw = draws[index]
         value, chosen = zh if chinese else en, title_font if title else font
-        while value and draw.textlength(value, font=chosen) > width:
-            value = value[:-2] + "…"
-        draw.text((x, y), value, font=chosen, fill=fill)
+        value = _fit_text(draw, value, chosen, width, ellipsis="…" if chinese else "...")
+        left, top, _, _ = regions[index]
+        draw.text((x - left, y - top), value, font=chosen, fill=fill)
 
     text("D415 深度辅助诊断" + (" · 已暂停" if paused else ""),
          "D415 depth diagnostics" + (" | Paused" if paused else ""), 20, 16, title=True, width=640)
@@ -111,4 +115,6 @@ def render_depth(packet, diagnostic, *, paused=False, saved_count=0, message="")
          682, 607, fill=(132, 198, 235))
     text("F5 保存 RGB + 原始深度 | F6 暂停 | Esc 退出", "F5 save RGB + raw depth | F6 pause | Esc quit", 682, 635, width=442)
     text("SDK 参数未独立验证；结果不用于机器人运动", "SDK calibration unvalidated; no robot motion", 682, 665, fill=muted)
-    return cv2.cvtColor(np.asarray(panel), cv2.COLOR_RGB2BGR)
+    for (left, top, width, height), panel in zip(regions, panels):
+        canvas[top:top + height, left:left + width] = cv2.cvtColor(np.asarray(panel), cv2.COLOR_RGB2BGR)
+    return canvas

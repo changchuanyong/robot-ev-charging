@@ -1,0 +1,16 @@
+{
+  "description": "Experimental D415 preview detector v2: 139 additional capture frames, 208 train images and 16 historical development-val images. New boxes are assistant visual reviews, not human-reviewed. Use with vision.preview --vision-config; no independent new test or hole-pose validation.",
+  "weights": "runs/detect_black_20261030_v2/weights/best.pt",
+  "observed_layout_prior": "config/observed_layout_prior.json",
+  "model_points": "config/charging_port_model.csv",
+  "geometry_reference": null,
+  "target_id": "connector_1",
+  "target_class": 0,
+  "target_window": null,
+  "confidence": 0.25,
+  "max_frame_age_s": 0.5,
+  "min_inliers": 7,
+  "max_reprojection_rms_px": 8.0,
+  "max_point_error_px": 15.0,
+  "visual_budget": null
+}

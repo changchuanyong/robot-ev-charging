@@ -320,13 +320,41 @@ def filter_candidate_contours(
     if diagnostics is not None:
         diagnostics.update({"contour_count": len(contours), "rejection_counts": {},
                             "rejected_candidates": [],
+                            "candidate_trace": {"coordinate_frame": "roi_pixels", "max_keep": MAX_KEEP,
+                                                "outcomes": []},
                             "contour_sources": {source: sources.count(source) for source in set(sources)}})
 
-    def reject(reason: str, feat: CandidateContour) -> None:
+    def snapshot(feat: CandidateContour) -> dict:
+        def point(value):
+            return None if value is None else [float(x) for x in value]
+
+        center = next(value for value in (feat.aperture_center, feat.fitted_center, feat.center)
+                      if value is not None)
+        return {"contour_index": int(feat.contour_index), "contour_parent": int(feat.contour_parent),
+                "source": feat.contour_source, "center": point(feat.center),
+                "fitted_center": point(feat.fitted_center), "aperture_center": point(feat.aperture_center),
+                "measurement_center": point(center), "bbox": [int(x) for x in feat.bbox],
+                "fit_valid": bool(feat.fit_valid), "fit_reason": feat.fit_reject_reason,
+                "fit_residual_px": feat.fit_residual_px, "ellipse_axes": point(feat.ellipse_axes),
+                "ellipse_angle": feat.ellipse_angle, "ellipse_area": feat.ellipse_area,
+                "aperture_diameter_px": feat.aperture_diameter_px, "area": float(feat.area),
+                "score": float(feat.score), "hole_group_id": int(feat.hole_group_id)}
+
+    def reject(reason: str, feat: CandidateContour, *, representative=None,
+               aperture_transferred=False) -> None:
         reject_log(reason, feat)
         if diagnostics is not None:
             counts = diagnostics["rejection_counts"]
             counts[reason] = counts.get(reason, 0) + 1
+            outcome = {**snapshot(feat), "stage": "filtered", "reason": reason}
+            if representative is not None:
+                outcome.update(stage="merged", representative_contour_index=int(representative.contour_index),
+                               aperture_transferred=bool(aperture_transferred),
+                               representative_aperture_center_after_merge=(
+                                   None if representative.aperture_center is None
+                                   else [float(x) for x in representative.aperture_center]),
+                               representative_aperture_diameter_after_merge=representative.aperture_diameter_px)
+            diagnostics["candidate_trace"]["outcomes"].append(outcome)
             # Keep meaningful rejected boundaries for overlays, without storing contours.
             if max(feat.area, feat.ellipse_area or 0.0) >= MIN_CONTOUR_AREA:
                 diagnostics["rejected_candidates"].append({
@@ -342,6 +370,14 @@ def filter_candidate_contours(
     for contour_index, cnt in enumerate(contours):
         feat = compute_candidate_features(cnt, roi_bgr.shape, allow_open=not apply_layout)
         if feat is None:
+            if diagnostics is not None:
+                diagnostics["candidate_trace"]["outcomes"].append({
+                    "contour_index": contour_index, "contour_parent": int(hierarchy[contour_index, 3]),
+                    "source": sources[contour_index], "center": list(contour_center(cnt)),
+                    "bbox": list(cv2.boundingRect(cnt)), "stage": "feature_rejected",
+                    "reason": "degenerate_contour", "fit_valid": False, "fit_reason": "not_fitted",
+                    "fitted_center": None, "aperture_center": None, "measurement_center": None,
+                })
             continue
         feat.contour_index = contour_index
         feat.contour_parent = int(hierarchy[contour_index, 3])
@@ -436,11 +472,13 @@ def filter_candidate_contours(
         duplicated = False
         for old in kept:
             if duplicate(cand, old):
+                aperture_transferred = False
                 if cand.aperture_diameter_px is not None and (
                         old.aperture_diameter_px is None or cand.aperture_diameter_px < old.aperture_diameter_px):
                     old.aperture_diameter_px = cand.aperture_diameter_px
                     old.aperture_center = cand.aperture_center
-                reject("duplicate", cand)
+                    aperture_transferred = True
+                reject("duplicate", cand, representative=old, aperture_transferred=aperture_transferred)
                 print(
                     f"reject=duplicate       "
                     f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
@@ -457,6 +495,11 @@ def filter_candidate_contours(
 
     if diagnostics is not None:
         diagnostics["uncapped_candidate_count"] = len(kept)
+        for rank, cand in enumerate(kept):
+            diagnostics["candidate_trace"]["outcomes"].append({
+                **snapshot(cand), "stage": "kept" if rank < MAX_KEEP else "capped",
+                "reason": None if rank < MAX_KEEP else "max_keep", "rank_before_cap": rank + 1,
+            })
     kept = kept[:MAX_KEEP]
     if diagnostics is not None:
         diagnostics["kept_candidate_count"] = len(kept)

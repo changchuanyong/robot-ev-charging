@@ -1,5 +1,0 @@
-path: yolo_port
-train: images/train
-val: images/val
-names:
-  0: port

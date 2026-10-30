@@ -33,8 +33,7 @@ from observed_layout import DEFAULT_PRIOR_PATH, load_prior  # noqa: E402
 DEFAULT_MODEL_PATH = roi_step.MODEL_PATH
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "artifacts" / "batch_eval"
 DEFAULT_IMAGE_DIRS = [
-    ROOT_DIR / "yolo_port" / "images" / "val",
-    ROOT_DIR / "yolo_port" / "images" / "train",
+    ROOT_DIR / "dataset" / "vision" / "images" / "historical",
 ]
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
@@ -67,7 +66,7 @@ def list_images(image_dirs: list[Path], max_images: int) -> list[Path]:
     for image_dir in image_dirs:
         if not image_dir.exists():
             continue
-        for path in sorted(image_dir.iterdir()):
+        for path in sorted(image_dir.rglob("*")):
             if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES:
                 images.append(path)
                 if len(images) >= max_images:
@@ -422,7 +421,7 @@ def parse_args() -> argparse.Namespace:
         "--image-dir",
         action="append",
         type=Path,
-        help="Image directory to evaluate. Can be passed multiple times. Defaults to yolo_port images.",
+        help="Image directory to evaluate recursively. Defaults to dataset/vision/images/historical for the fixed historical intrinsics.",
     )
     parser.add_argument("--max-images", type=int, default=50)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)

@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import statistics
+import sys
 
 import cv2
 import numpy as np
@@ -15,13 +16,16 @@ import pnp2
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+from vision.photo_sources import resolve_photo
 
 
 def _repo_path(root: Path, value: str) -> Path:
     path = (root / normalized_image_key(value)).resolve()
     if not path.is_relative_to(root.resolve()):
         raise ValueError(f"Path leaves repository: {value}")
-    return path
+    return resolve_photo(value, root=root) if str(value).replace("\\", "/").startswith("yolo_port/") else path
 
 
 def validate_inputs(annotations: dict, batch: dict, root: Path, batch_report_path: Path) -> dict:

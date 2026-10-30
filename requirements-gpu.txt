@@ -1,0 +1,4 @@
+# Windows / Python 3.12 / NVIDIA RTX 5080; project-local optional CUDA overlay.
+# Direct official CDN URLs avoid the slow R2 mirror; hashes match the official index.
+torch @ https://download.pytorch.org/whl/cu132/torch-2.14.1%2Bcu132-cp312-cp312-win_amd64.whl#sha256=882a670a7e2a17f2eb351406dc4a235455fd9256ac737752de5f1279e2a1df8c
+torchvision @ https://download.pytorch.org/whl/cu132/torchvision-0.29.1%2Bcu132-cp312-cp312-win_amd64.whl#sha256=05013c2718b25d6019f4a01fbcafca84553247e0591201aa24b1e11fdc63d0ad

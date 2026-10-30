@@ -119,6 +119,7 @@ class CaptureRGBDCamera(CaptureColorCamera):
             self.depth_calibration["depth_profile"]["format"] = "z16"
             self._pointcloud = rs.pointcloud()
             self._previous = {}
+            self._start_rgb_controls(device, rs)
             for _ in range(self.config["warmup_frames"]):
                 self.read_rgbd()
         except BaseException:
@@ -157,6 +158,8 @@ class CaptureRGBDCamera(CaptureColorCamera):
         if image.dtype != np.uint8 or image.shape != (self.config["height"], self.config["width"], 3):
             raise ValueError("RGBD_invalid_color_pixels")
         frame = _frame_metadata(color, received_at)
+        if self.rgb_controls is not None:
+            frame["rgb_settings"] = self.rgb_controls.frame_settings(color)
         packet = {"raw_z16": None, "frame": None, "color_frame": dict(frame),
                   "calibration": self.depth_calibration,
                   "points_color_m": None, "color_pixels": None, "pair_skew_ms": None, "reasons": []}

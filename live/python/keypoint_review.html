@@ -52,12 +52,17 @@ A_neg       PE      A_pos</pre><p class="muted legend">以上仅为模型正视�
 const payload=JSON.parse(document.getElementById("payload").textContent);
 const seed=payload.annotations;
 const captureSession=seed.schema_version===2&&seed.provenance.kind==="capture_session";
-let data=structuredClone(seed), imageIndex=0, pointIndex=0;
+const reviewIndices=payload.review_indices??seed.images.map((_,index)=>index);
+if(!Array.isArray(reviewIndices)||!reviewIndices.length||new Set(reviewIndices).size!==reviewIndices.length||reviewIndices.some(index=>!Number.isInteger(index)||index<0||index>=seed.images.length))throw Error("复核图片选择无效");
+const imageSources=new Map(payload.images.map(item=>[item.image,item.src]));
+if(reviewIndices.some(index=>!imageSources.has(seed.images[index].image)))throw Error("缺少选中图片的原图");
+let data=structuredClone(seed), imageIndex=reviewIndices[0], pointIndex=0;
 const labels=seed.labels, visibilityNames={unlabeled:"未标注",visible:"可见",uncertain:"不确定",occluded:"遮挡",out_of_frame:"出画"};
 const editable=new Set(["points","review_status","reviewer","reviewed_at","notes"]);
 const storageKey="ev-nine-hole-review-v"+seed.schema_version+":"+payload.seed_sha256;
 const $=id=>document.getElementById(id), canvas=$("canvas"), ctx=canvas.getContext("2d");
-if(captureSession){document.title=$("reviewTitle").textContent="九孔中心 · 采集图人工标注";$("batchNotice").textContent="本批从原始 RGB 图开始人工标注，没有自动点。数据划分已绑定采集批次；不会自动认定为独立测试集，也没有物理位姿真值。";$("showAuto").parentElement.style.display="none";$("showRoi").parentElement.style.display="none";}
+if(captureSession){const hasAi=seed.images.some(row=>Object.values(row.points).some(point=>point.source==="ai_visual"));document.title=$("reviewTitle").textContent="九孔中心 · 采集图人工标注";$("batchNotice").textContent=(hasAi?"本批含 AI 视觉预标注，须逐图人工复核。":"本批从原始 RGB 图开始人工标注，没有自动点。")+"数据划分已绑定采集批次；不会自动认定为独立测试集，也没有物理位姿真值。";$("showAuto").parentElement.style.display="none";$("showRoi").parentElement.style.display="none";}
+if(payload.review_indices)$("batchNotice").textContent+=` 页面显示 ${reviewIndices.length} 张，导出保留${captureSession?"全会话":"全批次"} ${seed.images.length} 张记录；未复核图仍为草稿。`;
 let scale=1, offsetX=0, offsetY=0, image=null, drag=null, loadSequence=0;
 const current=()=>data.images[imageIndex];
 const point=()=>current().points[labels[pointIndex]];
@@ -93,13 +98,14 @@ function save(){try{validate(data);localStorage.setItem(storageKey,JSON.stringif
 function markDirty(){const row=current();row.review_status="draft";row.reviewer="";row.reviewed_at=null}
 function update(){
   const row=current(), p=point();
-  $("imageSelect").value=String(imageIndex);$("prev").disabled=imageIndex===0;$("next").disabled=imageIndex===data.images.length-1;
-  $("imageInfo").textContent=`${imageIndex+1} / ${data.images.length} · ${row.image} · ${row.width} × ${row.height} 原像素`;
+  const position=reviewIndices.indexOf(imageIndex);
+  $("imageSelect").value=String(imageIndex);$("prev").disabled=position===0;$("next").disabled=position===reviewIndices.length-1;
+  $("imageInfo").textContent=`${position+1} / ${reviewIndices.length} · ${row.image} · ${row.width} × ${row.height} 原像素`;
   if(captureSession)$("imageInfo").textContent+=` · 相机 ${row.camera_serial} · 批次 ${row.batch_id} · ${row.split}`;
   $("reviewState").textContent=row.review_status==="reviewed"?"✓ 已人工复核 · "+row.reviewer:"待人工复核 · 草稿";
   $("reviewState").style.color=row.review_status==="reviewed"?"#9fe0cf":"#ffd899";
   $("reason").textContent=row.selection_reasons.join("；");
-  $("progress").textContent=`已复核 ${data.images.filter(r=>r.review_status==="reviewed").length} / ${data.images.length}`;
+  $("progress").textContent=`已复核 ${reviewIndices.filter(index=>data.images[index].review_status==="reviewed").length} / ${reviewIndices.length}`;
   $("points").replaceChildren(...labels.map((label,i)=>{
     const item=row.points[label],button=document.createElement("button");button.className="point"+(i===pointIndex?" active":"");
     const dot=document.createElement("span");dot.className="dot "+item.visibility;
@@ -119,7 +125,8 @@ function draw(){const r=canvas.getBoundingClientRect();ctx.clearRect(0,0,r.width
   if($("showAuto").checked)for(const [label,xy]of Object.entries(row.auto_points))marker(xy,"auto "+label,"#ffac62");
   for(const label of labels){const p=row.points[label];if(p.visibility==="visible")marker(p.xy,label,"#62e7cf",label===labels[pointIndex])}
 }
-function changeImage(index){imageIndex=Math.max(0,Math.min(data.images.length-1,index));image=null;const token=++loadSequence;const loaded=new Image();loaded.onload=()=>{if(token!==loadSequence)return;image=loaded;resize();fit();message("已加载原图。先确认方向，再逐孔复核；自动点默认隐藏。");};loaded.onerror=()=>message("原图加载失败",true);loaded.src=payload.images[imageIndex].src;update()}
+function changeImage(index){if(!reviewIndices.includes(index))return;imageIndex=index;image=null;const token=++loadSequence;const loaded=new Image();loaded.onload=()=>{if(token!==loadSequence)return;image=loaded;resize();fit();message("已加载原图。先确认方向，再逐孔复核；自动点默认隐藏。");};loaded.onerror=()=>message("原图加载失败",true);loaded.src=imageSources.get(current().image);update()}
+function moveImage(step){const position=Math.max(0,Math.min(reviewIndices.length-1,reviewIndices.indexOf(imageIndex)+step));changeImage(reviewIndices[position])}
 function zoom(factor,cx,cy){if(!image)return;const next=Math.min(12,Math.max(.08,scale*factor));offsetX=cx-(cx-offsetX)*next/scale;offsetY=cy-(cy-offsetY)*next/scale;scale=next;draw()}
 function centerZoom(factor){const r=canvas.getBoundingClientRect();zoom(factor,r.width/2,r.height/2)}
 canvas.addEventListener("wheel",event=>{event.preventDefault();const r=canvas.getBoundingClientRect();zoom(event.deltaY<0?1.15:1/1.15,event.clientX-r.left,event.clientY-r.top)},{passive:false});
@@ -133,15 +140,15 @@ $("nextPoint").onclick=()=>{pointIndex=(pointIndex+1)%labels.length;update()};
 $("pointNote").onchange=()=>{point().note=$("pointNote").value;markDirty();update();save()};
 $("imageNote").onchange=()=>{current().notes=$("imageNote").value;markDirty();update();save()};
 $("confirm").onclick=()=>{const row=current(),reviewer=$("reviewer").value.trim();if(!reviewer){message("请填写复核人。",true);$("reviewer").focus();return}const missing=labels.filter(label=>row.points[label].visibility==="unlabeled");if(missing.length){message("尚未决定状态："+missing.join("、"),true);return}row.review_status="reviewed";row.reviewer=reviewer;row.reviewed_at=new Date().toISOString();save();update();message("本图已记录人工复核。请导出 JSON 保存复核结果。")};
-$("prev").onclick=()=>changeImage(imageIndex-1);$("next").onclick=()=>changeImage(imageIndex+1);$("fit").onclick=fit;$("zoomIn").onclick=()=>centerZoom(1.3);$("zoomOut").onclick=()=>centerZoom(1/1.3);$("showAuto").onchange=draw;$("showRoi").onchange=draw;
-$("imageSelect").replaceChildren(...data.images.map((row,i)=>{const option=document.createElement("option");option.value=String(i);option.textContent=(i+1)+" · "+row.image.split("/").pop();return option}));
+$("prev").onclick=()=>moveImage(-1);$("next").onclick=()=>moveImage(1);$("fit").onclick=fit;$("zoomIn").onclick=()=>centerZoom(1.3);$("zoomOut").onclick=()=>centerZoom(1/1.3);$("showAuto").onchange=draw;$("showRoi").onchange=draw;
+$("imageSelect").replaceChildren(...reviewIndices.map((index,position)=>{const option=document.createElement("option");option.value=String(index);option.textContent=(position+1)+" · "+data.images[index].image.split("/").pop();return option}));
 $("imageSelect").onchange=()=>changeImage(Number($("imageSelect").value));
 $("export").onclick=()=>{try{validate(data);const blob=new Blob([JSON.stringify(data,null,2)+"\n"],{type:"application/json;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download="reviewed_annotations.json";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message("已请求下载 reviewed_annotations.json；未复核图仍保留为草稿。")}catch(e){message("无法导出："+e.message,true)}};
 $("import").onclick=()=>$("importFile").click();$("importFile").onchange=async()=>{const file=$("importFile").files[0];if(!file)return;try{const incoming=JSON.parse(await file.text());validate(incoming);if(!window.confirm("导入将替换当前浏览器草稿。若尚未导出，请先取消并导出。继续导入？"))return;data=incoming;save();changeImage(imageIndex);message("已导入并验证图像、来源与相机绑定。")}catch(e){message("导入失败，当前草稿未变："+e.message,true)}finally{$("importFile").value=""}};
-document.addEventListener("keydown",event=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName)||event.ctrlKey||event.metaKey||event.altKey)return;if(/^[1-9]$/.test(event.key)){pointIndex=Number(event.key)-1;update()}else if(event.key==="ArrowLeft"){event.preventDefault();changeImage(imageIndex-1)}else if(event.key==="ArrowRight"){event.preventDefault();changeImage(imageIndex+1)}});
+document.addEventListener("keydown",event=>{if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName)||event.ctrlKey||event.metaKey||event.altKey)return;if(/^[1-9]$/.test(event.key)){pointIndex=Number(event.key)-1;update()}else if(event.key==="ArrowLeft"){event.preventDefault();moveImage(-1)}else if(event.key==="ArrowRight"){event.preventDefault();moveImage(1)}});
 new ResizeObserver(resize).observe(canvas.parentElement);
 try{validate(seed);const cached=localStorage.getItem(storageKey);if(cached){const restored=JSON.parse(cached);validate(restored);data=restored}}catch(e){message("浏览器草稿未恢复："+e.message,true)}
-changeImage(0);
+changeImage(reviewIndices[0]);
 </script>
 </body>
 </html>

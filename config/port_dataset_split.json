@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "policy_version": "explicit-source-groups-v1",
+  "evaluation": "held_out_development",
+  "independent_validation": false,
+  "target_val_fraction": 0.2,
+  "initial_counts": {"train": 197, "val": 36, "total": 233},
+  "limitations": "Historical 74 photos lack real capture-session metadata. Preserve the previous 58 train / 16 val division as source groups, without claiming session independence. The adjacent 03:13/03:14/03:15 sessions are one collection. Current split is 84.5% / 15.5%; unknown future groups require explicit assignment.",
+  "groups": {
+    "historical_train_unknown_session": {
+      "split": "train",
+      "original_groups": ["historical_train"],
+      "description": "58 unique historical train images; capture sessions unknown"
+    },
+    "historical_val_unknown_session": {
+      "split": "val",
+      "original_groups": ["historical_val"],
+      "description": "16 historical development validation images; capture sessions unknown"
+    },
+    "d415_collection_0313_0317": {
+      "split": "train",
+      "original_groups": ["d415_capture_collection_20261030_0313_0317"],
+      "session_ids": ["20261030T031316Z_fa95e685f141415595a6d1bbf4da3b24", "20261030T031408Z_49e0236dc339467c94b2d1cf626ef52a", "20261030T031538Z_99879947c6494ae5b7eb56cb9e262678"],
+      "description": "139 neighboring frames kept together as one capture collection"
+    },
+    "d415_session_0228": {
+      "split": "val",
+      "original_groups": ["20261030T022814Z_70c99eebf68b4566aa45290f73397b57"],
+      "session_ids": ["20261030T022814Z_70c99eebf68b4566aa45290f73397b57"],
+      "description": "6 frames from the 02:28 capture session"
+    },
+    "d415_session_0710": {
+      "split": "val",
+      "session_ids": ["20261030T071018Z_7989860f1feb4e22b4355519cd799188"],
+      "description": "4 frames from the USB3 connection check"
+    },
+    "d415_exposure_checks_0842_0903": {
+      "split": "val",
+      "source_path_markers": ["/artifacts/d415_preview_upgrade/20261030/"],
+      "session_ids": ["20261030T084411Z_4d46b107be44440daca04ed032eb5726", "20261030T085926Z_0183bdd8c5614195a65831d860479289", "20261030T090029Z_8fe7da9ab3ac4866b9bd242c3651192d", "20261030T090301Z_e039a169c9374f0ea58f5086b3855af1"],
+      "description": "10 neighboring raw and saved frames from resolution and exposure checks"
+    }
+  }
+}

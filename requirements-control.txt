@@ -1,5 +1,5 @@
 # Verified Windows/Python 3.12 environment for control, calibration and training.
-# Original requirements.txt is retained for the historical Kinect pipeline.
+# Install requirements-gpu.txt afterwards for the verified NVIDIA CUDA build.
 numpy==2.4.3
 opencv-python==4.13.0.92
 torch==2.14.1

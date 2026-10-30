@@ -1,0 +1,1138 @@
+{
+  "schema_version": 1,
+  "library": "dataset/vision",
+  "images": [
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0001.jpg",
+      "library_image": "images/historical/71d764d53af3ea2068f02f24f3f8f3b16cbed3783acbd4e444e529dd9e550e2e.jpg",
+      "image_sha256": "71d764d53af3ea2068f02f24f3f8f3b16cbed3783acbd4e444e529dd9e550e2e",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0002.jpg",
+      "library_image": "images/historical/534c8fb8e1b5d94ba93882343804b87d1cdea89c83057b5e56d652d5fc0aa4d4.jpg",
+      "image_sha256": "534c8fb8e1b5d94ba93882343804b87d1cdea89c83057b5e56d652d5fc0aa4d4",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0003.jpg",
+      "library_image": "images/historical/442c317598e29e1ed5fcfa38466833414ac9db79f8f6a72c3ebb53b28ca35de2.jpg",
+      "image_sha256": "442c317598e29e1ed5fcfa38466833414ac9db79f8f6a72c3ebb53b28ca35de2",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0004.jpg",
+      "library_image": "images/historical/0ae34b707c09ae426af6d004b34f8f1d4af2299f5634259f6fc5fac3380a46da.jpg",
+      "image_sha256": "0ae34b707c09ae426af6d004b34f8f1d4af2299f5634259f6fc5fac3380a46da",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0005.jpg",
+      "library_image": "images/historical/c40ae0f25e68ba321d9f91182990af6bc6ea36859d2064291962c5c9b8a9f011.jpg",
+      "image_sha256": "c40ae0f25e68ba321d9f91182990af6bc6ea36859d2064291962c5c9b8a9f011",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0006.jpg",
+      "library_image": "images/historical/51099065a8d617b81c03366bbf339d947e213d89c1b3a6c580f4736b699a591f.jpg",
+      "image_sha256": "51099065a8d617b81c03366bbf339d947e213d89c1b3a6c580f4736b699a591f",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0007.jpg",
+      "library_image": "images/historical/fd0a3ed4e4419c4d43f03c3df98cdc5206e04bdccebf5879b4638956f92e3aab.jpg",
+      "image_sha256": "fd0a3ed4e4419c4d43f03c3df98cdc5206e04bdccebf5879b4638956f92e3aab",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0008.jpg",
+      "library_image": "images/historical/2f0cd2637b1265a773b325f67dd3e0aa56422c5e0da9249986065f44c5788b87.jpg",
+      "image_sha256": "2f0cd2637b1265a773b325f67dd3e0aa56422c5e0da9249986065f44c5788b87",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0009.jpg",
+      "library_image": "images/historical/0ace3657e7a9a1fa19e82a49013e0a6d125550c5cdd275f725b28782adbb4bbd.jpg",
+      "image_sha256": "0ace3657e7a9a1fa19e82a49013e0a6d125550c5cdd275f725b28782adbb4bbd",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0010.jpg",
+      "library_image": "images/historical/3c83909d1e12caa1f301122034d7d977c1e620f4cd296df8a2c643c938078221.jpg",
+      "image_sha256": "3c83909d1e12caa1f301122034d7d977c1e620f4cd296df8a2c643c938078221",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0011.jpg",
+      "library_image": "images/historical/31360aef2c002ffb21e8b16efde04ac77dd8c7ec267f7aac63a9d86642bdb9a7.jpg",
+      "image_sha256": "31360aef2c002ffb21e8b16efde04ac77dd8c7ec267f7aac63a9d86642bdb9a7",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0012.jpg",
+      "library_image": "images/historical/cd0ecb8687aed3a4ba6a20765132f601556a0b775bd643c3dfa6f01b30d10073.jpg",
+      "image_sha256": "cd0ecb8687aed3a4ba6a20765132f601556a0b775bd643c3dfa6f01b30d10073",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0013.jpg",
+      "library_image": "images/historical/af3199f47f8899ccdc14688fe5dff6ef4af006b7097b6ff4fc989de4641934f4.jpg",
+      "image_sha256": "af3199f47f8899ccdc14688fe5dff6ef4af006b7097b6ff4fc989de4641934f4",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0014.jpg",
+      "library_image": "images/historical/7e7ca53084607d596b6f690c1a44f37b099224050fc3e88cbf32212494e9bc66.jpg",
+      "image_sha256": "7e7ca53084607d596b6f690c1a44f37b099224050fc3e88cbf32212494e9bc66",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0015.jpg",
+      "library_image": "images/historical/2178084a72a38d69c044b3eab2e464b89759d62fd745c58817ab0475aeeb4f16.jpg",
+      "image_sha256": "2178084a72a38d69c044b3eab2e464b89759d62fd745c58817ab0475aeeb4f16",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0016.jpg",
+      "library_image": "images/historical/f1729080cd6470c4eb1984e449053429cee90cc8de49c8b84f2b01e8e73b61ed.jpg",
+      "image_sha256": "f1729080cd6470c4eb1984e449053429cee90cc8de49c8b84f2b01e8e73b61ed",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0017.jpg",
+      "library_image": "images/historical/dc16621380d8833fab644972d3aa1888fdb8024734418628b097ca6954ac80f3.jpg",
+      "image_sha256": "dc16621380d8833fab644972d3aa1888fdb8024734418628b097ca6954ac80f3",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0018.jpg",
+      "library_image": "images/historical/2f2399f973ba31eb0906fcec998ab8ae3cd27c697d1507eb03c954048cb97137.jpg",
+      "image_sha256": "2f2399f973ba31eb0906fcec998ab8ae3cd27c697d1507eb03c954048cb97137",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0019.jpg",
+      "library_image": "images/historical/f7ecdd90cefef230abe722976000d98872f8155700a17a7e8aee8a16e40e1ded.jpg",
+      "image_sha256": "f7ecdd90cefef230abe722976000d98872f8155700a17a7e8aee8a16e40e1ded",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0020.jpg",
+      "library_image": "images/historical/9d3ce153e5de229a60e292af74639ef616037be28ea3f803307485d8e6116540.jpg",
+      "image_sha256": "9d3ce153e5de229a60e292af74639ef616037be28ea3f803307485d8e6116540",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0021.jpg",
+      "library_image": "images/historical/6931fbfef6fdb1e4c090ce981089b6db107d4ed99f3acc7704c905944a391f28.jpg",
+      "image_sha256": "6931fbfef6fdb1e4c090ce981089b6db107d4ed99f3acc7704c905944a391f28",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0022.jpg",
+      "library_image": "images/historical/4a7c11cdac736688354ae4a924cb25ef8a6fd6e9bbb665316f3ff1bbce64befe.jpg",
+      "image_sha256": "4a7c11cdac736688354ae4a924cb25ef8a6fd6e9bbb665316f3ff1bbce64befe",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0023.jpg",
+      "library_image": "images/historical/6f19cac1a9d3eebfc6718875b04f46206f730bf7ba24c20059c113b620866414.jpg",
+      "image_sha256": "6f19cac1a9d3eebfc6718875b04f46206f730bf7ba24c20059c113b620866414",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0024.jpg",
+      "library_image": "images/historical/0ad3e1f4807586e8e0ec70416f1de47f255ee6f8aaf39f2068714a27eee40560.jpg",
+      "image_sha256": "0ad3e1f4807586e8e0ec70416f1de47f255ee6f8aaf39f2068714a27eee40560",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0025.jpg",
+      "library_image": "images/historical/71214243dc49bbc940d2acae598c9b1350183fc32da4107263623d21d5b93cd0.jpg",
+      "image_sha256": "71214243dc49bbc940d2acae598c9b1350183fc32da4107263623d21d5b93cd0",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0026.jpg",
+      "library_image": "images/historical/bab6050d48098363f3ace1e436f4ba40184bbe2e8ef39e4735fe346d2cc972ce.jpg",
+      "image_sha256": "bab6050d48098363f3ace1e436f4ba40184bbe2e8ef39e4735fe346d2cc972ce",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0027.jpg",
+      "library_image": "images/historical/314880267f7087ccfb35220c710b65c4ac2d1dbb02199483a373733ea2e73e6a.jpg",
+      "image_sha256": "314880267f7087ccfb35220c710b65c4ac2d1dbb02199483a373733ea2e73e6a",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0028.jpg",
+      "library_image": "images/historical/66c54213d37050c7039e8aff757189a490400bec3528c0837e877d69aa1e2e58.jpg",
+      "image_sha256": "66c54213d37050c7039e8aff757189a490400bec3528c0837e877d69aa1e2e58",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0029.jpg",
+      "library_image": "images/historical/3e1b4518711f606a62bd368ab5e95f01c79382580efc7cb4c084ce7360b59d6c.jpg",
+      "image_sha256": "3e1b4518711f606a62bd368ab5e95f01c79382580efc7cb4c084ce7360b59d6c",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0030.jpg",
+      "library_image": "images/historical/5191ee1efb992119a948453fc017446d5b75247d1e175e6adc9324a4b33b7c6c.jpg",
+      "image_sha256": "5191ee1efb992119a948453fc017446d5b75247d1e175e6adc9324a4b33b7c6c",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0031.jpg",
+      "library_image": "images/historical/5070bb69b2aa6e182544f4aa1ad000a91c9c8dffb6cb8729158657b68be34e6c.jpg",
+      "image_sha256": "5070bb69b2aa6e182544f4aa1ad000a91c9c8dffb6cb8729158657b68be34e6c",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0032.jpg",
+      "library_image": "images/historical/837ec8a8edfd712da4694fc96ba06d3c76ef0e4d05520ccf14737886e003f252.jpg",
+      "image_sha256": "837ec8a8edfd712da4694fc96ba06d3c76ef0e4d05520ccf14737886e003f252",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0033.jpg",
+      "library_image": "images/historical/6af29ec3a36191d81e4e6fd3088b6e42cfcec2aa52698980d58e3274fee0967c.jpg",
+      "image_sha256": "6af29ec3a36191d81e4e6fd3088b6e42cfcec2aa52698980d58e3274fee0967c",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0034.jpg",
+      "library_image": "images/historical/af2a9a5619fa3841b00aec3a1f3acce71710023fa6ae018001cff9b046f260e1.jpg",
+      "image_sha256": "af2a9a5619fa3841b00aec3a1f3acce71710023fa6ae018001cff9b046f260e1",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0035.jpg",
+      "library_image": "images/historical/072da35f1133cef2fdc1b9615d8a85c99cb94c2af99c5802cc28a9b7ad777637.jpg",
+      "image_sha256": "072da35f1133cef2fdc1b9615d8a85c99cb94c2af99c5802cc28a9b7ad777637",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0036.jpg",
+      "library_image": "images/historical/66c54213d37050c7039e8aff757189a490400bec3528c0837e877d69aa1e2e58.jpg",
+      "image_sha256": "66c54213d37050c7039e8aff757189a490400bec3528c0837e877d69aa1e2e58",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0037.jpg",
+      "library_image": "images/historical/3e1b4518711f606a62bd368ab5e95f01c79382580efc7cb4c084ce7360b59d6c.jpg",
+      "image_sha256": "3e1b4518711f606a62bd368ab5e95f01c79382580efc7cb4c084ce7360b59d6c",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0038.jpg",
+      "library_image": "images/historical/7490e100ea2acd84e3097e6689ba1cede441be88e64974d04396d6e35e9ebd85.jpg",
+      "image_sha256": "7490e100ea2acd84e3097e6689ba1cede441be88e64974d04396d6e35e9ebd85",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0039.jpg",
+      "library_image": "images/historical/af2a9a5619fa3841b00aec3a1f3acce71710023fa6ae018001cff9b046f260e1.jpg",
+      "image_sha256": "af2a9a5619fa3841b00aec3a1f3acce71710023fa6ae018001cff9b046f260e1",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0040.jpg",
+      "library_image": "images/historical/4fba261e37022bf8d6c97545f9cd03e3149605dee1c4e105e0c2ee6805f63f60.jpg",
+      "image_sha256": "4fba261e37022bf8d6c97545f9cd03e3149605dee1c4e105e0c2ee6805f63f60",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0041.jpg",
+      "library_image": "images/historical/79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e.jpg",
+      "image_sha256": "79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0042.jpg",
+      "library_image": "images/historical/7cd1627ef69ece0628014448c006d7140922dff4fbae88cfa5840ae1de8bb507.jpg",
+      "image_sha256": "7cd1627ef69ece0628014448c006d7140922dff4fbae88cfa5840ae1de8bb507",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0043.jpg",
+      "library_image": "images/historical/06beec4f711fc15da587720f32b6710ed3fcb1ab57232e88fa642837bf7a8a6f.jpg",
+      "image_sha256": "06beec4f711fc15da587720f32b6710ed3fcb1ab57232e88fa642837bf7a8a6f",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0044.jpg",
+      "library_image": "images/historical/e752284cc6ddd952bd3bb532e88b3def8a9c2d048c1d98ebdb7415ae67f3879e.jpg",
+      "image_sha256": "e752284cc6ddd952bd3bb532e88b3def8a9c2d048c1d98ebdb7415ae67f3879e",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0045.jpg",
+      "library_image": "images/historical/4fba261e37022bf8d6c97545f9cd03e3149605dee1c4e105e0c2ee6805f63f60.jpg",
+      "image_sha256": "4fba261e37022bf8d6c97545f9cd03e3149605dee1c4e105e0c2ee6805f63f60",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0046.jpg",
+      "library_image": "images/historical/79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e.jpg",
+      "image_sha256": "79e9393b3040a9c4bdce889bd87faea8ad2585dd2417e4f8ac717bab7bd4ae7e",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0047.jpg",
+      "library_image": "images/historical/1eb7938923e7720a0669fa67567ddaa46819a424f0cf6a68809cc8959cde17c8.jpg",
+      "image_sha256": "1eb7938923e7720a0669fa67567ddaa46819a424f0cf6a68809cc8959cde17c8",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0048.jpg",
+      "library_image": "images/historical/09ef0d883b6946ac40fe1fccfb54095d74b3d398300c1d0d235e8b7f3ab699bc.jpg",
+      "image_sha256": "09ef0d883b6946ac40fe1fccfb54095d74b3d398300c1d0d235e8b7f3ab699bc",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0049.jpg",
+      "library_image": "images/historical/828f3822ea4b270753a6a37be93e650399b60574f1ed58519dd91db74462ed78.jpg",
+      "image_sha256": "828f3822ea4b270753a6a37be93e650399b60574f1ed58519dd91db74462ed78",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0050.jpg",
+      "library_image": "images/historical/ed7f9286f471ebf8c94d0a066f27b3adf60e604f344bbaf30bff4a3a031895a4.jpg",
+      "image_sha256": "ed7f9286f471ebf8c94d0a066f27b3adf60e604f344bbaf30bff4a3a031895a4",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0051.jpg",
+      "library_image": "images/historical/081b2ed29bd65e1f4e6ef9e5270bfe1291d50b66742fc4032accb367eb4ec240.jpg",
+      "image_sha256": "081b2ed29bd65e1f4e6ef9e5270bfe1291d50b66742fc4032accb367eb4ec240",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0052.jpg",
+      "library_image": "images/historical/81e31f276288c5bcd46c4ab7d0b9e46428d428f7b9d41ff658407154004a8480.jpg",
+      "image_sha256": "81e31f276288c5bcd46c4ab7d0b9e46428d428f7b9d41ff658407154004a8480",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0053.jpg",
+      "library_image": "images/historical/f41020155ae4c21a4e7094d9e26e3ef9e371232d81cdbf2d726e49dd1a9ef4d5.jpg",
+      "image_sha256": "f41020155ae4c21a4e7094d9e26e3ef9e371232d81cdbf2d726e49dd1a9ef4d5",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0054.jpg",
+      "library_image": "images/historical/562cc671fe8e7c26465a8a2e89fb7bd97d8f308de38e69453390c2202f4cb867.jpg",
+      "image_sha256": "562cc671fe8e7c26465a8a2e89fb7bd97d8f308de38e69453390c2202f4cb867",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0055.jpg",
+      "library_image": "images/historical/55681ad2018d4d8ac1a1fabc078750553be27c45eeeaa51f550b74ad66040948.jpg",
+      "image_sha256": "55681ad2018d4d8ac1a1fabc078750553be27c45eeeaa51f550b74ad66040948",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0056.jpg",
+      "library_image": "images/historical/dc31e99c6f7b85b6c36189e926f38e9ec31a094952d9af9e04837e2cd920bbc1.jpg",
+      "image_sha256": "dc31e99c6f7b85b6c36189e926f38e9ec31a094952d9af9e04837e2cd920bbc1",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0057.jpg",
+      "library_image": "images/historical/6254f9aa344d6d14a3a1fdec7b42d800833cd341b4e16a059150c1a2eaf0d452.jpg",
+      "image_sha256": "6254f9aa344d6d14a3a1fdec7b42d800833cd341b4e16a059150c1a2eaf0d452",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0058.jpg",
+      "library_image": "images/historical/e5a3564e80d574ccdd6277da66865f9b48dacfcde88902208582200ee45e79f1.jpg",
+      "image_sha256": "e5a3564e80d574ccdd6277da66865f9b48dacfcde88902208582200ee45e79f1",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0059.jpg",
+      "library_image": "images/historical/3265f02ce6adee7ebf642dc129227644822e084538f113b1b0f01c9dab11a009.jpg",
+      "image_sha256": "3265f02ce6adee7ebf642dc129227644822e084538f113b1b0f01c9dab11a009",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0060.jpg",
+      "library_image": "images/historical/64453523faf45e68d5c6db9afb8dc296b168228d4a0932a23bb40d3ca2c37b8b.jpg",
+      "image_sha256": "64453523faf45e68d5c6db9afb8dc296b168228d4a0932a23bb40d3ca2c37b8b",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0061.jpg",
+      "library_image": "images/historical/c6e5ea8a8e3822dee182e151ec95fcf1320b7ec6a7a3494fdfcab2a8e0fdea8e.jpg",
+      "image_sha256": "c6e5ea8a8e3822dee182e151ec95fcf1320b7ec6a7a3494fdfcab2a8e0fdea8e",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0062.jpg",
+      "library_image": "images/historical/b469feefe0bffc8f9a14cc5753138e5686ffd057b3e5f1bcf3a8bfaa64fcd870.jpg",
+      "image_sha256": "b469feefe0bffc8f9a14cc5753138e5686ffd057b3e5f1bcf3a8bfaa64fcd870",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/train/train_port_0063.jpg",
+      "library_image": "images/historical/ab0b24bb99c9802c67a81f8347feb4ef71f0bd41a30673b254f0d5ab738830e3.jpg",
+      "image_sha256": "ab0b24bb99c9802c67a81f8347feb4ef71f0bd41a30673b254f0d5ab738830e3",
+      "original_split": "train"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0001.jpg",
+      "library_image": "images/historical/bbeb2ef72dc69e2b5688d902fd80c7168b7bd72208b9875a274660dc8f656eaa.jpg",
+      "image_sha256": "bbeb2ef72dc69e2b5688d902fd80c7168b7bd72208b9875a274660dc8f656eaa",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0002.jpg",
+      "library_image": "images/historical/342900baf32612463684c5b1f6f3e766885d925e73a711c01f48b86aeb397d8e.jpg",
+      "image_sha256": "342900baf32612463684c5b1f6f3e766885d925e73a711c01f48b86aeb397d8e",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0003.jpg",
+      "library_image": "images/historical/a2a389289f09a0a118d523d6ab13f81578de86a0a78d8f470547ba4e8aa08d2c.jpg",
+      "image_sha256": "a2a389289f09a0a118d523d6ab13f81578de86a0a78d8f470547ba4e8aa08d2c",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0004.jpg",
+      "library_image": "images/historical/d760100c24da10a5a725b30c4863e9e9adde9bcc74a17c4214da8d3d33229fe3.jpg",
+      "image_sha256": "d760100c24da10a5a725b30c4863e9e9adde9bcc74a17c4214da8d3d33229fe3",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0005.jpg",
+      "library_image": "images/historical/db0210df0594494022a8aaa9261b6cd17c2597b658e30a37e14d8e1a58d16046.jpg",
+      "image_sha256": "db0210df0594494022a8aaa9261b6cd17c2597b658e30a37e14d8e1a58d16046",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0006.jpg",
+      "library_image": "images/historical/b141e1e74ad492f4278913f1aa7bc1e04ce821a0eb0404b58a2dfdc848ba3722.jpg",
+      "image_sha256": "b141e1e74ad492f4278913f1aa7bc1e04ce821a0eb0404b58a2dfdc848ba3722",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0007.jpg",
+      "library_image": "images/historical/d0120e440999d0cb65b929722aa9b176a6bfb2db049523fac7264db9f5a4b938.jpg",
+      "image_sha256": "d0120e440999d0cb65b929722aa9b176a6bfb2db049523fac7264db9f5a4b938",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0008.jpg",
+      "library_image": "images/historical/e1a2fc7817857f23e7399045e20b0551104fa2146b3e2075160c75640df37ab2.jpg",
+      "image_sha256": "e1a2fc7817857f23e7399045e20b0551104fa2146b3e2075160c75640df37ab2",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0009.jpg",
+      "library_image": "images/historical/50361220d4a3349fd77a6e8ac506e0a78693639c68514a537512e1233368be82.jpg",
+      "image_sha256": "50361220d4a3349fd77a6e8ac506e0a78693639c68514a537512e1233368be82",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0010.jpg",
+      "library_image": "images/historical/5947dbd7962998100bacfb3332c5c7b520b735bc64992b7950c1e25d24ac2154.jpg",
+      "image_sha256": "5947dbd7962998100bacfb3332c5c7b520b735bc64992b7950c1e25d24ac2154",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0011.jpg",
+      "library_image": "images/historical/f834361a80ea0f614512eb21345464c2e8e7134fe1c6fb4b4fd763eb2cf71f1f.jpg",
+      "image_sha256": "f834361a80ea0f614512eb21345464c2e8e7134fe1c6fb4b4fd763eb2cf71f1f",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0012.jpg",
+      "library_image": "images/historical/f5d30b12120d191777a05443ae66cebf39e94471e454743d101a0317ea6ba498.jpg",
+      "image_sha256": "f5d30b12120d191777a05443ae66cebf39e94471e454743d101a0317ea6ba498",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0013.jpg",
+      "library_image": "images/historical/4d0c1ce640a3c9dc7f81c1220e0d275b3f028342969d0e39208f930a5289b624.jpg",
+      "image_sha256": "4d0c1ce640a3c9dc7f81c1220e0d275b3f028342969d0e39208f930a5289b624",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0014.jpg",
+      "library_image": "images/historical/8cfddc945b07086a0804cdb7e8da3ee4ee4aa6b27d23636b4df513c2201932fd.jpg",
+      "image_sha256": "8cfddc945b07086a0804cdb7e8da3ee4ee4aa6b27d23636b4df513c2201932fd",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0015.jpg",
+      "library_image": "images/historical/de4fd757c1cb387c88a488d65df28e00dab13f79a1866c8c12d5a6033394b9be.jpg",
+      "image_sha256": "de4fd757c1cb387c88a488d65df28e00dab13f79a1866c8c12d5a6033394b9be",
+      "original_split": "val"
+    },
+    {
+      "legacy_image": "yolo_port/images/val/val_port_0016.jpg",
+      "library_image": "images/historical/0b56231dc04381027c77ba03d0731786be452accd613172094c8df76e4e462f8.jpg",
+      "image_sha256": "0b56231dc04381027c77ba03d0731786be452accd613172094c8df76e4e462f8",
+      "original_split": "val"
+    }
+  ],
+  "source_annotations": [
+    {
+      "source": "yolo_port/dataset.yaml",
+      "archive": "source_annotations/yolo_port/dataset.yaml",
+      "sha256": "2d5f5766c9712b44938fe80f8349519c7249b32f751c1164d265918db748c03d"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0001.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0001.json",
+      "sha256": "6f6e128dd91953fe5a378b393019d9c9c20a237597c135fe06efdf51640414bd"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0002.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0002.json",
+      "sha256": "85d498d46e85c1067fbba87293b96b981fb979d25806ba477223c226e527c964"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0004.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0004.json",
+      "sha256": "8b7bc1f67e854feb698a95efc88ae7006e9eebc49e3bd4757b9135c9449bfd54"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0007.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0007.json",
+      "sha256": "29e00af5c716a22c5a2654d42873e5c5de183935c320ddaa68be32f7f74966f0"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0008.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0008.json",
+      "sha256": "19ec953cea1f3953c693b9e32f6b4223acddbdd31bddeeef51a8cd52b199e72b"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0009.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0009.json",
+      "sha256": "453b9eb49b06f54e1b07c02ff1442ef0ff189b375d97c8a0aecf469d09a255e5"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0010.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0010.json",
+      "sha256": "0ae51659a71b96c81c990a7b67d7d66d13518965dfb1635fd2b36a724f20bed9"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0011.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0011.json",
+      "sha256": "7cbafeb044b4d19f62954ccdfc130500a06ebc2bcb76962557e6c101edf5cc46"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0012.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0012.json",
+      "sha256": "de12eb2c7557e4de7c4a3de7a8540214516fc63b2a0b838d580d688e1e91fbf5"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0013.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0013.json",
+      "sha256": "924ee0dc182f584a14c3029c03d5edf7ebc1ded385cf721fe5bfa6317f179310"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0014.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0014.json",
+      "sha256": "fd191df29fd1b0d9eb9d32251377805e1da17dc16bef1fc01983ccc3bdec2e7a"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0021.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0021.json",
+      "sha256": "39c4d251812e04680038674d0547f948bb36588a9df14901cfa6da4e9069812e"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0022.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0022.json",
+      "sha256": "275b8c3f28c4ea4132f86be2e7a195cb4fe36bc63bf07aec64aa298641ac7339"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0023.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0023.json",
+      "sha256": "246193892f39295c4a2489d55ab579c19b7bfa5735268fa08d4d59ed1a983245"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0024.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0024.json",
+      "sha256": "26448ab76e6fe2bc15ea42a58d725bc6ccc7ef7724c769c319e1500caa5fe3a3"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0025.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0025.json",
+      "sha256": "71a21b1747717d34fcb3c26ac1c86109c533176e841f8f03fbcd607b877f66a5"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0028.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0028.json",
+      "sha256": "cc17cfc28033d6e7c3d4eebdc5cddbad9d896ab0c8482d167988ce83a17306b6"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0029.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0029.json",
+      "sha256": "8489c20c0f97bf8a8c2b6a82816fe8cb8024384f688ce1189b44d26a480d7c29"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0030.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0030.json",
+      "sha256": "2a38be26ac0048e65164c8ddb884e122217b79b53c758b563db6b05d35a6ea32"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0031.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0031.json",
+      "sha256": "b5693bc16b3a34712d47312964ea1ef5bd7df13968e91f2e8db0a28a95f96d39"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0033.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0033.json",
+      "sha256": "cddb75554ddb90f8d355beb07d5fc332d7e32d535c4c88738af7d088464c3f55"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0034.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0034.json",
+      "sha256": "befedee04216b1e7f8390123d1ca4059b9e31e71687984fc97f00ea6c29e00d2"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0036.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0036.json",
+      "sha256": "c05a17eb9a82b3fcc5d6ae3c984f392ef897d42c8c4f3d7a07149ad7e3e94b8c"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0037.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0037.json",
+      "sha256": "dd0bfce70094c08e2624c72b2256887152ad6b57d160bb8ea981363e0a89b2ce"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0038.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0038.json",
+      "sha256": "1c540263b13b3242a7c9d4be442d9abad992388f471c665610c1be8661c07d30"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0039.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0039.json",
+      "sha256": "9d6f29fd76baeedecd9060cf636a5d20f6f5a4a3476fa108b9802fdc439a16c7"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0040.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0040.json",
+      "sha256": "31245105e7f322a3fae9090909e71761e500b5ab9fb965f7c83daa676b1da258"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0041.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0041.json",
+      "sha256": "3a5032f30c71b4a1d847884711a89a256d80ed78a0b42763635a790ba4322e17"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0045.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0045.json",
+      "sha256": "ce780992984608e350aa386a75ddac60f69c7fda6151a8ee45e163f58a11fdd1"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0046.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0046.json",
+      "sha256": "3b60e083aefba5b70a72d7e357e6b47849ba194f22e65c1e12b636c7b772c265"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0047.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0047.json",
+      "sha256": "ee736274eb63fb247988655adf36f5aacf91cf3b8eb7ae57417f4a36a3331dce"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0048.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0048.json",
+      "sha256": "1371ce26fa05675a25125f37e6044932ad4a89508babdede89ed91613752038e"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0049.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0049.json",
+      "sha256": "b1e955d49c6ffbae2d9f588841278d5884e079d8a30c4bf5772ec094758c563e"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0051.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0051.json",
+      "sha256": "7ca36c1575250add37a56f3539fd8df27264c795f549c4100921f989856de870"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0052.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0052.json",
+      "sha256": "bade786fcca8911b858c0f6a36b0380332575cb19a76dd67a6de09f6a3b7ba65"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0055.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0055.json",
+      "sha256": "56889b1fd7335d60c22a4a5d419e72618f5adf6513267cc5035f5754eb38fa13"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0056.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0056.json",
+      "sha256": "1f347966565fe76ac52205c0f241761ddaa004827928db68779f9221b6a05082"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0057.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0057.json",
+      "sha256": "a605d8f8901e80eeb03e5a7cb43fa3e3fdda474877535e9fb36c31842162ec18"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0058.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0058.json",
+      "sha256": "980d7a29ea7a76095183cc2505f0177849ca658978b80588b888484c8de7a397"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0062.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0062.json",
+      "sha256": "41acd3ad277bb16abf199df8ecdba5cd706ab492ffa1b96549e1ba1025f62e6a"
+    },
+    {
+      "source": "yolo_port/images/train/train_port_0063.json",
+      "archive": "source_annotations/yolo_port/images/train/train_port_0063.json",
+      "sha256": "68f2f43f9a094c492acd11c72905f313fb812faa005227911510ca3cc5ef9129"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0003.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0003.json",
+      "sha256": "369dafef5e4ae0d89661d9eda5cdc343a56d5cd06997c8ab4af7e85867545f70"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0004.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0004.json",
+      "sha256": "9ee0eb2fb3ef8aedaa0556ce0e1ce62f38d1508a0057d74294051aac6e6b0a18"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0005.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0005.json",
+      "sha256": "51f035a0b7d7ae2b94d97208b2554088d72e198b8c0649213659562199068afa"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0006.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0006.json",
+      "sha256": "d314eff7e5659440aca1d8ec85c437823055c70d4eba52f51998d2ae4d0bc5c3"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0007.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0007.json",
+      "sha256": "2aa9dd4e98d7b9f024567c44d101607f5aff0113b43d72faf1f601eba2c00245"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0009.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0009.json",
+      "sha256": "1ca077c953ce586cc1c4f2a5c62af4c6ca98f7f08b5e23a94be5b078501d732f"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0010.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0010.json",
+      "sha256": "5a4c2a1a47d49c063f74f610f3f444063a96baca05a35f5d94f7533e7d991783"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0012.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0012.json",
+      "sha256": "1c5a802db40b0fe2a34a6ca296a06e545c8e0f485c45c11df91ea582af8f6daf"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0014.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0014.json",
+      "sha256": "285b7c5841172919c4329c3edafb93b3da5747ab9c61062dcfc683f3f0219bf9"
+    },
+    {
+      "source": "yolo_port/images/val/val_port_0015.json",
+      "archive": "source_annotations/yolo_port/images/val/val_port_0015.json",
+      "sha256": "feceb087bb5ec616f8b8b8872efae6d827f8653ab665e4b7e2bcd9c568bfabb9"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0001.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0001.txt",
+      "sha256": "fba926158faaa3c1d7318fe4dbca5080fd61da0aa20931e128323090f6b3645e"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0002.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0002.txt",
+      "sha256": "033323fc620a24cb2c0a22626c7afb07a212e64768d04e3a6de2424b48a29f4a"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0003.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0003.txt",
+      "sha256": "183c7b7f70cdbcd2975f671e453b36514e2f5b59f97fbe5b1056159ec4412016"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0004.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0004.txt",
+      "sha256": "10a9649510f3b44b14780980115d9909a276b2888c8c20a01b7990f5e4e27560"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0005.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0005.txt",
+      "sha256": "79ca1261810a9833645a77c0edf48894087d7fe548bcf85615199099696147ba"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0006.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0006.txt",
+      "sha256": "fc2b84510b2f64765a4098bbcb02178bf4950870ed17a216ec0923e43bc0f20d"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0007.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0007.txt",
+      "sha256": "69b15eda98142bbf43b59d15be2d7ee43f9296448ed6ec49e72a534eb139c905"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0008.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0008.txt",
+      "sha256": "d29c4613fee4b0462e2ea5d2fcbcf986f2ac36900ab6f744da856631622f6b8e"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0009.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0009.txt",
+      "sha256": "9b99dc2f9c809f68405ae879449da805837f3396f7f393d55614a7510c38f2ba"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0010.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0010.txt",
+      "sha256": "451d639932f684efd54001925e9b2954806d51ecd0caafecd75d73dca5eb34d6"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0011.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0011.txt",
+      "sha256": "f2907838d9d17e9475fcbdd315935c9d57f61c6f3feb09fda2dbd1b8f7807811"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0012.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0012.txt",
+      "sha256": "84f5c30fba1f5829c52e4c537dec964b89fd81787a5eb311da810108b97fd402"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0013.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0013.txt",
+      "sha256": "723970f7618ca78a78de0553a236533a2c3d3f003fee0ec1cf36938660ef65e0"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0014.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0014.txt",
+      "sha256": "2bcc3564bcf708f11fdb831aa0bcad085ace636ded49a26c30156e6bec6a2146"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0015.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0015.txt",
+      "sha256": "7658cf27ecadcf6c1abcfeb47ed5aa35add90992829664d91d9c95eefb8878be"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0016.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0016.txt",
+      "sha256": "1b4a3ac83954e5f8e78aebfefcb3aa5c2518b59df71db9d9243afda137999e08"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0017.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0017.txt",
+      "sha256": "32d0698ba66f537e970ca72f8e3e6426629c35bfa25902d011afd8d55a04a676"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0018.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0018.txt",
+      "sha256": "957c930a321ac16aa4bf2e80702bb7071aedfdec431aaba5c54a1e670897fb08"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0019.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0019.txt",
+      "sha256": "706fc34478a8f957437dcfcbe9e9246606d5bd67a740babc0f119b3fb646e807"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0020.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0020.txt",
+      "sha256": "09033499ac9419daac57707cbd44c37b989481beeb97444745af6c0119b150c1"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0021.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0021.txt",
+      "sha256": "65be602efe3d571c2591b527ee687fb8ee620bd92a50462c18b1ac1884a42a57"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0022.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0022.txt",
+      "sha256": "24316acd64a41193b07cf987bbc6d782104ad1017c6cfe2b3cfa635bc22493a0"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0023.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0023.txt",
+      "sha256": "92b5ccd394cf347bcf1b3c7db4581573c30ca407d8d74f7804a83d9fef0c650b"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0024.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0024.txt",
+      "sha256": "77b06032a1dbe66ef0f37bf0b699a473b2994512d84737364ea97bd120d1344d"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0025.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0025.txt",
+      "sha256": "49b5c9f5340b57f00b75e02d8259bca34bd542e5a2d8e2691622fdc0e9907b5c"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0026.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0026.txt",
+      "sha256": "f9b363568770cf48f0781fff95574021c721ed48b10cb366486a10870e122f8e"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0027.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0027.txt",
+      "sha256": "de587915febe124a178dd947079197a862d43dea144e4fd7ca664e960462b082"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0028.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0028.txt",
+      "sha256": "b43af7dd5409b6c54c06c8c9747d6c923e84e778693c2fa1d00f0b9b69e4a58b"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0029.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0029.txt",
+      "sha256": "3639055b7deef9f5edebd0291e661e80d3e4025059f2e447336143c04208795d"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0030.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0030.txt",
+      "sha256": "0dcc031c203c13d38c6b587497415660cd0237975b23df193f88d366e594cb72"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0031.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0031.txt",
+      "sha256": "997af6c5d381eb5274f9b531742a0077d5262b1b52cb3c103b787ffb33b6b938"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0032.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0032.txt",
+      "sha256": "496900ec8633cc89fa6275aff5bc949af5445029582b7db7eb0a8873a8d5484e"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0033.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0033.txt",
+      "sha256": "013826d8307efea528c84dab2ac0bd3ac73376cc8b6344e063468cba4a3b0bab"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0034.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0034.txt",
+      "sha256": "6a52646279e12c0bae7fedc0cec2033ada6363c16e6e69155da97c0ed6662f30"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0035.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0035.txt",
+      "sha256": "3cafb2888701ef047ae9ebb944ec12e00daf299bf76d871617287d9c6812720e"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0036.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0036.txt",
+      "sha256": "889449dc2363254311fccf859ddc04fe43443f8338ae8e3c743a258738d2cdfa"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0037.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0037.txt",
+      "sha256": "82f0b4f0f9f72b0df8405b09f60da630b38f77fedeab5a2ef7512a3c572e5a44"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0038.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0038.txt",
+      "sha256": "77407de14ae55f0d93f0261970dd2823de4b8883dc0d2d28fa791cc0cfa4d54a"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0039.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0039.txt",
+      "sha256": "a8a8fb9a78f596778c7a4564eff23a48f188b6668a438346cb5b9651545814a3"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0040.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0040.txt",
+      "sha256": "2d921a8fa5c2b71c501bb72f9b4200eb02ec1b4f4da5602f3f2d6303ce5a1ad6"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0041.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0041.txt",
+      "sha256": "0709dd5652694fa8101d9087e4d38e83d7e1c90d322384510a60540155072d0e"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0042.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0042.txt",
+      "sha256": "95c8b1e87975d046e99367b023a4c15e4265b493d2ada9abf2c36a3ac166d610"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0043.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0043.txt",
+      "sha256": "06d389b2ea4ed6c6956995d96d98a48da138ce86041ab760f2a52fef18e66598"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0044.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0044.txt",
+      "sha256": "34208cb0bcc540bfea6b33f8caef9458682b94cf4ce1599aed42f140542473ad"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0045.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0045.txt",
+      "sha256": "24fb26f0d66848747aa59ecb1a286393d237f7549d3975986b4c3ec9467b824a"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0046.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0046.txt",
+      "sha256": "bad22dce490cb6b3e727222a9c57792f7380e19f956503ad4349bd2c02cd6789"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0047.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0047.txt",
+      "sha256": "81663cca36d96759733e45d82181df128231c3caa2fafc9689d14b4624ec1e97"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0048.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0048.txt",
+      "sha256": "37efdad36a456357b296e37be5ed360fe8d6a00f3c4d7850182c1c6961a171e4"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0049.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0049.txt",
+      "sha256": "95c8b1e87975d046e99367b023a4c15e4265b493d2ada9abf2c36a3ac166d610"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0050.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0050.txt",
+      "sha256": "cc430b0b6e78f0bcfc63a54d461ae7b358dd9f59be923f2b47351ede61f498af"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0051.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0051.txt",
+      "sha256": "937d1d874c5f175f83dff10fd94a3d0361ae5228fa8abf2647f707df3527e386"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0052.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0052.txt",
+      "sha256": "1e10ff6044a70b6f6aeb26a9a36bb72d4eaeef5a1694a63f58ae2ad6bd88ab3d"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0053.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0053.txt",
+      "sha256": "77407de14ae55f0d93f0261970dd2823de4b8883dc0d2d28fa791cc0cfa4d54a"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0054.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0054.txt",
+      "sha256": "71070f1c628ca80afe33a7af878dc26724a20dd2b978c54c1c25e9bac3ca2d9c"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0055.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0055.txt",
+      "sha256": "2393d3d9678ec653a0e97f625947377c18d377b0bb5dd62221b3d242df556bb2"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0056.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0056.txt",
+      "sha256": "7f5ce2484f72dcb7363a12eac3f79b3d0e750a2c55acf6ce8a1da139eed0c488"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0057.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0057.txt",
+      "sha256": "ddcda4eccf691c4afe9014506665e7dc32d6d093b8275038c1aedd3f12f2ebe4"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0058.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0058.txt",
+      "sha256": "4ad883b4d7ed8e5b86a938e55239199b0a27c9891ccd1df05ce7a3d750300dd2"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0059.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0059.txt",
+      "sha256": "ca16e27a378689b8af1dc7054139103e5dfdf343cec4278cdd8fb07e11dee3b0"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0060.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0060.txt",
+      "sha256": "a65dce4a8f0f7e12ca4b3a77a6b8679d49006bdcdb91f9c8697dd22708c6a234"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0061.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0061.txt",
+      "sha256": "6ac17276c88ff2c36bf2aa84f9e7edb7a68ab7ad8915f38ecab8cbacb106e660"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0062.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0062.txt",
+      "sha256": "e89b57ebbf13eb41a0dc9833682e59b89045b02c26751b4073f007b47c838117"
+    },
+    {
+      "source": "yolo_port/labels/train/train_port_0063.txt",
+      "archive": "source_annotations/yolo_port/labels/train/train_port_0063.txt",
+      "sha256": "c1c69dea521ac045c90a5d7ecd8b5483cd718ec793e6dbbc4df631773a710210"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0001.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0001.txt",
+      "sha256": "a7ff65f36203a0da3825731638c3e9039433a099393c97c30a20f6068ad1f2e8"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0002.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0002.txt",
+      "sha256": "4085a151402921ba1804597d09202500b53d87a6c1a816a1c6d12e596ef4a5b3"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0003.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0003.txt",
+      "sha256": "08455c876a62b257cd305ea613f271f1a7b03b29c68bca7f14165f9a8d9932c9"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0004.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0004.txt",
+      "sha256": "01f56705c68b796f865bdd24e8913d35dcf5efbc1a8db029276a3abed5e80bd6"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0005.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0005.txt",
+      "sha256": "51bb5b32ad74325848d3be41f6cf75ad523168891a76c66c43921401f98e4551"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0006.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0006.txt",
+      "sha256": "565e3510fcc7ff2784558c5c4730d9d6b043a58712a11e6a0c93d224a1f278db"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0007.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0007.txt",
+      "sha256": "50364b67f261ea83e9ff41da17599b01d85626fe9309e03a222aa3153dfd9123"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0008.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0008.txt",
+      "sha256": "565e3510fcc7ff2784558c5c4730d9d6b043a58712a11e6a0c93d224a1f278db"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0009.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0009.txt",
+      "sha256": "f87a8529a4f0ef3b220a28a6aaee8c8b3da6db9d989fea8c323e25c2f4c84056"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0010.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0010.txt",
+      "sha256": "3cafb2888701ef047ae9ebb944ec12e00daf299bf76d871617287d9c6812720e"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0011.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0011.txt",
+      "sha256": "4e4f1e13a4a4a9e270f3e6922ba2a9a89675a093176eaaed9593e7c11677062c"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0012.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0012.txt",
+      "sha256": "f5b1d4a7df013d9b9f36d6de86609b0b872bd60b83b8127fb224c8354abe5f4a"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0013.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0013.txt",
+      "sha256": "79423243794093ec907e85812d5660d3076a14be5568728013902a3af5dd6d91"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0014.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0014.txt",
+      "sha256": "02810a738859099aafd74d12115914e01b4bcf9acc78ae288f67d89827e12964"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0015.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0015.txt",
+      "sha256": "11e701d442bc2edfa076f9248207ffef2119c44f86e832d2a0397865c9b37b93"
+    },
+    {
+      "source": "yolo_port/labels/val/val_port_0016.txt",
+      "archive": "source_annotations/yolo_port/labels/val/val_port_0016.txt",
+      "sha256": "52cc0166de3105550c67d116d6998310d1962883f10b85190d575c565e982ded"
+    }
+  ],
+  "migration_deletes_sources": false
+}

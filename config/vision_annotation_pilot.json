@@ -1,6 +1,8 @@
 {
   "purpose": "development_diagnostic",
   "independent_test_set": false,
+  "source_index": "config/legacy_photo_index.json",
+  "source_resolution_note": "image 保留历史批处理及人工标注身份；实际文件由 source_index 映射到 dataset/vision 并验证 SHA256。",
   "selection_note": "24 张按已知故障和较好样例选取的去重开发图；用于诊断，不用于估计总体准确率。",
   "images": [
     {"image": "yolo_port/images/train/train_port_0002.jpg", "selection_reasons": ["低残差放行但 S_pos 偏点"]},

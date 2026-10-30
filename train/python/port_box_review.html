@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><title>充电接口检测框复核</title>
+<style>body{font:16px system-ui;margin:24px;background:#f4f6f8;color:#152237}button{padding:9px;margin:4px;cursor:pointer}canvas{display:block;max-width:100%;background:#111;touch-action:none}textarea{width:95%;height:95px}small,pre{white-space:pre-wrap;overflow-wrap:anywhere}#message{color:#963000}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}</style>
+<h1>充电接口检测框复核</h1>
+<p>框住所有可见充电接口（含画面边缘截断目标）。在图片上拖动添加框；修改下方 YOLO 行可调整或删除。绿色框只是预标注，必须查看后确认。无接口照片选择“排除”。</p>
+<div class="bar"><button id="prev">上一张</button><span id="position"></span><button id="next">下一张</button><button id="accept">确认框并下一张</button><button id="exclude">无接口，排除</button><button id="clear">清空框</button><button id="export">导出已复核标注</button></div>
+<p id="message"></p><canvas id="canvas"></canvas>
+<p>每行：类别0 中心x 中心y 宽 高，坐标归一化到0–1。遗漏的第二个接口也应补框。</p>
+<textarea id="labels" spellcheck="false"></textarea><details><summary>来源及冲突候选</summary><pre id="source"></pre></details>
+<script>
+const records=/*__REVIEW_DATA__*/[];
+const $=id=>document.getElementById(id), canvas=$('canvas'), ctx=canvas.getContext('2d');
+let index=0, img=new Image(), start=null, decisions={}, drafts={};
+function parsed(text){return text.trim()?text.trim().split(/\n/).map(line=>{const p=line.trim().split(/\s+/).map(Number);if(p.length!==5||p[0]!==0||p.some(x=>!Number.isFinite(x))||p.slice(1).some(x=>x<0||x>1)||p[3]<=0||p[4]<=0||p[1]-p[3]/2<-.000001||p[2]-p[4]/2<-.000001||p[1]+p[3]/2>1.000001||p[2]+p[4]/2>1.000001)throw Error('框格式或范围无效');return p;}):[];}
+function paint(){if(!img.complete||!img.naturalWidth)return;ctx.drawImage(img,0,0,canvas.width,canvas.height);try{parsed($('labels').value).forEach(([c,x,y,w,h],n)=>{ctx.strokeStyle='#00ff77';ctx.lineWidth=3;ctx.strokeRect((x-w/2)*canvas.width,(y-h/2)*canvas.height,w*canvas.width,h*canvas.height);ctx.fillStyle='#00ff77';ctx.font='20px sans-serif';ctx.fillText(String(n+1),(x-w/2)*canvas.width+3,(y-h/2)*canvas.height+22);});}catch(e){$('message').textContent=e.message;}}
+function show(){if(!records.length){$('position').textContent='没有待复核图片';return;}const r=records[index];$('position').textContent=`${index+1}/${records.length}，已确认 ${Object.keys(decisions).length} 张`;$('message').textContent=decisions[r.image_sha256]?'该图已确认；修改后需再次确认。':`状态：${r.status}；尚未确认`;$('labels').value=drafts[r.image_sha256]??r.label_text;$('source').textContent=JSON.stringify({sha:r.image_sha256,sources:r.sources,candidates:r.label_candidates},null,2);img=new Image();img.onload=()=>{canvas.width=r.width;canvas.height=r.height;paint();};img.src=r.image_url;}
+function draft(){if(records.length)drafts[records[index].image_sha256]=$('labels').value;}
+function move(d){draft();index=Math.max(0,Math.min(records.length-1,index+d));show();}
+$('prev').onclick=()=>move(-1);$('next').onclick=()=>move(1);
+$('labels').oninput=()=>{draft();if(records.length)delete decisions[records[index].image_sha256];$('message').textContent='已修改，请重新确认';paint();};
+$('clear').onclick=()=>{$('labels').value='';$('labels').oninput();};
+$('accept').onclick=()=>{if(!records.length)return;try{if(!parsed($('labels').value).length)throw Error('没有框；无接口请点击排除，漏检请手动画框。');const sha=records[index].image_sha256;decisions[sha]={image_sha256:sha,label_text:$('labels').value.trim()+'\n',excluded:false};move(1);}catch(e){$('message').textContent=e.message;}};
+$('exclude').onclick=()=>{if(!records.length)return;const sha=records[index].image_sha256;decisions[sha]={image_sha256:sha,label_text:'',excluded:true,reason:'user_review_no_charging_connector'};move(1);};
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify({schema_version:1,annotations:Object.values(decisions)},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='reviewed_port_boxes.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+function point(e){const r=canvas.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))];}
+canvas.onpointerdown=e=>{start=point(e);canvas.setPointerCapture(e.pointerId);};
+canvas.onpointerup=e=>{if(!start)return;const end=point(e),[x,y]=start;start=null;const w=Math.abs(end[0]-x),h=Math.abs(end[1]-y);if(w<.002||h<.002)return;$('labels').value+=($('labels').value.trim()?'\n':'')+'0 '+[(x+end[0])/2,(y+end[1])/2,w,h].map(v=>v.toFixed(8)).join(' ');$('labels').oninput();};
+show();
+</script></html>
