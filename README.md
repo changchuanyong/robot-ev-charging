@@ -20,6 +20,14 @@ D415 采训练数据、D435 用于机械臂定位的流程见 [D415 数据采集
 Set-Location "C:\Users\admin\Desktop\doc\毕业设计\robot-ev-charging"
 ```
 
+**不需要激活虚拟环境。** 本机开启了 Windows 智能应用控制（Smart App Control），它在 Authenticode 层面拦截未签名的 `.ps1`，所以 `.venv\Scripts\Activate.ps1` 会报“未对文件进行数字签名”，`Set-ExecutionPolicy -Scope Process RemoteSigned` 也压不住（只有 `Bypass` 能绕过）。不需要为此关闭系统防护——所有命令直接用 `.venv\Scripts\python.exe` 全路径即可。确实想让 `python` 在会话里直接可用时，手工加 PATH，不执行任何脚本：
+
+```powershell
+$env:Path = "$PWD\.venv\Scripts;$env:Path"
+```
+
+相机入口还需要 `SeSecurityPrivilege`（librealsense 2.59.1 的全局互斥体带 SACL，缺失时报 `CreateNamedMutex returned Mutex_TotalFailure`）。**非管理员终端**请把下文的 `-m vision.preview` / `-m vision.collect` 换成 `-m vision.launch vision.preview` / `-m vision.launch vision.collect`，首次会弹一次 UAC；**管理员终端**保持原命令即可。原理与安全边界见 [Windows 权限说明](docs/windows_realsense_privilege.md)。
+
 已验证环境为 **Windows + Python 3.12**。新电脑尚无 `.venv` 时，先安装 Python 3.12，再执行以下环境准备；已有环境不必重复创建：
 
 ```powershell
@@ -47,6 +55,8 @@ py -3.12 -m venv .venv
 默认绑定本机 D415 `349222063070`。更换 D415 时，在下面的启动命令后加 `--serial 实际完整序列号`。D435 的机器人定位入口见 [视觉模块说明](vision/README.md)，不使用这里的 D415 预览入口。
 
 ### 2. 打开彩色与深度诊断
+
+**非管理员终端**：本节及下文所有 `vision.preview` 命令都要加启动器前缀，写成 `-m vision.launch vision.preview ...`（首次弹一次 UAC）；管理员终端按原文执行。原因见上节与 [Windows 权限说明](docs/windows_realsense_privilege.md)。
 
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth

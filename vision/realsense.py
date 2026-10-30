@@ -11,6 +11,7 @@ import uuid
 import numpy as np
 
 from .contracts import FrameClock, FramePacket, intrinsics_signature, validate_camera
+from .win_privilege import ensure_camera_privilege
 
 
 def validated_camera_override(sdk_camera: dict, config: dict) -> dict:
@@ -76,6 +77,7 @@ class RealSenseCamera:
 
     def __enter__(self):
         import pyrealsense2 as rs
+        ensure_camera_privilege(sdk=rs)
         self.rs = rs
         serial = self.config.get("serial")
         if not isinstance(serial, str) or not serial.strip():

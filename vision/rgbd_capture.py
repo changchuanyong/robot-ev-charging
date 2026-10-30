@@ -8,6 +8,7 @@ import numpy as np
 
 from .collect import CaptureColorCamera, list_devices, validate_config
 from .contracts import intrinsics_signature, validate_camera
+from .win_privilege import ensure_camera_privilege
 
 
 def validate_depth_config(config):
@@ -74,6 +75,7 @@ class CaptureRGBDCamera(CaptureColorCamera):
 
     def __enter__(self):
         import pyrealsense2 as rs
+        ensure_camera_privilege(sdk=rs)
         serial, model = self.config["serial"], self.config["device_model"]
         matches = [device for device in list_devices(rs) if device["serial"] == serial]
         if len(matches) != 1 or matches[0]["name"].split()[-1] != model:

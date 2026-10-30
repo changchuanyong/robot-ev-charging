@@ -14,6 +14,7 @@ import numpy as np
 
 from .contracts import intrinsics_signature, validate_camera
 from .rgb_controls import RGBControls, validate_rgb_options
+from .win_privilege import ensure_camera_privilege
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +24,7 @@ WINDOW = "RealSense RGB data collection"
 def list_devices(rs=None) -> list[dict]:
     if rs is None:
         import pyrealsense2 as rs
+        ensure_camera_privilege(sdk=rs)
     context = rs.context()
     return [{"name": device.get_info(rs.camera_info.name),
              "serial": device.get_info(rs.camera_info.serial_number)}
@@ -58,6 +60,7 @@ class CaptureColorCamera:
 
     def __enter__(self):
         import pyrealsense2 as rs
+        ensure_camera_privilege(sdk=rs)
         serial = self.config["serial"]
         matches = [device for device in list_devices(rs) if device["serial"] == serial]
         if len(matches) != 1:

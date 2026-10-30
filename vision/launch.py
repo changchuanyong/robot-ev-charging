@@ -1,0 +1,77 @@
+"""Run a vision entry point with SeSecurityPrivilege enabled (Windows).
+
+Usage:
+    .venv\\Scripts\\python.exe -m vision.launch vision.preview --depth
+
+The launcher re-launches itself through the UAC prompt when the current token is not
+elevated, enables the privilege inside the new process, and then runs the requested
+module exactly as ``python -m <module> <args...>`` would. Nothing is stored: the privilege
+lives only for that process. See docs/windows_realsense_privilege.md for the background.
+
+Using ``.venv\\Scripts\\python.exe`` directly also sidesteps the PowerShell execution-policy
+issue with Activate.ps1, which is unrelated to the camera privilege.
+"""
+from __future__ import annotations
+
+import ctypes
+import os
+import runpy
+import subprocess
+import sys
+
+LAUNCHER = "vision.launch"
+SW_SHOWNORMAL = 1
+USAGE = "用法: python -m vision.launch <模块> [参数...]\n例如: python -m vision.launch vision.preview --depth"
+
+
+def _parameters(argv) -> str:
+    """switches passed to the elevated child, i.e. everything after python.exe."""
+    return subprocess.list2cmdline(["-m", LAUNCHER, *argv])
+
+
+def _self_command(argv, executable=None) -> str:
+    """Complete command line of the elevated child, quoted for ShellExecuteW."""
+    return subprocess.list2cmdline([executable or sys.executable, "-m", LAUNCHER, *argv])
+
+
+def is_elevated() -> bool:
+    if sys.platform != "win32":
+        return False
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except OSError:
+        return False
+
+
+def _relaunch(argv) -> int:
+    result = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, _parameters(argv),
+                                                 os.getcwd(), SW_SHOWNORMAL)
+    if result <= 32:
+        print("需要管理员权限，但 UAC 授权被取消，未启动。", file=sys.stderr)
+        return 1
+    return 0
+
+
+def main(argv=None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args:
+        print(USAGE, file=sys.stderr)
+        return 2
+    module, passthrough = args[0], args[1:]
+    if sys.platform == "win32" and not is_elevated():
+        return _relaunch(args)
+
+    from .win_privilege import ensure_camera_privilege
+    try:
+        ensure_camera_privilege()
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    sys.argv = [module, *passthrough]
+    runpy.run_module(module, run_name="__main__", alter_sys=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

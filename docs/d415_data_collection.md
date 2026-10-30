@@ -171,6 +171,8 @@ artifacts/captures/<UTC时间_唯一标识>/
 
 默认采集根目录适合持续使用；可用 `--output-root` 指定项目内另一个目录。一个会话的分区固定，人工复核不会修改分区、相机或图片身份。
 
+Windows 上访问 D415 前需要 `SeSecurityPrivilege`（librealsense 2.59.1 的全局互斥体带 SACL），启动方式与排障见 [windows_realsense_privilege.md](windows_realsense_privilege.md)。
+
 ## 先使用 SDK 内参做视觉分析
 
 当前先使用设备 SDK 内参，不要求先拍标定板。`config/d415_camera_intrinsics.json`（受版本管理，含 `intrinsics_sha256` 参数指纹）保存本机于 2026-10-29 从该 D415 的 1280×720 / 15 fps 彩色流实际读取的参数。它保留 `validated=false`，可以计算检测点、PnP 位姿及重投影残差；不将设备参数标记为独立验收结果。
