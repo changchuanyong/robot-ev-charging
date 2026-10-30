@@ -76,6 +76,104 @@
       "changed_at": "2026-10-30T09:51:51.878701+00:00"
     }
   ],
-  "updated_at": "2026-10-30T11:00:40.097810+00:00",
-  "exclusion_reason": null
+  "updated_at": "2026-10-30T15:59:55.126501+00:00",
+  "exclusion_reason": null,
+  "depth": {
+    "schema_version": 1,
+    "file": "depth/2026-10-30/0d449f7aa6268490d10bfe4446487a1470f4075950c4d30172b28878118ab434.png",
+    "file_sha256": "23b169fb6edb5500e3d9f4b375db177a044570fed6a78355fb61e3ab0757f7f1",
+    "raw_pixels_sha256": "3d4069a4213f10db67c08c50fbd286c71278ca4e0f91ece3441678f155b0a67e",
+    "width": 640,
+    "height": 480,
+    "dtype": "uint16",
+    "format": "z16",
+    "depth_scale_m": 0.0010000000474974513,
+    "frame": {
+      "frame_number": 236,
+      "device_timestamp_ms": 1793350829428.905,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-30T09:00:29.445630+00:00"
+    },
+    "color_frame": {
+      "frame_number": 237,
+      "device_timestamp_ms": 1793350829445.5105,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-30T09:00:29.445630+00:00",
+      "rgb_settings": {
+        "sensor_options": {
+          "source": "sensor_get_option",
+          "observed_at_utc": "2026-10-30T09:00:28.310239+00:00",
+          "values": {
+            "enable_auto_exposure": 1.0,
+            "exposure": 312.0,
+            "gain": 70.0,
+            "enable_auto_white_balance": 1.0,
+            "auto_exposure_priority": 0.0
+          },
+          "ranges": {
+            "enable_auto_exposure": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 1.0,
+              "read_only": false
+            },
+            "exposure": {
+              "min": 1.0,
+              "max": 10000.0,
+              "step": 1.0,
+              "default": 156.0,
+              "read_only": false
+            },
+            "gain": {
+              "min": 0.0,
+              "max": 128.0,
+              "step": 1.0,
+              "default": 64.0,
+              "read_only": false
+            },
+            "enable_auto_white_balance": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 1.0,
+              "read_only": false
+            },
+            "auto_exposure_priority": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 0.0,
+              "read_only": false
+            }
+          },
+          "last_changes": {
+            "enable_auto_exposure": {
+              "requested": 1.0,
+              "readback": 1.0,
+              "status": "applied"
+            }
+          }
+        },
+        "frame_metadata": {
+          "source": "sdk_frame_metadata",
+          "values": {},
+          "errors": {}
+        },
+        "note": "Sensor options are cached reads, not frame exposure. Frame metadata uses raw SDK units."
+      }
+    },
+    "status": "plane_rejected",
+    "reasons": [
+      "mixed_or_nonplanar_surface"
+    ],
+    "calibration_file": "depth_camera.json",
+    "calibration_sha256": "39a1c782cfb2d015a3a877810447f7ca9ec3bc15bc9b5f5d703956a0bdbd8607",
+    "source": {
+      "session": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview_upgrade\\20261030\\hd_20261030T090020389602Z\\captures\\20261030T090029Z_8fe7da9ab3ac4866b9bd242c3651192d",
+      "file": "depth/frame_000001.png",
+      "session_id": "20261030T090029Z_8fe7da9ab3ac4866b9bd242c3651192d"
+    },
+    "bound_at": "2026-10-30T15:59:55.126501+00:00"
+  }
 }

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
@@ -17,6 +18,7 @@ import cv2
 import numpy as np
 
 DEFAULT_LIBRARY = Path(__file__).resolve().parents[1] / "dataset" / "vision"
+DEPTH_DIR = "depth"
 _EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 _HASH = re.compile(r"[0-9a-f]{64}")
 
@@ -125,6 +127,88 @@ def _decode(data):
     return image.shape[1], image.shape[0]
 
 
+def _depth_payload(depth) -> dict:
+    """Verify a paired raw Z16 file without re-encoding or normalizing it."""
+    if not isinstance(depth, dict) or not depth.get("path"):
+        raise ValueError("library_depth_path_required")
+    path = Path(depth["path"]).resolve()
+    data = path.read_bytes()
+    file_sha256 = depth.get("file_sha256")
+    if not isinstance(file_sha256, str) or _HASH.fullmatch(file_sha256) is None:
+        raise ValueError("library_depth_file_sha256_required")
+    if _hash(data) != file_sha256:
+        raise ValueError("library_depth_file_sha256_mismatch")
+    raw = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+    if raw is None or raw.dtype != np.uint16 or raw.ndim != 2 or min(raw.shape) < 1:
+        raise ValueError("library_depth_requires_uint16_z16")
+    raw_pixels_sha256 = depth.get("raw_pixels_sha256")
+    if not isinstance(raw_pixels_sha256, str) or _HASH.fullmatch(raw_pixels_sha256) is None:
+        raise ValueError("library_depth_pixels_sha256_required")
+    if _hash(raw.tobytes()) != raw_pixels_sha256:
+        raise ValueError("library_depth_pixels_sha256_mismatch")
+    scale = depth.get("depth_scale_m")
+    if (isinstance(scale, bool) or not isinstance(scale, (int, float))
+            or not math.isfinite(scale) or scale <= 0):
+        raise ValueError("library_depth_scale_required")
+    status, reasons = depth.get("status"), depth.get("reasons")
+    if not isinstance(status, str) or not status.strip():
+        raise ValueError("library_depth_status_required")
+    if not isinstance(reasons, list) or any(not isinstance(reason, str) for reason in reasons):
+        raise ValueError("library_depth_reasons_required")
+    for key in ("frame", "color_frame"):
+        if depth.get(key) is not None and not isinstance(depth[key], dict):
+            raise ValueError(f"library_depth_{key}_required")
+    calibration_file = depth.get("calibration_file")
+    if calibration_file is not None and not isinstance(calibration_file, str):
+        raise ValueError("library_depth_calibration_file_required")
+    calibration_sha256 = depth.get("calibration_sha256")
+    if calibration_sha256 is not None and (
+            not isinstance(calibration_sha256, str) or _HASH.fullmatch(calibration_sha256) is None):
+        raise ValueError("library_depth_calibration_sha256_required")
+    source = depth.get("source")
+    if source is not None:
+        source = json.loads(json.dumps(source, allow_nan=False))
+    return {"data": data, "width": int(raw.shape[1]), "height": int(raw.shape[0]),
+            "file_sha256": file_sha256, "raw_pixels_sha256": raw_pixels_sha256,
+            "depth_scale_m": float(scale), "frame": depth.get("frame"),
+            "color_frame": depth.get("color_frame"), "status": status,
+            "reasons": list(reasons), "calibration_file": calibration_file,
+            "calibration_sha256": calibration_sha256, "source": source}
+
+
+def _attach_depth(root, entry, payload) -> None:
+    """Bind one verified depth frame; the first frame for an image content wins."""
+    existing = entry.get("depth")
+    if existing is not None:
+        if (isinstance(existing, dict)
+                and existing.get("raw_pixels_sha256") == payload["raw_pixels_sha256"]):
+            return
+        conflicts = entry.setdefault("depth_conflicts", [])
+        record = {"source": payload.get("source"), "file_sha256": payload["file_sha256"],
+                  "raw_pixels_sha256": payload["raw_pixels_sha256"], "recorded_at": _now()}
+        if record not in conflicts:
+            conflicts.append(record)
+        return
+    stored_image = _inside(root, entry["image"])
+    if entry.get("status") == "excluded" and not stored_image.exists():
+        return
+    relative = f"{DEPTH_DIR}/{entry['date']}/{entry['image_sha256']}.png"
+    _atomic_bytes(_inside(root, relative), payload["data"])
+    entry["depth"] = {
+        "schema_version": 1, "file": relative,
+        "file_sha256": payload["file_sha256"],
+        "raw_pixels_sha256": payload["raw_pixels_sha256"],
+        "width": payload["width"], "height": payload["height"],
+        "dtype": "uint16", "format": "z16",
+        "depth_scale_m": payload["depth_scale_m"],
+        "frame": payload["frame"], "color_frame": payload["color_frame"],
+        "status": payload["status"], "reasons": payload["reasons"],
+        "calibration_file": payload["calibration_file"],
+        "calibration_sha256": payload["calibration_sha256"],
+        "source": payload["source"], "bound_at": _now(),
+    }
+
+
 def _write_label(root, entry, label_text, annotation_source, human_reviewed):
     relative = f"labels/{entry['date']}/{entry['image_sha256']}.txt"
     _atomic_bytes(_inside(root, relative), label_text.encode("utf-8"))
@@ -133,8 +217,13 @@ def _write_label(root, entry, label_text, annotation_source, human_reviewed):
 
 
 def register_image(image_path, *, library_root, source: dict, date: str | None = None,
-                   label_path=None, annotation_source=None, human_reviewed=False) -> dict:
-    """Copy a raw image once; unlabelled images remain pending, never negatives."""
+                   label_path=None, annotation_source=None, human_reviewed=False,
+                   depth=None) -> dict:
+    """Copy a raw image once; unlabelled images remain pending, never negatives.
+
+    ``depth`` optionally binds one raw Z16 frame to this image content. Depth is
+    evidence, not a training channel: validation of training readiness ignores it.
+    """
     root = Path(library_root).resolve()
     image_path = Path(image_path).resolve()
     if image_path.suffix.lower() not in _EXTENSIONS:
@@ -147,6 +236,7 @@ def register_image(image_path, *, library_root, source: dict, date: str | None =
     digest = _hash(data)
     width, height = _decode(data)
     date = _date(date, source)
+    depth_payload = _depth_payload(depth) if depth is not None else None
     label = None
     if label_path is not None:
         label = normalize_label(Path(label_path).read_text(encoding="utf-8-sig"))
@@ -155,12 +245,14 @@ def register_image(image_path, *, library_root, source: dict, date: str | None =
         record_path = root / "records" / f"{digest}.json"
         if record_path.exists():
             entry = json.loads(record_path.read_text(encoding="utf-8"))
+            previous = copy.deepcopy(entry)
             stored_image = _inside(root, entry["image"])
             if not stored_image.exists() and entry["status"] != "excluded":
                 raise ValueError("library_existing_image_missing_restore_required")
             if stored_image.exists() and _hash(stored_image.read_bytes()) != digest:
                 raise ValueError("library_existing_image_hash_mismatch")
         else:
+            previous = None
             relative = f"images/{date}/{digest}{image_path.suffix.lower()}"
             _atomic_bytes(_inside(root, relative), data)
             entry = {"schema_version": 1, "image_sha256": digest, "image": relative,
@@ -185,6 +277,12 @@ def register_image(image_path, *, library_root, source: dict, date: str | None =
                     entry["status"] = "conflict"
             elif provenance not in known["sources"]:
                 known["sources"].append(provenance)
+        if depth_payload is not None:
+            _attach_depth(root, entry, depth_payload)
+        if (previous is not None
+                and {key: value for key, value in entry.items() if key != "updated_at"}
+                == {key: value for key, value in previous.items() if key != "updated_at"}):
+            return previous
         entry["updated_at"] = _now()
         _atomic_bytes(record_path, json.dumps(entry, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8"))
         return entry
@@ -302,6 +400,49 @@ def _validate_library_locked(root) -> list[dict]:
     return trainable
 
 
+def depth_status(library_root) -> dict:
+    """Audit paired raw depth; training readiness never depends on these files."""
+    root = Path(library_root).resolve()
+    entries = read_entries(root)
+    indexed, problems = set(), []
+    with_depth = conflicts = 0
+    for entry in entries:
+        conflicts += len(entry.get("depth_conflicts", []))
+        depth = entry.get("depth")
+        if depth is None:
+            continue
+        with_depth += 1
+        digest = entry["image_sha256"]
+        try:
+            if not isinstance(depth, dict):
+                raise ValueError("depth_record_must_be_object")
+            path = _inside(root, depth["file"])
+            indexed.add(path)
+            if path.name != f"{digest}.png":
+                raise ValueError("depth_file_name_mismatch")
+            if not path.exists():
+                raise ValueError("depth_file_missing")
+            data = path.read_bytes()
+            if _hash(data) != depth.get("file_sha256"):
+                raise ValueError("depth_file_sha256_mismatch")
+            raw = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+            if raw is None or raw.dtype != np.uint16 or raw.ndim != 2:
+                raise ValueError("depth_not_uint16_z16")
+            if (raw.shape[1], raw.shape[0]) != (depth.get("width"), depth.get("height")):
+                raise ValueError("depth_dimensions_mismatch")
+            if _hash(raw.tobytes()) != depth.get("raw_pixels_sha256"):
+                raise ValueError("depth_pixels_sha256_mismatch")
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            problems.append(f"{digest}: {exc}")
+    depth_dir = root / DEPTH_DIR
+    if depth_dir.is_dir():
+        for path in depth_dir.rglob("*"):
+            if path.is_file() and path.resolve() not in indexed:
+                problems.append(f"unindexed_depth: {path.relative_to(root)}")
+    return {"records": len(entries), "with_depth": with_depth,
+            "conflicts": conflicts, "problems": problems}
+
+
 def import_review(library_root, review_path) -> list[dict]:
     payload = json.loads(Path(review_path).read_text(encoding="utf-8-sig"))
     if (payload.get("schema_version") != 1 or payload.get("kind", "yolo_port_library_review") != "yolo_port_library_review"
@@ -323,9 +464,9 @@ def import_review(library_root, review_path) -> list[dict]:
             for item in payload["annotations"]]
 
 
-def main(argv=None):
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="统一充电口图片库状态与标注导入")
-    parser.add_argument("command", choices=["status", "annotate"])
+    parser.add_argument("command", choices=["status", "annotate", "depth-status"])
     parser.add_argument("--library", type=Path, default=DEFAULT_LIBRARY)
     parser.add_argument("--review-json", type=Path)
     args = parser.parse_args(argv)
@@ -333,12 +474,19 @@ def main(argv=None):
         if args.review_json is None:
             parser.error("annotate 需要 --review-json")
         print(f"已导入 {len(import_review(args.library, args.review_json))} 份标注")
+    if args.command == "depth-status":
+        report = depth_status(args.library)
+        print(json.dumps({"library": str(args.library.resolve()), **report},
+                         ensure_ascii=False, indent=2))
+        return 1 if report["problems"] else 0
     entries = read_entries(args.library)
     counts = {status: sum(entry["status"] == status for entry in entries)
               for status in ("ready", "pending", "conflict", "excluded")}
-    print(json.dumps({"library": str(args.library.resolve()), "total": len(entries), **counts},
+    print(json.dumps({"library": str(args.library.resolve()), "total": len(entries),
+                      "with_depth": sum(entry.get("depth") is not None for entry in entries), **counts},
                      ensure_ascii=False, indent=2))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

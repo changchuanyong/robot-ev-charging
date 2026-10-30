@@ -61,6 +61,41 @@
       "changed_at": "2026-10-30T09:51:51.931726+00:00"
     }
   ],
-  "updated_at": "2026-10-30T11:00:40.026196+00:00",
-  "exclusion_reason": null
+  "updated_at": "2026-10-30T15:59:55.031596+00:00",
+  "exclusion_reason": null,
+  "depth": {
+    "schema_version": 1,
+    "file": "depth/2026-10-30/5b2301cd9e1e26ddcdfd79d519afdd66f6b1c4933c8ea119b155f5c7ae2277f1.png",
+    "file_sha256": "58d165c6f26450b3aa6859f705e8f6b9ce69ad8690f609ec75f8e69836adf7a3",
+    "raw_pixels_sha256": "c87b5fa186d8e2b17301d28949b38ba342f37e0afa16746d4e5d026984454eb6",
+    "width": 640,
+    "height": 480,
+    "dtype": "uint16",
+    "format": "z16",
+    "depth_scale_m": 0.0010000000474974513,
+    "frame": {
+      "frame_number": 83,
+      "device_timestamp_ms": 1793344222371.48,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-30T07:10:22.371195+00:00"
+    },
+    "color_frame": {
+      "frame_number": 83,
+      "device_timestamp_ms": 1793344222353.6355,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-30T07:10:22.371195+00:00"
+    },
+    "status": "plane_rejected",
+    "reasons": [
+      "mixed_or_nonplanar_surface"
+    ],
+    "calibration_file": "depth_camera.json",
+    "calibration_sha256": "5da5b40cbf92ad8a7edeb2d8aabed9344d806123ff9bba33cbc48b3bda46371b",
+    "source": {
+      "session": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188",
+      "file": "depth/frame_000003.png",
+      "session_id": "20261030T071018Z_7989860f1feb4e22b4355519cd799188"
+    },
+    "bound_at": "2026-10-30T15:59:55.031596+00:00"
+  }
 }

@@ -47,6 +47,38 @@ def _date(path):
     return "-".join(match.groups()) if match else None
 
 
+def _capture_depth_map(session, session_id):
+    """Map a session's saved RGB paths to verified raw-depth descriptors."""
+    preview_path = session / "preview_manifest.json"
+    if not preview_path.is_file():
+        return {}
+    preview = _json(preview_path)
+    result = {}
+    for sample in preview.get("samples", []):
+        depth = sample.get("depth") or {}
+        if not (isinstance(depth, dict) and depth.get("available") and depth.get("file")):
+            continue
+        try:
+            depth_path = _inside(session, depth["file"])
+            actual = _sha(depth_path)
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"capture_depth_missing_or_changed: {depth.get('file')}") from exc
+        if actual != depth.get("file_sha256"):
+            raise ValueError(f"capture_depth_missing_or_changed: {depth_path}")
+        result[sample["image"]] = {
+            "path": depth_path, "file_sha256": depth["file_sha256"],
+            "raw_pixels_sha256": depth.get("raw_pixels_sha256"),
+            "depth_scale_m": depth.get("depth_scale_m"),
+            "frame": depth.get("frame"), "color_frame": depth.get("color_frame"),
+            "status": depth.get("status"), "reasons": depth.get("reasons"),
+            "calibration_file": depth.get("calibration_file"),
+            "calibration_sha256": depth.get("calibration_sha256"),
+            "source": {"session": str(session), "file": depth["file"],
+                        "session_id": session_id},
+        }
+    return result
+
+
 def sync_library(root=ROOT, library=None, extra_sources=()):
     """Idempotent import; known old label candidates cannot undo a review decision."""
     root = Path(root).resolve()
@@ -110,6 +142,7 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
                 raise ValueError(f"capture_camera_hash_mismatch: {path}")
             if not camera.get("serial") or camera.get("stream") != "color":
                 raise ValueError(f"capture_rgb_identity_required: {path}")
+            depth_by_image = _capture_depth_map(path.parent, manifest["session_id"])
             for frame in manifest["frames"]:
                 image = _inside(path.parent, frame["image"])
                 if _sha(image) != frame["image_sha256"]:
@@ -123,7 +156,7 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
                     "original_split": manifest.get("split"), "metadata": manifest.get("metadata", {}),
                     "preview_manifest": str(path.parent / "preview_manifest.json")
                         if (path.parent / "preview_manifest.json").exists() else None,
-                })
+                }, depth=depth_by_image.get(frame["image"]))
                 registered_images.add(image)
                 registered += 1
         # A saved RGB whose manifest publication failed must not disappear from training audits.
@@ -154,7 +187,10 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
     entries = read_entries(library)
     report = {"schema_version": 1, "library": str(library), "source_visits": registered,
               "unique_images": len(entries), "status_counts": dict(Counter(e["status"] for e in entries)),
-              "scope": "Original RGB only; duplicate files share one training identity. Excluded images retain reasons.",
+              "depth": {"records_with_depth": sum(1 for e in entries if e.get("depth")),
+                        "conflicts": sum(len(e.get("depth_conflicts", [])) for e in entries)},
+              "scope": "Original RGB and paired raw Z16 depth; duplicate files share one training identity. "
+                       "Excluded images retain reasons; depth is evidence, not a training channel.",
               "independent_validation": False}
     atomic_capture_json(library / "sync_report.json", report)
     return report

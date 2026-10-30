@@ -62,5 +62,40 @@
     }
   ],
   "annotation_history": [],
-  "updated_at": "2026-10-30T11:00:38.586948+00:00"
+  "updated_at": "2026-10-30T15:59:53.009614+00:00",
+  "depth": {
+    "schema_version": 1,
+    "file": "depth/2026-10-30/9edfa70af2438dfef276a72c3382fabca56d64b916b81562b62f626c9beae09e.png",
+    "file_sha256": "afa9ac2409aff7c40d2f46724a7d386c874cad3e0f90b9a66751a6a3461a9151",
+    "raw_pixels_sha256": "6e0509425276f46c71d01e728f4f325cecbf48f4b35519acd96158acd0f69b1e",
+    "width": 640,
+    "height": 480,
+    "dtype": "uint16",
+    "format": "z16",
+    "depth_scale_m": 0.0010000000474974513,
+    "frame": {
+      "frame_number": 535,
+      "device_timestamp_ms": 1793330082334.8865,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-30T03:14:42.334905+00:00"
+    },
+    "color_frame": {
+      "frame_number": 535,
+      "device_timestamp_ms": 1793330082316.7888,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-30T03:14:42.334905+00:00"
+    },
+    "status": "scene_only",
+    "reasons": [
+      "target_not_detected"
+    ],
+    "calibration_file": "depth_camera.json",
+    "calibration_sha256": "5da5b40cbf92ad8a7edeb2d8aabed9344d806123ff9bba33cbc48b3bda46371b",
+    "source": {
+      "session": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T031408Z_49e0236dc339467c94b2d1cf626ef52a",
+      "file": "depth/frame_000020.png",
+      "session_id": "20261030T031408Z_49e0236dc339467c94b2d1cf626ef52a"
+    },
+    "bound_at": "2026-10-30T15:59:53.009614+00:00"
+  }
 }

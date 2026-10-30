@@ -143,7 +143,7 @@ D415ColorCamera = CaptureColorCamera
 
 
 def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | None) -> bool:
-    """Register committed raw RGB; library errors never roll back a capture."""
+    """Register committed raw RGB (and its paired depth); library errors never roll back a capture."""
     if library_root is None:
         return True
     try:
@@ -160,6 +160,26 @@ def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | Non
             raise ValueError("保存记录与会话清单不一致")
         if hashlib.sha256(image_path.read_bytes()).hexdigest() != saved["image_sha256"]:
             raise ValueError("保存后的原始 RGB 校验失败")
+        depth_argument = None
+        depth = saved.get("depth")
+        if isinstance(depth, dict) and depth.get("available") and depth.get("file"):
+            relative = Path(str(depth["file"]))
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError("深度文件必须位于采集会话内")
+            depth_path = (session_path / relative).resolve()
+            if not depth_path.is_relative_to(session_path) or not depth_path.is_file():
+                raise FileNotFoundError(f"会话深度文件缺失: {depth_path}")
+            depth_argument = {
+                "path": depth_path, "file_sha256": depth.get("file_sha256"),
+                "raw_pixels_sha256": depth.get("raw_pixels_sha256"),
+                "depth_scale_m": depth.get("depth_scale_m"),
+                "frame": depth.get("frame"), "color_frame": depth.get("color_frame"),
+                "status": depth.get("status"), "reasons": depth.get("reasons"),
+                "calibration_file": depth.get("calibration_file"),
+                "calibration_sha256": depth.get("calibration_sha256"),
+                "source": {"session": str(session_path), "file": relative.as_posix(),
+                            "session_id": manifest["session_id"]},
+            }
         camera_path = session_path / manifest["camera_file"]
         camera = json.loads(camera_path.read_text(encoding="utf-8"))
         register_image(
@@ -172,6 +192,7 @@ def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | Non
                     "original_split": manifest["split"], "metadata": manifest.get("metadata", {}),
                     "camera_file": str(camera_path), "camera_sha256": manifest["camera_sha256"],
                     "camera_serial": camera["serial"], "device_name": camera["device_name"]},
+            depth=depth_argument,
         )
         print(f"原图已加入统一图库: {library_root}；新图需确认标注后训练。", flush=True)
         return True
