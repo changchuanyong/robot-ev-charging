@@ -36,8 +36,3 @@ CLAUDE.md
 *.pdb
 *.ilk
 *.exe
-live/cpp/kinect_log.txt
-train/cpp/*.obj
-train/cpp/*.pdb
-train/cpp/*.ilk
-train/cpp/*.exe

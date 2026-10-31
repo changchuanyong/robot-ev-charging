@@ -85,69 +85,6 @@ def shape_to_bbox(shape: dict, img_w: int, img_h: int):
     return f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
 
 
-def convert_split(split: str):
-    input_dir = OUT_DIR / "images" / split
-    label_dir = OUT_DIR / "labels" / split
-    label_dir.mkdir(parents=True, exist_ok=True)
-
-    json_files = sorted(input_dir.glob("*.json"))
-    if not json_files:
-        print(f"[提示] {input_dir} 下没有 json 文件，跳过 {split}")
-        return 0, 0
-
-    converted = 0
-    skipped = 0
-
-    for json_path in json_files:
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        img_w = data.get("imageWidth")
-        img_h = data.get("imageHeight")
-        if not img_w or not img_h:
-            print(f"[跳过] 缺少 imageWidth/imageHeight: {json_path.name}")
-            skipped += 1
-            continue
-
-        image_path = find_image(json_path, data, input_dir)
-        if image_path is None:
-            print(f"[跳过] 找不到对应图片: {json_path.name}")
-            skipped += 1
-            continue
-
-        yolo_lines = []
-        for shape in data.get("shapes", []):
-            line = shape_to_bbox(shape, img_w, img_h)
-            if line:
-                yolo_lines.append(line)
-
-        if not yolo_lines:
-            print(f"[跳过] 没有有效标注: {json_path.name}")
-            skipped += 1
-            continue
-
-        dst_lbl = label_dir / f"{image_path.stem}.txt"
-        with open(dst_lbl, "w", encoding="utf-8") as f:
-            f.write("\n".join(yolo_lines) + "\n")
-
-        converted += 1
-        print(f"[完成][{split}] {json_path.name} -> {dst_lbl.name}")
-
-    return converted, skipped
-
-
-def write_yaml():
-    dataset_root = OUT_DIR.relative_to(ROOT_DIR).as_posix()
-    yaml_text = f"""path: {dataset_root}
-train: images/train
-val: images/val
-names:
-  0: port
-"""
-    with open(OUT_DIR / "dataset.yaml", "w", encoding="utf-8") as f:
-        f.write(yaml_text)
-
-
 def convert_to_library(input_dir, library=OUT_DIR, *, root=ROOT_DIR):
     if str(ROOT_DIR) not in sys.path:
         sys.path.insert(0, str(ROOT_DIR))

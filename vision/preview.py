@@ -320,7 +320,7 @@ def main(argv=None):
                                            exposure=args.exposure, gain=args.gain)
         if capture_config["device_model"] != "D415":
             raise ValueError("D415 preview requires an explicit D415 capture configuration")
-        output = args.output_root or Path(capture_config["output_root"])
+        output = args.output_root or Path(capture_config.get("output_root", "artifacts/d415_preview"))
         output = (output if output.is_absolute() else ROOT / output).resolve()
         if not output.is_relative_to(ROOT):
             raise ValueError("Preview output must be within the project for annotation review")

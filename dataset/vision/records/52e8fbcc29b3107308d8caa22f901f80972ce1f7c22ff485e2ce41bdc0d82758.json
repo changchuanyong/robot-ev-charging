@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "image_sha256": "52e8fbcc29b3107308d8caa22f901f80972ce1f7c22ff485e2ce41bdc0d82758",
+  "image": "images/2026-10-31/52e8fbcc29b3107308d8caa22f901f80972ce1f7c22ff485e2ce41bdc0d82758.png",
+  "label": null,
+  "label_sha256": null,
+  "width": 1920,
+  "height": 1080,
+  "date": "2026-10-31",
+  "status": "pending",
+  "sources": [
+    {
+      "kind": "realsense_rgb_capture",
+      "session_manifest": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce\\manifest.json",
+      "image": "images/frame_000015.png",
+      "image_sha256": "52e8fbcc29b3107308d8caa22f901f80972ce1f7c22ff485e2ce41bdc0d82758",
+      "received_at_utc": "2026-10-31T10:06:07.717138+00:00",
+      "session_id": "20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce",
+      "batch_id": "d415_preview_20261031T100517883543Z",
+      "original_split": "train",
+      "metadata": {
+        "specimen_id": null,
+        "printing_batch_id": null,
+        "notes": "D415 SDK visual diagnostics; unreviewed images",
+        "training_library_enabled": true,
+        "training_library_path": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision",
+        "capture_config": {
+          "device_model": "D415",
+          "serial": "349222063070",
+          "timeout_ms": 5000,
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "warmup_frames": 60,
+          "output_root": "artifacts/d415_preview",
+          "rgb_options": {
+            "enable_auto_exposure": 1,
+            "auto_exposure_priority": 0
+          }
+        },
+        "geometry_version": "legacy-nominal-xy-planar-v1",
+        "rgb_settings_at_start": {
+          "source": "sensor_get_option",
+          "observed_at_utc": "2026-10-31T10:05:22.087799+00:00",
+          "values": {
+            "enable_auto_exposure": 1.0,
+            "exposure": 156.0,
+            "gain": 64.0,
+            "enable_auto_white_balance": 1.0,
+            "auto_exposure_priority": 0.0
+          },
+          "ranges": {
+            "enable_auto_exposure": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 1.0,
+              "read_only": false
+            },
+            "exposure": {
+              "min": 1.0,
+              "max": 10000.0,
+              "step": 1.0,
+              "default": 156.0,
+              "read_only": false
+            },
+            "gain": {
+              "min": 0.0,
+              "max": 128.0,
+              "step": 1.0,
+              "default": 64.0,
+              "read_only": false
+            },
+            "enable_auto_white_balance": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 1.0,
+              "read_only": false
+            },
+            "auto_exposure_priority": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 0.0,
+              "read_only": false
+            }
+          },
+          "last_changes": {
+            "enable_auto_exposure": {
+              "requested": 1.0,
+              "readback": 1.0,
+              "status": "unchanged"
+            },
+            "auto_exposure_priority": {
+              "requested": 0.0,
+              "readback": 0.0,
+              "status": "unchanged"
+            }
+          }
+        }
+      },
+      "camera_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce\\camera.json",
+      "camera_sha256": "ea072daf51846597fa637a56e88264f9f6e479e1d20a2a6a21afcf9e983be33d",
+      "camera_serial": "349222063070",
+      "device_name": "RealSense D415",
+      "device_model": "D415",
+      "original_image": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce\\images\\frame_000015.png"
+    }
+  ],
+  "created_at": "2026-10-31T10:06:08.303117+00:00",
+  "annotation_source": null,
+  "human_reviewed": false,
+  "label_candidates": [],
+  "annotation_history": [],
+  "box_suggestions": [
+    {
+      "source": "same_frame_detector",
+      "model_sha256": "d7dbdab48880ac8d1eceb5c50b2dad4783c733b043a87612ba06435f12803fe9",
+      "image_sha256": "52e8fbcc29b3107308d8caa22f901f80972ce1f7c22ff485e2ce41bdc0d82758",
+      "frame_number": 1211,
+      "label_text": "0 0.5898429871 0.7011021649 0.1862182617 0.340993302\n"
+    }
+  ],
+  "depth": {
+    "schema_version": 1,
+    "file": "depth/2026-10-31/52e8fbcc29b3107308d8caa22f901f80972ce1f7c22ff485e2ce41bdc0d82758.png",
+    "file_sha256": "bce0de28e17b7635104342fe99f9c30642f2ac0f523ed6934df35e73e1c8a8d1",
+    "raw_pixels_sha256": "9a5ae4ee93e9b2e8b7445e76351b670cada28febe856da9982c245900cb3cd8b",
+    "width": 640,
+    "height": 480,
+    "dtype": "uint16",
+    "format": "z16",
+    "depth_scale_m": 0.0010000000474974513,
+    "frame": {
+      "frame_number": 1376,
+      "device_timestamp_ms": 1793441167717.4265,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-31T10:06:07.717138+00:00"
+    },
+    "color_frame": {
+      "frame_number": 1211,
+      "device_timestamp_ms": 1793441167709.3547,
+      "timestamp_domain": "system_time",
+      "received_at_utc": "2026-10-31T10:06:07.717138+00:00",
+      "rgb_settings": {
+        "sensor_options": {
+          "source": "sensor_get_option",
+          "observed_at_utc": "2026-10-31T10:06:07.626651+00:00",
+          "values": {
+            "enable_auto_exposure": 0.0,
+            "exposure": 1250.0,
+            "gain": 64.0,
+            "enable_auto_white_balance": 1.0,
+            "auto_exposure_priority": 0.0
+          },
+          "ranges": {
+            "enable_auto_exposure": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 1.0,
+              "read_only": false
+            },
+            "exposure": {
+              "min": 1.0,
+              "max": 10000.0,
+              "step": 1.0,
+              "default": 156.0,
+              "read_only": false
+            },
+            "gain": {
+              "min": 0.0,
+              "max": 128.0,
+              "step": 1.0,
+              "default": 64.0,
+              "read_only": false
+            },
+            "enable_auto_white_balance": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 1.0,
+              "read_only": false
+            },
+            "auto_exposure_priority": {
+              "min": 0.0,
+              "max": 1.0,
+              "step": 1.0,
+              "default": 0.0,
+              "read_only": false
+            }
+          },
+          "last_changes": {
+            "enable_auto_exposure": {
+              "requested": 0.0,
+              "readback": 0.0,
+              "status": "unchanged"
+            },
+            "exposure": {
+              "requested": 1250.0,
+              "readback": 1250.0,
+              "status": "applied"
+            }
+          }
+        },
+        "frame_metadata": {
+          "source": "sdk_frame_metadata",
+          "values": {},
+          "errors": {}
+        },
+        "note": "Sensor options are cached reads, not frame exposure. Frame metadata uses raw SDK units."
+      }
+    },
+    "status": "plane_rejected",
+    "reasons": [
+      "mixed_or_nonplanar_surface"
+    ],
+    "calibration_file": "depth_camera.json",
+    "calibration_sha256": "630ef67bc4d835b8230aee05f62f7645dbdcff7307d1499b97a0115799ded8ae",
+    "source": {
+      "session": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce",
+      "file": "depth/frame_000015.png",
+      "session_id": "20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce"
+    },
+    "bound_at": "2026-10-31T10:06:08.304618+00:00",
+    "calibration": {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce\\depth_camera.json",
+      "sha256": "630ef67bc4d835b8230aee05f62f7645dbdcff7307d1499b97a0115799ded8ae",
+      "file": "calibrations/630ef67bc4d835b8230aee05f62f7645dbdcff7307d1499b97a0115799ded8ae.json",
+      "status": "verified"
+    }
+  },
+  "camera_calibrations": [
+    {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce\\camera.json",
+      "sha256": "ea072daf51846597fa637a56e88264f9f6e479e1d20a2a6a21afcf9e983be33d",
+      "file": "calibrations/ea072daf51846597fa637a56e88264f9f6e479e1d20a2a6a21afcf9e983be33d.json",
+      "status": "verified"
+    }
+  ],
+  "updated_at": "2026-10-31T10:06:08.314637+00:00"
+}

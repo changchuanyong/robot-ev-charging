@@ -3,7 +3,7 @@
 充电口检测、九孔定位与 PnP，以及面向 **RM75 六维力机械臂 + D435 眼在手 + Windows/Python** 的力觉–视觉插装程序。主线：**D415 采集 → YOLOv8n 检测 → 九孔/PnP 诊断 → D435 定位与控制**；默认配置不连接、不驱动机器人。
 
 - **默认模型**：`config/vision_model.json` → `runs/detect_split_20261030T110042Z_105be6be/weights/best.pt`，启动校验 SHA256。
-- **图库**：`dataset/vision/` 241 条记录（234 ready、0 pending、7 排除、154 条带深度），随 Git 跟踪；其中 1 张新会话图片尚待 train/val 分组。
+- **图库**：`dataset/vision/` 260 条记录（234 ready、19 pending、7 排除、173 条带深度），随 Git 跟踪；19 张 2026-10-31 新采集图待复核框，1 张旧图待 train/val 分组。
 - **权重**：`yolov8n.pt`、`runs/*/weights/best.pt` 和 `last.pt` 随 Git 跟踪。
 - **最近训练**：40 轮，197 train / 36 dev-val；P 0.970 / R 0.972 / mAP50 0.971 / mAP50-95 0.913。
 

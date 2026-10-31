@@ -478,25 +478,6 @@ class PreviewCapture:
                 raise RuntimeError("D415 acquisition thread did not stop before camera cleanup")
 
 
-# Keep the previous import working; model identity still comes from explicit config.
-D415ColorCamera = CaptureColorCamera
-
-
-def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | None) -> bool:
-    """Register committed raw RGB (and its paired depth); library errors never roll back a capture."""
-    if library_root is None:
-        return True
-    try:
-        from .intake import register_saved
-
-        register_saved(session_path, saved, library_root)
-        print(f"原图已加入统一图库: {library_root}；新图需确认标注后训练。", flush=True)
-        return True
-    except Exception as exc:
-        print(f"原图已保存，但统一图库同步失败，待重新同步: {type(exc).__name__}: {exc}", flush=True)
-        return False
-
-
 def intake_status(report):
     return (f"已存{report['saved']} 入库{report['imported']} 待同步{report['pending_sync']} "
             f"待标{report['pending_annotation']} 分组{report['pending_split']} 排队{report['queued']}")
