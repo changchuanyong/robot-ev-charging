@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "kind": "yolo_port_library_review",
+  "reviewer": "assistant_visual_review",
+  "annotations": [
+    {
+      "image_sha256": "96d462dd47258d2ba7d5e60a39581a44e756dbe6cb3a0c31d25ac5dada901dd3",
+      "image_size": [1920, 1080],
+      "box_xyxy_px": [957, 575, 1312, 936],
+      "label_text": "0 0.5908854167 0.699537037 0.1848958333 0.3342592593\n",
+      "annotation_source": "assistant_visual_review:dataset/vision/source_annotations/assistant_box_review_20261031.json",
+      "human_reviewed": false,
+      "excluded": false,
+      "notes": "Foreground charging inlet, including its mounting flange and visible body; consistent with existing inlet boxes. The side-facing charging gun in the background is not an inlet target. Reviewed from the original RGB image; not human ground truth or a nine-hole annotation."
+    }
+  ]
+}

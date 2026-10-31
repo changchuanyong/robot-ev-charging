@@ -3,27 +3,82 @@
 <style>body{font:16px system-ui;margin:24px;background:#f4f6f8;color:#152237}button{padding:9px;margin:4px;cursor:pointer}canvas{display:block;max-width:100%;background:#111;touch-action:none}textarea{width:95%;height:95px}small,pre{white-space:pre-wrap;overflow-wrap:anywhere}#message{color:#963000}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}</style>
 <h1>充电接口检测框复核</h1>
 <p>框住所有可见充电接口（含画面边缘截断目标）。在图片上拖动添加框；修改下方 YOLO 行可调整或删除。绿色框只是预标注，必须查看后确认。无接口照片选择“排除”。</p>
-<div class="bar"><button id="prev">上一张</button><span id="position"></span><button id="next">下一张</button><button id="accept">确认框并下一张</button><button id="exclude">无接口，排除</button><button id="clear">清空框</button><button id="export">导出已复核标注</button></div>
+<div class="bar"><button id="prev">上一张</button><span id="position"></span><button id="next">下一张</button><button id="accept">确认框并下一张</button><button id="exclude">无接口，排除</button><button id="clear">清空框</button><button id="export">导出已复核标注</button><button id="finish" hidden>完成并关闭复核</button></div>
 <p id="message"></p><canvas id="canvas"></canvas>
 <p>每行：类别0 中心x 中心y 宽 高，坐标归一化到0–1。遗漏的第二个接口也应补框。</p>
 <textarea id="labels" spellcheck="false"></textarea><details><summary>来源及冲突候选</summary><pre id="source"></pre></details>
 <script>
 const records=/*__REVIEW_DATA__*/[];
+const config=/*__REVIEW_CONFIG__*/{};
 const $=id=>document.getElementById(id), canvas=$('canvas'), ctx=canvas.getContext('2d');
-let index=0, img=new Image(), start=null, decisions={}, drafts={};
+const online=config.api===true, storageKey='port-box-review:'+(config.scope_key||records.map(r=>r.image_sha256).join(','));
+let index=0, img=new Image(), start=null, decisions={}, drafts={}, busy=false, imageReady=false, draftTimer, draftPending=0;
+let draftChain=Promise.resolve();
+if(!online){try{const saved=JSON.parse(localStorage.getItem(storageKey)||'{}');drafts=saved.drafts||{};decisions=saved.decisions||{};}catch(e){$('message').textContent='浏览器无法恢复旧草稿，请重新复核。';}}
+const known=new Set(records.map(r=>r.image_sha256));
+for(const values of [drafts,decisions])for(const sha of Object.keys(values))if(!known.has(sha))delete values[sha];
+for(const r of records){
+  const sha=r.image_sha256;
+  if(online&&r.draft)drafts[sha]=r.draft;
+  if(drafts[sha]&&drafts[sha].record_version!==r.record_version)delete drafts[sha];
+  if(decisions[sha]&&decisions[sha].record_version!==r.record_version)delete decisions[sha];
+  if(!online&&decisions[sha])r.label_text=decisions[sha].label_text;
+  if(online&&r.human_reviewed&&['ready','excluded'].includes(r.status)&&(!r.draft||r.draft.label_text===r.label_text))decisions[sha]={image_sha256:sha,record_version:r.record_version,label_text:r.label_text,excluded:r.status==='excluded'};
+}
+if(online){$('accept').textContent='保存框并下一张';$('export').hidden=true;$('finish').hidden=false;}
+function cache(){if(!online){try{localStorage.setItem(storageKey,JSON.stringify({drafts,decisions}));}catch(e){throw Error('草稿暂存失败，请导出已确认标注后再关闭页面。');}}}
+function setBusy(value){busy=value;document.querySelectorAll('button').forEach(button=>button.disabled=value);$('labels').disabled=value;}
+async function api(path,payload){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-Review-Token':config.token},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok)throw Error(result.error||'保存失败，请重试');return result;}
 function parsed(text){return text.trim()?text.trim().split(/\n/).map(line=>{const p=line.trim().split(/\s+/).map(Number);if(p.length!==5||p[0]!==0||p.some(x=>!Number.isFinite(x))||p.slice(1).some(x=>x<0||x>1)||p[3]<=0||p[4]<=0||p[1]-p[3]/2<-.000001||p[2]-p[4]/2<-.000001||p[1]+p[3]/2>1.000001||p[2]+p[4]/2>1.000001)throw Error('框格式或范围无效');return p;}):[];}
 function paint(){if(!img.complete||!img.naturalWidth)return;ctx.drawImage(img,0,0,canvas.width,canvas.height);try{parsed($('labels').value).forEach(([c,x,y,w,h],n)=>{ctx.strokeStyle='#00ff77';ctx.lineWidth=3;ctx.strokeRect((x-w/2)*canvas.width,(y-h/2)*canvas.height,w*canvas.width,h*canvas.height);ctx.fillStyle='#00ff77';ctx.font='20px sans-serif';ctx.fillText(String(n+1),(x-w/2)*canvas.width+3,(y-h/2)*canvas.height+22);});}catch(e){$('message').textContent=e.message;}}
-function show(){if(!records.length){$('position').textContent='没有待复核图片';return;}const r=records[index];$('position').textContent=`${index+1}/${records.length}，已确认 ${Object.keys(decisions).length} 张`;$('message').textContent=decisions[r.image_sha256]?'该图已确认；修改后需再次确认。':`状态：${r.status}；尚未确认`;$('labels').value=drafts[r.image_sha256]??r.label_text;$('source').textContent=JSON.stringify({sha:r.image_sha256,sources:r.sources,candidates:r.label_candidates},null,2);img=new Image();img.onload=()=>{canvas.width=r.width;canvas.height=r.height;paint();};img.src=r.image_url;}
-function draft(){if(records.length)drafts[records[index].image_sha256]=$('labels').value;}
-function move(d){draft();index=Math.max(0,Math.min(records.length-1,index+d));show();}
+function show(){
+  imageReady=false;
+  if(!records.length){$('position').textContent='没有待复核图片';return;}
+  const r=records[index];$('position').textContent=`${index+1}/${records.length}，已确认 ${Object.keys(decisions).length} 张`;
+  $('message').textContent=decisions[r.image_sha256]?'该图已确认；修改后需再次确认。':`状态：${r.status}；尚未确认`;
+  $('labels').value=drafts[r.image_sha256]?.label_text??r.label_text;
+  $('source').textContent=JSON.stringify({sha:r.image_sha256,sources:r.sources,candidates:r.label_candidates,suggestions:r.box_suggestions},null,2);
+  const current=new Image();img=current;
+  current.onload=()=>{if(img!==current)return;imageReady=true;canvas.width=r.width;canvas.height=r.height;paint();};
+  current.onerror=()=>{if(img===current)$('message').textContent='原图无法读取，请检查文件或刷新页面。';};
+  current.src=r.image_url;
+}
+function draft(){if(records.length){const r=records[index];drafts[r.image_sha256]={record_version:r.record_version,label_text:$('labels').value};cache();}}
+function persistDraft(){
+  clearTimeout(draftTimer);
+  draftTimer=null;
+  if(!online||!records.length)return Promise.resolve();
+  const r=records[index], value=drafts[r.image_sha256];
+  if(!value)return draftChain;
+  const payload={image_sha256:r.image_sha256,...value};
+  draftPending++;
+  draftChain=draftChain.catch(()=>{}).then(()=>api('/api/draft',payload)).finally(()=>{draftPending--;});
+  return draftChain;
+}
+async function move(d){if(busy)return;try{setBusy(true);draft();await persistDraft();index=Math.max(0,Math.min(records.length-1,index+d));show();}catch(e){$('message').textContent=e.message;}finally{setBusy(false);}}
 $('prev').onclick=()=>move(-1);$('next').onclick=()=>move(1);
-$('labels').oninput=()=>{draft();if(records.length)delete decisions[records[index].image_sha256];$('message').textContent='已修改，请重新确认';paint();};
+$('labels').oninput=()=>{try{draft();if(records.length)delete decisions[records[index].image_sha256];cache();$('message').textContent='已修改，请重新确认';paint();clearTimeout(draftTimer);draftTimer=setTimeout(()=>persistDraft().catch(e=>{$('message').textContent=e.message;}),350);}catch(e){$('message').textContent=e.message;}};
 $('clear').onclick=()=>{$('labels').value='';$('labels').oninput();};
-$('accept').onclick=()=>{if(!records.length)return;try{if(!parsed($('labels').value).length)throw Error('没有框；无接口请点击排除，漏检请手动画框。');const sha=records[index].image_sha256;decisions[sha]={image_sha256:sha,label_text:$('labels').value.trim()+'\n',excluded:false};move(1);}catch(e){$('message').textContent=e.message;}};
-$('exclude').onclick=()=>{if(!records.length)return;const sha=records[index].image_sha256;decisions[sha]={image_sha256:sha,label_text:'',excluded:true,reason:'user_review_no_charging_connector'};move(1);};
-$('export').onclick=()=>{const blob=new Blob([JSON.stringify({schema_version:1,annotations:Object.values(decisions)},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='reviewed_port_boxes.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+async function decide(excluded){
+  if(busy||!records.length)return;
+  try{
+    if(!imageReady)throw Error('请等待原图加载完成后再确认。');
+    if(!excluded&&!parsed($('labels').value).length)throw Error('没有框；无接口请点击排除，漏检请手动画框。');
+    setBusy(true);await persistDraft();
+    const r=records[index], sha=r.image_sha256;
+    const decision={image_sha256:sha,record_version:r.record_version,label_text:excluded?'':$('labels').value.trim()+'\n',excluded};
+    if(excluded)decision.reason='user_review_no_charging_connector';
+    if(online){const result=await api('/api/annotation',decision);Object.assign(r,result.record);decision.record_version=r.record_version;}else r.label_text=decision.label_text;
+    decisions[sha]=decision;delete drafts[sha];cache();
+    index=Math.min(records.length-1,index+1);show();
+  }catch(e){$('message').textContent=e.message;}finally{setBusy(false);}
+}
+$('accept').onclick=()=>decide(false);$('exclude').onclick=()=>decide(true);
+$('export').onclick=()=>{const annotations=Object.values(decisions).map(({record_version,...item})=>({...item,expected_record_sha256:record_version,human_reviewed:true}));const blob=new Blob([JSON.stringify({schema_version:1,annotations},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='reviewed_port_boxes.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+$('finish').onclick=async()=>{if(busy)return;try{setBusy(true);await persistDraft();await api('/api/finish',{});$('message').textContent='复核已结束，标注和草稿已保存。可以关闭本页。';}catch(e){$('message').textContent=e.message;setBusy(false);}};
+window.addEventListener('beforeunload',event=>{if(online&&(draftTimer||draftPending)){event.preventDefault();event.returnValue='';}});
 function point(e){const r=canvas.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))];}
-canvas.onpointerdown=e=>{start=point(e);canvas.setPointerCapture(e.pointerId);};
-canvas.onpointerup=e=>{if(!start)return;const end=point(e),[x,y]=start;start=null;const w=Math.abs(end[0]-x),h=Math.abs(end[1]-y);if(w<.002||h<.002)return;$('labels').value+=($('labels').value.trim()?'\n':'')+'0 '+[(x+end[0])/2,(y+end[1])/2,w,h].map(v=>v.toFixed(8)).join(' ');$('labels').oninput();};
+canvas.onpointerdown=e=>{if(busy||!imageReady)return;start=point(e);canvas.setPointerCapture(e.pointerId);};
+canvas.onpointerup=e=>{if(!start||busy||!imageReady){start=null;return;}const end=point(e),[x,y]=start;start=null;const w=Math.abs(end[0]-x),h=Math.abs(end[1]-y);if(w<.002||h<.002)return;$('labels').value+=($('labels').value.trim()?'\n':'')+'0 '+[(x+end[0])/2,(y+end[1])/2,w,h].map(v=>v.toFixed(8)).join(' ');$('labels').oninput();};
 show();
 </script></html>

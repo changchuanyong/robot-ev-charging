@@ -245,7 +245,9 @@ def render_preview(image, diagnostic, *, saved_count=0, paused=False, message=""
         reasons = [frontend.get("reason") or pose.get("reason") or "not_processed"]
     for index, reason in enumerate(reasons[:2]):
         line(_reason(reason, chinese), 601 + index * 24, fill=color)
-    if len(reasons) > 2:
+    if message:
+        line(message, 649, fill=(132, 198, 235))
+    elif len(reasons) > 2:
         line(caption(f"另有 {len(reasons) - 2} 项，见保存的诊断 JSON", f"+{len(reasons) - 2} details in saved JSON"), 649, fill=muted)
     else:
         line(message or caption(f"已保存 {saved_count} 帧", f"Saved {saved_count} frames"), 649, fill=(132, 198, 235))

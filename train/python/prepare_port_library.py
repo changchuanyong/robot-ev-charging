@@ -47,38 +47,6 @@ def _date(path):
     return "-".join(match.groups()) if match else None
 
 
-def _capture_depth_map(session, session_id):
-    """Map a session's saved RGB paths to verified raw-depth descriptors."""
-    preview_path = session / "preview_manifest.json"
-    if not preview_path.is_file():
-        return {}
-    preview = _json(preview_path)
-    result = {}
-    for sample in preview.get("samples", []):
-        depth = sample.get("depth") or {}
-        if not (isinstance(depth, dict) and depth.get("available") and depth.get("file")):
-            continue
-        try:
-            depth_path = _inside(session, depth["file"])
-            actual = _sha(depth_path)
-        except (OSError, ValueError) as exc:
-            raise ValueError(f"capture_depth_missing_or_changed: {depth.get('file')}") from exc
-        if actual != depth.get("file_sha256"):
-            raise ValueError(f"capture_depth_missing_or_changed: {depth_path}")
-        result[sample["image"]] = {
-            "path": depth_path, "file_sha256": depth["file_sha256"],
-            "raw_pixels_sha256": depth.get("raw_pixels_sha256"),
-            "depth_scale_m": depth.get("depth_scale_m"),
-            "frame": depth.get("frame"), "color_frame": depth.get("color_frame"),
-            "status": depth.get("status"), "reasons": depth.get("reasons"),
-            "calibration_file": depth.get("calibration_file"),
-            "calibration_sha256": depth.get("calibration_sha256"),
-            "source": {"session": str(session), "file": depth["file"],
-                        "session_id": session_id},
-        }
-    return result
-
-
 def sync_library(root=ROOT, library=None, extra_sources=()):
     """Idempotent import; known old label candidates cannot undo a review decision."""
     root = Path(root).resolve()
@@ -136,27 +104,10 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
             if manifest.get("metadata", {}).get("training_library_enabled") is False:
                 opted_out_sessions.add(path.parent.resolve())
                 continue
-            camera_path = _inside(path.parent, manifest["camera_file"])
-            camera = _json(camera_path)
-            if _sha(camera_path) != manifest["camera_sha256"]:
-                raise ValueError(f"capture_camera_hash_mismatch: {path}")
-            if not camera.get("serial") or camera.get("stream") != "color":
-                raise ValueError(f"capture_rgb_identity_required: {path}")
-            depth_by_image = _capture_depth_map(path.parent, manifest["session_id"])
+            from vision.intake import register_saved
             for frame in manifest["frames"]:
                 image = _inside(path.parent, frame["image"])
-                if _sha(image) != frame["image_sha256"]:
-                    raise ValueError(f"capture_image_hash_mismatch: {image}")
-                register_image(image, library_root=library, source={
-                    "path": str(image), "manifest": str(path.resolve()),
-                    "image": frame["image"], "session_id": manifest["session_id"],
-                    "received_at_utc": frame["received_at_utc"],
-                    "camera_file": str(camera_path), "camera_sha256": manifest["camera_sha256"],
-                    "camera_serial": camera["serial"], "device_model": camera.get("device_model"),
-                    "original_split": manifest.get("split"), "metadata": manifest.get("metadata", {}),
-                    "preview_manifest": str(path.parent / "preview_manifest.json")
-                        if (path.parent / "preview_manifest.json").exists() else None,
-                }, depth=depth_by_image.get(frame["image"]))
+                register_saved(path.parent, frame, library)
                 registered_images.add(image)
                 registered += 1
         # A saved RGB whose manifest publication failed must not disappear from training audits.
@@ -196,36 +147,48 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
     return report
 
 
-def write_review(library, output, weights=None, review_all=False):
+def write_review(library, output, weights=None, review_all=False, session_id=None):
+    from vision.review_library import session_entries, suggested_label
+
     library, output = Path(library).resolve(), Path(output).resolve()
     entries = read_entries(library)
+    if session_id is not None:
+        entries = session_entries(entries, session_id)
     unavailable = [e for e in entries if e["status"] == "excluded" and not (library / e["image"]).exists()]
     records = [e for e in entries
                if (review_all or e["status"] in {"pending", "conflict"}) and e not in unavailable]
     model = None
-    if weights:
-        from ultralytics import YOLO
-        if not Path(weights).is_file():
-            raise FileNotFoundError(weights)
-        model = YOLO(str(weights))
     items = []
     for record in records:
         label_text = ""
         if record.get("label") and (library / record["label"]).exists():
             label_text = (library / record["label"]).read_text(encoding="utf-8")
-        if not label_text and model is not None and record["status"] == "pending":
+        has_suggestions = bool(record.get("box_suggestions"))
+        if not label_text and has_suggestions:
+            label_text = suggested_label(record)
+        if not label_text and not has_suggestions and weights and record["status"] == "pending":
+            if model is None:
+                from ultralytics import YOLO
+                if not Path(weights).is_file():
+                    raise FileNotFoundError(weights)
+                model = YOLO(str(weights))
             result = model.predict(str(library / record["image"]), conf=.25, device="cpu", verbose=False)[0]
             label_text = "\n".join("0 " + " ".join(f"{x:.8f}" for x in box)
                                    for box in result.boxes.xywhn.cpu().tolist())
         items.append({"image_sha256": record["image_sha256"],
+                      "record_version": _sha(library / "records" / f"{record['image_sha256']}.json"),
                       "image_url": (library / record["image"]).as_uri(),
                       "width": record["width"], "height": record["height"],
                       "status": record["status"], "label_text": label_text,
-                      "sources": record["sources"], "label_candidates": record.get("label_candidates", [])})
+                      "sources": record["sources"], "label_candidates": record.get("label_candidates", []),
+                      "box_suggestions": record.get("box_suggestions", [])})
     template = Path(__file__).with_name("port_box_review.html").read_text(encoding="utf-8")
     payload = json.dumps(items, ensure_ascii=False).replace("<", "\\u003c")
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(template.replace("/*__REVIEW_DATA__*/[]", payload), encoding="utf-8")
+    config = {"scope_key": hashlib.sha256((str(library) + ":" + str(session_id)).encode()).hexdigest()}
+    page = template.replace("/*__REVIEW_DATA__*/[]", payload).replace(
+        "/*__REVIEW_CONFIG__*/{}", json.dumps(config))
+    output.write_text(page, encoding="utf-8")
     return {"review_file": str(output), "images": len(items), "suggestions_are_reviewed": False,
             "excluded_missing_copies": len(unavailable)}
 

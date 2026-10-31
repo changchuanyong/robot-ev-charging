@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
-import hashlib
 import json
 import math
 from pathlib import Path
+import subprocess
+import sys
 import time
 
 import cv2
@@ -147,53 +148,9 @@ def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | Non
     if library_root is None:
         return True
     try:
-        from .training_library import register_image
+        from .intake import register_saved
 
-        session_path = Path(session_path).resolve()
-        manifest_path = session_path / "manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        image_path = (session_path / saved["image"]).resolve()
-        if not image_path.is_relative_to(session_path / "images"):
-            raise ValueError("图库只接收会话 images/ 中的原始 RGB")
-        records = [item for item in manifest["frames"] if item["image"] == saved["image"]]
-        if len(records) != 1 or records[0]["image_sha256"] != saved["image_sha256"]:
-            raise ValueError("保存记录与会话清单不一致")
-        if hashlib.sha256(image_path.read_bytes()).hexdigest() != saved["image_sha256"]:
-            raise ValueError("保存后的原始 RGB 校验失败")
-        depth_argument = None
-        depth = saved.get("depth")
-        if isinstance(depth, dict) and depth.get("available") and depth.get("file"):
-            relative = Path(str(depth["file"]))
-            if relative.is_absolute() or ".." in relative.parts:
-                raise ValueError("深度文件必须位于采集会话内")
-            depth_path = (session_path / relative).resolve()
-            if not depth_path.is_relative_to(session_path) or not depth_path.is_file():
-                raise FileNotFoundError(f"会话深度文件缺失: {depth_path}")
-            depth_argument = {
-                "path": depth_path, "file_sha256": depth.get("file_sha256"),
-                "raw_pixels_sha256": depth.get("raw_pixels_sha256"),
-                "depth_scale_m": depth.get("depth_scale_m"),
-                "frame": depth.get("frame"), "color_frame": depth.get("color_frame"),
-                "status": depth.get("status"), "reasons": depth.get("reasons"),
-                "calibration_file": depth.get("calibration_file"),
-                "calibration_sha256": depth.get("calibration_sha256"),
-                "source": {"session": str(session_path), "file": relative.as_posix(),
-                            "session_id": manifest["session_id"]},
-            }
-        camera_path = session_path / manifest["camera_file"]
-        camera = json.loads(camera_path.read_text(encoding="utf-8"))
-        register_image(
-            image_path, library_root=library_root,
-            date=saved["received_at_utc"][:10],
-            source={"kind": manifest["kind"], "session_manifest": str(manifest_path),
-                    "image": saved["image"], "image_sha256": saved["image_sha256"],
-                    "received_at_utc": saved["received_at_utc"],
-                    "session_id": manifest["session_id"], "batch_id": manifest["batch_id"],
-                    "original_split": manifest["split"], "metadata": manifest.get("metadata", {}),
-                    "camera_file": str(camera_path), "camera_sha256": manifest["camera_sha256"],
-                    "camera_serial": camera["serial"], "device_name": camera["device_name"]},
-            depth=depth_argument,
-        )
+        register_saved(session_path, saved, library_root)
         print(f"原图已加入统一图库: {library_root}；新图需确认标注后训练。", flush=True)
         return True
     except Exception as exc:
@@ -201,18 +158,59 @@ def register_saved_rgb(session_path: Path, saved: dict, library_root: Path | Non
         return False
 
 
+def intake_status(report):
+    return (f"已存{report['saved']} 入库{report['imported']} 待同步{report['pending_sync']} "
+            f"待标{report['pending_annotation']} 分组{report['pending_split']} 排队{report['queued']}")
+
+
+def print_intake_summary(report, session_path, library_root):
+    print("本批采集：" + intake_status(report), flush=True)
+    print(f"旧会话恢复：已补入库 {report.get('recovered_previous', 0)} 张，"
+          f"仍待同步 {report.get('previous_pending_sync', 0)} 项", flush=True)
+    if report.get("failed_saves"):
+        print(f"保存失败 {report['failed_saves']} 次：{report.get('last_message', '')}", flush=True)
+    if report.get("pending_sync"):
+        for error in report.get("sync_errors", [])[:3]:
+            print(f"入库待重试：{error}", flush=True)
+        print(f"入库记录: {Path(session_path) / 'intake.json'}", flush=True)
+    if report.get("postprocess_error"):
+        print(f"采集后处理未完成：{report['postprocess_error']}", flush=True)
+    if report.get("review_file"):
+        print(f"本批复核页: {report['review_file']}", flush=True)
+    if library_root is not None and report.get("imported"):
+        command = subprocess.list2cmdline([sys.executable, "-B", "-X", "utf8", "-m",
+                                         "vision.review_library", "--library", str(library_root),
+                                         "--session", str(session_path)])
+        if sys.platform == "win32":
+            command = "& " + command
+        print(f"复核并直接保存到图库：\n{command}", flush=True)
+
+
 def collect(camera, session, interval: float = 0, max_images: int = 0, *,
-            library_root: Path | None = None) -> int:
+            library_root: Path | None = None) -> dict:
     """Space/S saves the current full frame. A display overlay never enters PNGs."""
-    count = 0
+    from .intake import CaptureIntake
+
+    submitted = 0
     next_save = time.monotonic() + interval
     message = "SPACE/S: save | Q/ESC: finish"
-    cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
+    intake = CaptureIntake(session, library_root)
+    report = intake.poll()
+    last_intake_message = ""
     try:
+        cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
         while True:
             image, metadata = camera.read()
+            report = intake.poll()
+            if report.get("last_message") and report["last_message"] != last_intake_message:
+                last_intake_message = report["last_message"]
+                print(last_intake_message, flush=True)
             preview = image.copy()
-            cv2.putText(preview, f"Saved: {count} | {message}", (15, 30),
+            line = (f"Saved {report['saved']} | Library {report['imported']} | Sync {report['pending_sync']} | "
+                    f"Labels {report['pending_annotation']} | Split {report['pending_split']} | Queue {report['queued']}")
+            cv2.putText(preview, line, (15, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, .65, (0, 255, 0), 2)
+            cv2.putText(preview, message, (15, 58),
                         cv2.FONT_HERSHEY_SIMPLEX, .65, (0, 255, 0), 2)
             cv2.imshow(WINDOW, preview)
             key = cv2.waitKey(1) & 0xff
@@ -221,25 +219,24 @@ def collect(camera, session, interval: float = 0, max_images: int = 0, *,
             now = time.monotonic()
             if key in (32, ord("s"), ord("S")) or (interval > 0 and now >= next_save):
                 save_metadata = {key: value for key, value in metadata.items() if key != "rgb_settings"}
-                saved = session.save(image, **save_metadata)
-                if saved is not None:
-                    count += 1
-                    message = "Saved | SPACE/S: save | Q/ESC: finish"
-                    print(f"已保存 {count}: {saved['image']}", flush=True)
-                    if not register_saved_rgb(session.path, saved, library_root):
-                        message = "Saved; library sync pending | SPACE/S: save | Q/ESC: finish"
+                if intake.submit(image, save_metadata):
+                    submitted += 1
+                    message = "Queued | SPACE/S: save | Q/ESC: finish"
                 else:
-                    message = "Duplicate skipped | SPACE/S: save | Q/ESC: finish"
-                    print("相同帧或完全相同图片已跳过", flush=True)
+                    message = "Busy or already queued | SPACE/S: retry | Q/ESC: finish"
                 next_save = now + interval
-                if max_images and count >= max_images:
+                if max_images and submitted >= max_images:
                     break
     finally:
         try:
-            cv2.destroyWindow(WINDOW)
-        except cv2.error:
-            pass
-    return count
+            report = intake.close()
+            print_intake_summary(report, session.path, library_root)
+        finally:
+            try:
+                cv2.destroyWindow(WINDOW)
+            except cv2.error:
+                pass
+    return report
 
 
 def main(argv=None) -> int:
@@ -248,7 +245,7 @@ def main(argv=None) -> int:
     parser.add_argument("--list-devices", action="store_true", help="只列出型号和序列号，不启动图像流")
     parser.add_argument("--device-model", choices=("D415", "D435"), help="明确选择采集型号，覆盖配置")
     parser.add_argument("--serial", help="完整序列号，覆盖采集配置")
-    parser.add_argument("--batch", help="同一拍摄批次的名称；同批图片保持在同一数据分区")
+    parser.add_argument("--batch", help="同一拍摄批次的名称；省略时自动生成，同批图片保持在同一数据分区")
     parser.add_argument("--split", choices=("train", "val", "test", "unknown"), default="train")
     parser.add_argument("--notes", default="", help="记录光照、距离、角度、遮挡等采集条件")
     parser.add_argument("--specimen", help="唯一样件编号")
@@ -262,12 +259,12 @@ def main(argv=None) -> int:
                                help="统一 RGB 图库，默认 dataset/vision；新图待标注")
     library_group.add_argument("--no-library", action="store_true", help="仅保存诊断会话，不加入训练图库")
     parser.add_argument("--interval", type=float, default=0, help="自动保存间隔秒数；默认 0 为手动")
-    parser.add_argument("--max-images", type=int, default=0, help="保存指定张数后结束；0 为按键结束")
+    parser.add_argument("--max-images", type=int, default=0, help="提交指定次数保存请求后等待完成并结束；0 为按键结束")
     args = parser.parse_args(argv)
     if not math.isfinite(args.interval) or args.interval < 0 or args.max_images < 0:
         parser.error("保存间隔和最大图片数必须为非负数")
-    if not args.list_devices and (not args.batch or not args.batch.strip()):
-        parser.error("采集需要 --batch，例如 --batch d415_session01")
+    if args.split == "test" and not args.no_library:
+        parser.error("独立 test 采集需加 --no-library，避免进入训练图库")
     session = None
     status, error, code = "completed", None, 0
     try:
@@ -291,10 +288,19 @@ def main(argv=None) -> int:
                     "training_library_enabled": library_root is not None,
                     "training_library_path": str(library_root) if library_root is not None else None,
                     "conditions": json.loads(args.conditions.read_text(encoding="utf-8-sig")) if args.conditions else {}}
+        batch = args.batch or "rgb_capture_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        if library_root is not None:
+            from train.python.dataset_split import check_capture_split
+            check_capture_split(library_root, batch, args.split, metadata)
         with CaptureColorCamera(config) as camera:
-            session = CaptureSession(output, camera.camera, args.batch, args.split, args.notes, metadata=metadata)
+            session = CaptureSession(output, camera.camera, batch, args.split, args.notes, metadata=metadata)
             print(f"采集目录: {session.path}\n空格/S 保存原图，Q/ESC 结束；Ctrl+C 中断。", flush=True)
-            collect(camera, session, args.interval, args.max_images, library_root=library_root)
+            result = collect(camera, session, args.interval, args.max_images, library_root=library_root)
+            if result["failed_saves"] or result["pending_sync"] or result.get("postprocess_error"):
+                status, error, code = "failed", "保存、入库或后处理未全部完成，见本批采集摘要", 2
+            if result.get("previous_pending_sync"):
+                code = 2
+                print("旧会话仍有待同步项，请检查旧会话 intake.json；本批状态单独记录。", flush=True)
     except KeyboardInterrupt:
         status, code = "interrupted", 130
         print("采集已中断，已保存的数据保留。")

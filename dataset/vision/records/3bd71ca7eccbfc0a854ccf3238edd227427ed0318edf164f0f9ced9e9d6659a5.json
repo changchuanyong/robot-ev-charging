@@ -65,6 +65,14 @@
       "changed_at": "2026-10-30T10:16:57.610190+00:00"
     }
   ],
-  "updated_at": "2026-10-30T11:00:37.893668+00:00",
-  "exclusion_reason": "User explicitly retained deletion of 2026-10-28 and 2026-10-29 library copies; do not restore or train on this image."
+  "updated_at": "2026-10-31T07:02:59.420494+00:00",
+  "exclusion_reason": "User explicitly retained deletion of 2026-10-28 and 2026-10-29 library copies; do not restore or train on this image.",
+  "camera_calibrations": [
+    {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261029T091732Z_0674d0e62b3840aca24fc76c65e7156a\\camera.json",
+      "sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+      "file": null,
+      "status": "missing"
+    }
+  ]
 }

@@ -31,7 +31,8 @@ SE_PRIVILEGE_ENABLED = 0x0002
 ERROR_NOT_ALL_ASSIGNED = 1300
 PRIVILEGE = "SeSecurityPrivilege"
 
-HINT = (r"请用 .venv\Scripts\python.exe -m vision.launch vision.preview --depth 启动，"
+HINT = (r"请用 .venv\Scripts\python.exe -m vision.launch <相机模块> [原参数] 重新启动"
+        r"（相机模块为 vision.preview、vision.collect 或 vision.run），"
         r"或先打开管理员终端；两者都不修改系统安全策略。")
 
 _enabled = False

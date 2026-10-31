@@ -127,6 +127,127 @@ def _decode(data):
     return image.shape[1], image.shape[0]
 
 
+def _calibration_binding(root, source_file, expected, *, preserve=False):
+    """Verified means byte identity, never independent calibration acceptance."""
+    binding = {"source_file": source_file, "sha256": expected,
+               "file": None, "status": "missing"}
+    if expected is None:
+        binding["status"] = "unverifiable"
+        return binding
+    if not isinstance(expected, str) or _HASH.fullmatch(expected) is None:
+        raise ValueError("calibration_sha256_invalid")
+    if preserve and source_file and Path(source_file).is_file():
+        if _hash(Path(source_file).read_bytes()) != expected:
+            raise ValueError(f"calibration_sha256_mismatch: {source_file}")
+    relative = f"calibrations/{expected}.json"
+    stored = _inside(root, relative)
+    if stored.is_file():
+        path = stored
+    elif source_file and Path(source_file).is_file():
+        path = Path(source_file)
+    else:
+        return binding
+    data = path.read_bytes()
+    if _hash(data) != expected:
+        raise ValueError(f"calibration_sha256_mismatch: {path}")
+    payload = json.loads(data.decode("utf-8-sig"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"calibration_object_required: {path}")
+    if path != stored and preserve:
+        _atomic_bytes(stored, data)
+    binding.update(file=relative if stored.is_file() else None,
+                   status="verified" if stored.is_file() else "source_only")
+    return binding
+
+
+def _calibration_references(entry):
+    sources = entry.get("sources", [])
+    if not isinstance(sources, list):
+        raise ValueError("library_sources_must_be_list")
+    seen = set()
+    for source in sources:
+        if not isinstance(source, dict):
+            raise ValueError("library_source_must_be_object")
+        path, digest = source.get("camera_file"), source.get("camera_sha256")
+        if any(value is not None and not isinstance(value, str) for value in (path, digest)):
+            raise ValueError("library_camera_reference_must_be_strings")
+        if (path or digest) and (path, digest) not in seen:
+            seen.add((path, digest))
+            yield "rgb", path, digest
+    depth = entry.get("depth")
+    if depth is not None:
+        if not isinstance(depth, dict):
+            raise ValueError("library_depth_must_be_object")
+        path = depth.get("calibration_file")
+        source = depth.get("source")
+        if source is not None and not isinstance(source, dict):
+            raise ValueError("library_depth_source_must_be_object")
+        session = (source or {}).get("session")
+        if any(value is not None and not isinstance(value, str) for value in (path, session)):
+            raise ValueError("library_depth_reference_must_be_strings")
+        if path and not Path(path).is_absolute():
+            path = str(_inside(Path(session), path)) if session else None
+        yield "depth", path, depth.get("calibration_sha256")
+
+
+def _preserve_entry_calibrations(root, entry):
+    rgb = []
+    for kind, path, digest in _calibration_references(entry):
+        binding = _calibration_binding(root, path, digest, preserve=True)
+        if kind == "rgb":
+            rgb.append(binding)
+        else:
+            entry["depth"]["calibration"] = binding
+    if rgb:
+        entry["camera_calibrations"] = rgb
+
+
+def calibration_status(library_root):
+    """Read-only audit of library-owned copies, independent of saved status flags."""
+    root = Path(library_root).resolve()
+    counts = {kind: {state: 0 for state in
+                    ("verified", "source_only", "missing", "unverifiable", "invalid")}
+              for kind in ("rgb", "depth")}
+    items, problems = [], []
+    entries = read_entries(root)
+    without_rgb = 0
+    for entry in entries:
+        has_rgb = False
+        try:
+            for kind, path, digest in _calibration_references(entry):
+                has_rgb |= kind == "rgb"
+                try:
+                    binding = _calibration_binding(root, path, digest)
+                except (OSError, ValueError, TypeError) as exc:
+                    binding = {"source_file": path, "sha256": digest,
+                               "file": None, "status": "invalid", "error": str(exc)}
+                    problems.append(f"{entry['image_sha256']} {kind}: {exc}")
+                counts[kind][binding["status"]] += 1
+                items.append({"image_sha256": entry["image_sha256"], "kind": kind, **binding})
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            problems.append(f"{entry['image_sha256']}: {exc}")
+        without_rgb += not has_rgb
+    return {"records": len(entries), "rgb": counts["rgb"], "depth": counts["depth"],
+            "records_without_rgb_reference": without_rgb,
+            "problems": problems, "references": items}
+
+
+def preserve_calibrations(library_root):
+    """Copy recoverable parameters and explicitly mark missing historical evidence."""
+    root = Path(library_root).resolve()
+    changed = 0
+    with _lock(root):
+        for entry in read_entries(root):
+            previous = copy.deepcopy(entry)
+            _preserve_entry_calibrations(root, entry)
+            if entry != previous:
+                entry["updated_at"] = _now()
+                _atomic_bytes(root / "records" / f"{entry['image_sha256']}.json",
+                              json.dumps(entry, ensure_ascii=False, indent=2, allow_nan=False).encode("utf-8"))
+                changed += 1
+    return {"updated_records": changed, **calibration_status(root)}
+
+
 def _depth_payload(depth) -> dict:
     """Verify a paired raw Z16 file without re-encoding or normalizing it."""
     if not isinstance(depth, dict) or not depth.get("path"):
@@ -218,7 +339,7 @@ def _write_label(root, entry, label_text, annotation_source, human_reviewed):
 
 def register_image(image_path, *, library_root, source: dict, date: str | None = None,
                    label_path=None, annotation_source=None, human_reviewed=False,
-                   depth=None) -> dict:
+                   depth=None, suggestion=None) -> dict:
     """Copy a raw image once; unlabelled images remain pending, never negatives.
 
     ``depth`` optionally binds one raw Z16 frame to this image content. Depth is
@@ -237,11 +358,23 @@ def register_image(image_path, *, library_root, source: dict, date: str | None =
     width, height = _decode(data)
     date = _date(date, source)
     depth_payload = _depth_payload(depth) if depth is not None else None
+    if suggestion is not None:
+        suggestion = json.loads(json.dumps(suggestion, allow_nan=False))
+        if (not isinstance(suggestion, dict)
+                or suggestion.get("source") != "same_frame_detector"
+                or suggestion.get("image_sha256") != digest
+                or not isinstance(suggestion.get("model_sha256"), str)
+                or _HASH.fullmatch(suggestion["model_sha256"]) is None):
+            raise ValueError("invalid_same_frame_box_suggestion")
+        suggestion["label_text"] = normalize_label(suggestion.get("label_text"))
     label = None
     if label_path is not None:
         label = normalize_label(Path(label_path).read_text(encoding="utf-8-sig"))
         annotation_source = annotation_source or str(Path(label_path).resolve())
     with _lock(root):
+        # Validate/copy incoming parameters before registering any new RGB or label.
+        _preserve_entry_calibrations(root, {"sources": [source],
+                                           **({"depth": depth_payload} if depth_payload else {})})
         record_path = root / "records" / f"{digest}.json"
         if record_path.exists():
             entry = json.loads(record_path.read_text(encoding="utf-8"))
@@ -262,6 +395,8 @@ def register_image(image_path, *, library_root, source: dict, date: str | None =
                      "label_candidates": [], "annotation_history": []}
         if source not in entry["sources"]:
             entry["sources"].append(source)
+        if suggestion is not None and suggestion not in entry.get("box_suggestions", []):
+            entry.setdefault("box_suggestions", []).append(suggestion)
         if label is not None:
             candidate_hash = _hash(label.encode("utf-8"))
             known = next((item for item in entry["label_candidates"] if item["label_sha256"] == candidate_hash), None)
@@ -279,6 +414,8 @@ def register_image(image_path, *, library_root, source: dict, date: str | None =
                 known["sources"].append(provenance)
         if depth_payload is not None:
             _attach_depth(root, entry, depth_payload)
+        # Also fills missing metadata when an identical depth frame was already bound.
+        _preserve_entry_calibrations(root, entry)
         if (previous is not None
                 and {key: value for key, value in entry.items() if key != "updated_at"}
                 == {key: value for key, value in previous.items() if key != "updated_at"}):
@@ -293,7 +430,8 @@ def read_entries(library_root) -> list[dict]:
     entries = []
     for path in sorted((root / "records").glob("*.json")):
         entry = json.loads(path.read_text(encoding="utf-8"))
-        if entry.get("schema_version") != 1 or entry.get("image_sha256") != path.stem or not _HASH.fullmatch(path.stem):
+        if (not isinstance(entry, dict) or entry.get("schema_version") != 1
+                or entry.get("image_sha256") != path.stem or not _HASH.fullmatch(path.stem)):
             raise ValueError(f"invalid_library_record: {path}")
         entries.append(entry)
     return entries
@@ -310,7 +448,8 @@ def _annotation_input(label_text, annotation_source, human_reviewed, excluded, r
 
 
 def set_annotation(library_root, image_sha256, label_text, *, annotation_source,
-                   human_reviewed=False, excluded=False, reason=None) -> dict:
+                   human_reviewed=False, excluded=False, reason=None,
+                   expected_record_sha256=None) -> dict:
     """Resolve a pending/conflicting entry; retain prior candidate annotations."""
     label_text = _annotation_input(label_text, annotation_source, human_reviewed, excluded, reason)
     if not isinstance(image_sha256, str) or not _HASH.fullmatch(image_sha256):
@@ -318,7 +457,10 @@ def set_annotation(library_root, image_sha256, label_text, *, annotation_source,
     root = Path(library_root).resolve()
     with _lock(root):
         record_path = root / "records" / f"{image_sha256}.json"
-        entry = json.loads(record_path.read_text(encoding="utf-8"))
+        record_bytes = record_path.read_bytes()
+        if expected_record_sha256 is not None and _hash(record_bytes) != expected_record_sha256:
+            raise ValueError("annotation_record_changed_reload_required")
+        entry = json.loads(record_bytes.decode("utf-8"))
         stored_image = _inside(root, entry["image"])
         stored_label = _inside(root, entry["label"]) if entry.get("label") else None
         if not excluded and (not stored_image.exists() or
@@ -460,16 +602,27 @@ def import_review(library_root, review_path) -> list[dict]:
     return [set_annotation(library_root, item["image_sha256"], item["label_text"],
                            annotation_source=item.get("annotation_source", "user_review_json"),
                            human_reviewed=item.get("human_reviewed", True),
-                           excluded=item.get("excluded", False), reason=item.get("reason"))
+                           excluded=item.get("excluded", False), reason=item.get("reason"),
+                           expected_record_sha256=item.get("expected_record_sha256"))
             for item in payload["annotations"]]
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="统一充电口图片库状态与标注导入")
-    parser.add_argument("command", choices=["status", "annotate", "depth-status"])
+    parser.add_argument("command", choices=["status", "annotate", "depth-status",
+                                           "calibration-status", "preserve-calibrations"])
     parser.add_argument("--library", type=Path, default=DEFAULT_LIBRARY)
     parser.add_argument("--review-json", type=Path)
     args = parser.parse_args(argv)
+    if args.command in {"calibration-status", "preserve-calibrations"}:
+        report = (preserve_calibrations(args.library) if args.command == "preserve-calibrations"
+                  else calibration_status(args.library))
+        print(json.dumps({"library": str(args.library.resolve()),
+                          **{key: value for key, value in report.items() if key != "references"}},
+                         ensure_ascii=False, indent=2))
+        incomplete = any(report[kind][state] for kind in ("rgb", "depth")
+                         for state in ("source_only", "missing", "unverifiable", "invalid"))
+        return 1 if report["problems"] or incomplete or report["records_without_rgb_reference"] else 0
     if args.command == "annotate":
         if args.review_json is None:
             parser.error("annotate 需要 --review-json")

@@ -14,7 +14,7 @@ import time
 
 import cv2
 
-from .collect import CaptureColorCamera, register_saved_rgb, validate_config
+from .collect import CaptureColorCamera, intake_status, print_intake_summary, validate_config
 from .contracts import validate_camera
 from .diagnose import DiagnosticFrontend, solve_raw_points
 from .geometry_reference import load_geometry_reference
@@ -125,6 +125,8 @@ def process_frame(frontend, image, camera, frame, geometry, config, *, depth_sam
 def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_first=False, zoom=False,
                 library_root=None):
     """One inference worker; display and save only the matching completed image."""
+    from .intake import CaptureIntake
+
     processed, paused, pending, displayed = 0, False, None, None
     use_depth = callable(getattr(camera, "read_rgbd", None))
     message = ""
@@ -132,7 +134,9 @@ def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_f
     overlay = depth_overlay = None
     rendered_key = depth_key = None
     last_controls = ""
-    save_times = []
+    intake = CaptureIntake(session, library_root, preview=True)
+    intake_report = intake.poll()
+    last_intake_message = ""
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="d415-diagnostic")
     try:
         cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
@@ -141,6 +145,10 @@ def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_f
             cv2.namedWindow(DEPTH_WINDOW, cv2.WINDOW_NORMAL)
             cv2.resizeWindow(DEPTH_WINDOW, 1100, 720)
         while True:
+            intake_report = intake.poll()
+            if intake_report.get("last_message") and intake_report["last_message"] != last_intake_message:
+                message = last_intake_message = intake_report["last_message"]
+                print(message, flush=True)
             if use_depth:
                 image, metadata, depth_sample = camera.read_rgbd()
             else:
@@ -179,22 +187,24 @@ def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_f
                 pass
             runtime = {**capture_stats, "analysis_fps": 0. if paused else analysis_rate.fps(),
                        "render_fps": 0. if paused else render_rate.fps(), "frame_age_ms": frame_age,
-                       "target_zoom": zoom, "display_image_width": 1280}
+                       "target_zoom": zoom, "display_image_width": 1280, "intake": intake_report}
+            status_line = intake_status(intake_report)
+            display_message = status_line + ("；" + message if message else "")
             # Cached panels still process keyboard/window events on every iteration.
-            key_now = (processed, paused, message, session.saved_count, zoom, int(time.monotonic() * 2))
+            key_now = (processed, paused, display_message, intake_report["saved"], zoom, int(time.monotonic() * 2))
             if key_now != rendered_key:
-                overlay = render_preview(shown_image, diagnostic, saved_count=session.saved_count,
-                                         paused=paused, message=message, runtime=runtime, zoom=zoom,
+                overlay = render_preview(shown_image, diagnostic, saved_count=intake_report["saved"],
+                                         paused=paused, message=display_message, runtime=runtime, zoom=zoom,
                                          display_width=1280)
                 if rendered_key is None or rendered_key[0] != processed:
                     render_rate.tick()
                 rendered_key = key_now
             cv2.imshow(WINDOW, overlay)
             if use_depth:
-                depth_now = (processed, paused, message, session.saved_count)
+                depth_now = (processed, paused, display_message, intake_report["saved"])
                 if depth_now != depth_key:
                     depth_overlay = render_depth(shown_depth, diagnostic, paused=paused,
-                                                 saved_count=session.saved_count, message=message)
+                                                 saved_count=intake_report["saved"], message=display_message)
                     depth_key = depth_now
                 cv2.imshow(DEPTH_WINDOW, depth_overlay)
             key = cv2.waitKeyEx(1)
@@ -223,15 +233,10 @@ def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_f
                 if processed == 0:
                     message = "请等待首帧分析完成"
                 else:
-                    save_kwargs = {"depth_sample": shown_depth} if use_depth else {}
-                    before_save = time.monotonic()
-                    saved = session.save(shown_image, {**diagnostic, "preview_runtime": runtime}, overlay,
-                                         **save_kwargs)
-                    save_times.append((time.monotonic() - before_save) * 1000)
-                    message = f"已保存 {session.saved_count} 张" if saved is not None else "该帧已保存"
+                    accepted = intake.submit(shown_image, {**diagnostic, "preview_runtime": runtime}, overlay,
+                                             depth_sample=shown_depth if use_depth else None)
+                    message = "已加入保存队列" if accepted else "队列繁忙或该帧已排队，请稍后重试"
                     print(message, flush=True)
-                    if saved is not None and not register_saved_rgb(session.path, saved, library_root):
-                        message += "；统一图库待同步"
             if frames and processed >= frames:
                 break
             if pending is None and not paused and not stale_color:
@@ -246,19 +251,23 @@ def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_f
 
                 pending = pool.submit(analyze)
     finally:
-        # No worker accesses hardware. Close the window even if analysis failed.
-        for window in (WINDOW, DEPTH_WINDOW) if use_depth else (WINDOW,):
-            try:
-                cv2.destroyWindow(window)
-            except cv2.error:
-                pass
-        pool.shutdown(wait=True, cancel_futures=True)
+        try:
+            intake_report = intake.close()
+            print_intake_summary(intake_report, session.path, library_root)
+        finally:
+            # No worker accesses hardware. Close the window even if analysis failed.
+            for window in (WINDOW, DEPTH_WINDOW) if use_depth else (WINDOW,):
+                try:
+                    cv2.destroyWindow(window)
+                except cv2.error:
+                    pass
+            pool.shutdown(wait=True, cancel_futures=True)
     capture_stats = (camera.capture_stats() if callable(getattr(camera, "capture_stats", None))
                      else {"capture_mean_fps": read_rate.mean_fps(), "captured_frames": read_rate.count})
-    return {"processed_frames": processed, "saved_frames": session.saved_count,
+    return {"processed_frames": processed, "saved_frames": intake_report["saved"],
             **capture_stats, "analysis_mean_fps": analysis_rate.mean_fps(),
             "result_render_mean_fps": render_rate.mean_fps(), "consumed_mean_fps": read_rate.mean_fps(),
-            "save_ms": save_times,
+            **intake_report,
             "last_assessment": displayed[1]["assessment"] if displayed else None,
             "last_depth_status": displayed[1].get("depth", {}).get("status") if displayed else None}
 
@@ -278,6 +287,8 @@ def main(argv=None):
     parser.add_argument("--geometry", type=Path, default=ROOT / "config/geometry_nominal.json")
     parser.add_argument("--serial", help="Explicit D415 serial; otherwise use capture configuration")
     parser.add_argument("--batch", help="Capture batch; defaults to a unique diagnostic batch")
+    parser.add_argument("--split", choices=("train", "val", "unknown"), default="train",
+                        help="整批图库用途；默认 train，val 用于开发验证，unknown 留待分组")
     parser.add_argument("--specimen")
     parser.add_argument("--printing-batch")
     parser.add_argument("--notes", default="D415 SDK visual diagnostics; unreviewed images")
@@ -312,6 +323,14 @@ def main(argv=None):
             raise ValueError("Preview output must be within the project for annotation review")
         library_root = None if args.no_library else (
             args.library if args.library.is_absolute() else ROOT / args.library).resolve()
+        batch = args.batch or "d415_preview_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        metadata = {"specimen_id": args.specimen, "printing_batch_id": args.printing_batch,
+                    "notes": args.notes, "training_library_enabled": library_root is not None,
+                    "training_library_path": str(library_root) if library_root is not None else None,
+                    "capture_config": capture_config}
+        if library_root is not None:
+            from train.python.dataset_split import check_capture_split
+            check_capture_split(library_root, batch, args.split, metadata)
         geometry = load_geometry_reference(args.geometry)
         if geometry["status"] == "measured_print" and (
                 geometry["specimen_id"] != args.specimen or geometry["printing_batch_id"] != args.printing_batch):
@@ -322,7 +341,6 @@ def main(argv=None):
         print("正在加载检测模型和几何…", flush=True)
         frontend._load()
         config = frontend.config
-        batch = args.batch or "d415_preview_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         if args.depth:
             from .rgbd_capture import CaptureRGBDCamera
             depth_config = json.loads(args.depth_config.read_text(encoding="utf-8-sig"))
@@ -331,15 +349,11 @@ def main(argv=None):
             capture = CaptureColorCamera(capture_config)
         with capture as camera:
             session_options = {"depth_calibration": camera.depth_calibration} if args.depth else {}
+            metadata.update(geometry_version=geometry["version"],
+                            rgb_settings_at_start=camera.rgb_controls.snapshot()
+                            if camera.rgb_controls is not None else None)
             session = PreviewSession(output, camera.camera, batch, pipeline_config=config, geometry=geometry,
-                                     metadata={"specimen_id": args.specimen, "printing_batch_id": args.printing_batch,
-                                               "geometry_version": geometry["version"], "notes": args.notes,
-                                               "training_library_enabled": library_root is not None,
-                                               "training_library_path": str(library_root) if library_root is not None else None,
-                                               "capture_config": capture_config,
-                                               "rgb_settings_at_start": camera.rgb_controls.snapshot()
-                                               if camera.rgb_controls is not None else None},
-                                     **session_options)
+                                     metadata=metadata, split=args.split, **session_options)
             print(f"诊断目录: {session.path}\nF5 保存；F6 暂停/继续；Esc 退出（也支持空格/S、P、Q）。", flush=True)
             print(f"彩色实际配置：{camera.camera['image_width']}×{camera.camera['image_height']} / "
                   f"{camera.camera['fps']} fps；Z 局部放大；A 自动曝光；[ ] 曝光；- = 增益。", flush=True)
@@ -348,6 +362,11 @@ def main(argv=None):
                                      frames=args.frames, save_first=args.save_first, zoom=args.zoom,
                                      library_root=library_root)
         print(json.dumps(result, ensure_ascii=False), flush=True)
+        if result["failed_saves"] or result["pending_sync"] or result.get("postprocess_error"):
+            status, error, code = "failed", "保存、入库或后处理未全部完成，见本批采集摘要", 2
+        if result.get("previous_pending_sync"):
+            code = 2
+            print("旧会话仍有待同步项，请检查旧会话 intake.json；本批状态单独记录。", flush=True)
     except KeyboardInterrupt:
         status, code = "interrupted", 130
     except Exception as exc:

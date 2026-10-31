@@ -2,12 +2,12 @@
   "schema_version": 1,
   "image_sha256": "96d462dd47258d2ba7d5e60a39581a44e756dbe6cb3a0c31d25ac5dada901dd3",
   "image": "images/2026-10-30/96d462dd47258d2ba7d5e60a39581a44e756dbe6cb3a0c31d25ac5dada901dd3.png",
-  "label": null,
-  "label_sha256": null,
+  "label": "labels/2026-10-30/96d462dd47258d2ba7d5e60a39581a44e756dbe6cb3a0c31d25ac5dada901dd3.txt",
+  "label_sha256": "dfafaee6d8e62e6f250e28a115468663d8aea8bed02316ae2e596b421ae70d3f",
   "width": 1920,
   "height": 1080,
   "date": "2026-10-30",
-  "status": "pending",
+  "status": "ready",
   "sources": [
     {
       "kind": "realsense_rgb_capture",
@@ -206,11 +206,33 @@
     }
   ],
   "created_at": "2026-10-30T11:34:09.821009+00:00",
-  "annotation_source": null,
+  "annotation_source": "assistant_visual_review:dataset/vision/source_annotations/assistant_box_review_20261031.json",
   "human_reviewed": false,
-  "label_candidates": [],
-  "annotation_history": [],
-  "updated_at": "2026-10-30T15:59:54.881792+00:00",
+  "label_candidates": [
+    {
+      "label_text": "0 0.5908854167 0.699537037 0.1848958333 0.3342592593\n",
+      "label_sha256": "dfafaee6d8e62e6f250e28a115468663d8aea8bed02316ae2e596b421ae70d3f",
+      "sources": [
+        {
+          "annotation_source": "assistant_visual_review:dataset/vision/source_annotations/assistant_box_review_20261031.json",
+          "human_reviewed": false
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "pending",
+      "label_sha256": null,
+      "annotation_source": null,
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "image_available": true,
+      "label_available": false,
+      "changed_at": "2026-10-31T07:15:56.984930+00:00"
+    }
+  ],
+  "updated_at": "2026-10-31T07:15:56.986769+00:00",
   "depth": {
     "schema_version": 1,
     "file": "depth/2026-10-30/96d462dd47258d2ba7d5e60a39581a44e756dbe6cb3a0c31d25ac5dada901dd3.png",
@@ -312,6 +334,21 @@
       "file": "depth/frame_000001.png",
       "session_id": "20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a"
     },
-    "bound_at": "2026-10-30T15:59:54.881792+00:00"
-  }
+    "bound_at": "2026-10-30T15:59:54.881792+00:00",
+    "calibration": {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a\\depth_camera.json",
+      "sha256": "630ef67bc4d835b8230aee05f62f7645dbdcff7307d1499b97a0115799ded8ae",
+      "file": null,
+      "status": "missing"
+    }
+  },
+  "camera_calibrations": [
+    {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_preview\\20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a\\camera.json",
+      "sha256": "ea072daf51846597fa637a56e88264f9f6e479e1d20a2a6a21afcf9e983be33d",
+      "file": null,
+      "status": "missing"
+    }
+  ],
+  "exclusion_reason": null
 }

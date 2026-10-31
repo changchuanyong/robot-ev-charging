@@ -64,7 +64,7 @@ def _asset(path):
 
 class PreviewSession:
     def __init__(self, output_root, camera, batch_id, *, pipeline_config, geometry, metadata=None,
-                 depth_calibration=None):
+                 depth_calibration=None, split="unknown"):
         self._camera = _copy(camera)
         self._signature = intrinsics_signature(self._camera)
         self._geometry = _copy(geometry)
@@ -84,7 +84,7 @@ class PreviewSession:
         if self._depth_calibration is not None:
             code.update({name: _asset(name) for name in
                          ("vision/rgbd_capture.py", "vision/depth_diagnostic.py", "vision/depth_render.py")})
-        self._capture = CaptureSession(output_root, camera, batch_id, "unknown",
+        self._capture = CaptureSession(output_root, camera, batch_id, split,
                                        "Live diagnostic samples; automatic points are not human labels.",
                                        metadata=metadata)
         self.path = self._capture.path

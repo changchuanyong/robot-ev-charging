@@ -4,22 +4,22 @@
 
 当前检测权重统一由 `config/vision_model.json` 指定，D435 的 `config/realsense_config.json` 与 D415 预览均引用这份记录。启动核对权重文件与 SHA256；训练完整成功后更新记录，已运行的进程需重启才能加载新模型。`config/observed_layout_prior.json` 根据人工复核的 train 图学习孔名关联，仅输出实际内孔口中心；PnP 仍使用原三维模型。共享检测权重不代表实际 D435 图像、几何或位姿已验收。
 
-使用 D415 采集训练图片时，运行独立的 `python -m vision.collect`；D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
+使用 D415 采集训练图片时，运行独立的 `python -m vision.launch vision.collect`；D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
 
 ## 启动及输出
 
-在项目根目录运行：
+在项目根目录运行。Windows 非管理员终端每次启动相机都可能弹出 UAC；启动器返回成功仅表示已发起子进程，采集结果需查看新窗口：
 
 ```powershell
-.venv\Scripts\python.exe -m vision.run --config config/realsense_config.json
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.run --config config/realsense_config.json
 ```
 
 首次接设备前，填写 D435 完整序列号。`intrinsics_validated` 初始为 `false`；可在获准采集后用 `--export-intrinsics artifacts/d435_color_intrinsics.json` 保存实际彩色流的参数和 `intrinsics_sha256`。完成该分辨率、设备和工作距离下的独立图像验证后，再填写校准版本、匹配的参数指纹并设置验证状态。改变序列号、分辨率、内参或畸变参数会使旧指纹失效。SDK 工厂内参不自动等同于任务标定已验收。
 
-离线单张图像：
+离线单张图像不需要启动器或管理员权限：
 
 ```powershell
-.venv\Scripts\python.exe -m vision.run --image path/to/image.jpg --camera-config path/to/that_camera.json --output artifacts/offline_pose.json
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.run --image path/to/image.jpg --camera-config path/to/that_camera.json --output artifacts/offline_pose.json
 ```
 
 离线结果始终标记 `source=offline`，不能作为真机运动输入。缺少 YOLO 权重、目标丢失、畸变模型不支持、图像尺寸不符、过期或未验证标定会产生明确无效结果。新消息以原子替换发布，失败不会保留上一帧的有效标记。实时采集退出后也会发布无效状态。
@@ -39,7 +39,7 @@
 | `quality.visual_budget` | `finite-trial-v2` 的四维视觉纠偏预算 `{x,y,Rx,Ry}`，单位 m、m、rad、rad；未标定为 null |
 | `quality.geometry_reference` | 显式几何文件的版本、状态、验收标记及 SHA256；旧 CSV 为 null |
 
-D435 的 modified/inverse Brown 与 OpenCV Brown 模型不直接混用：孔位先按 SDK 投影模型反求理想像素，再使用零畸变 PnP；最终残差重新投影回原始彩色图像计算。测试将这套投影与已安装 RealSense SDK 的投影结果比较。尚未实现的畸变模型直接拒绝。
+D435 的 modified/inverse Brown 与 OpenCV Brown 模型不直接混用：孔位先按 SDK 投影模型反求理想像素，再使用零畸变 PnP；最终残差重新投影回原始彩色图像计算。尚未实现的畸变模型直接拒绝。
 
 全图仅允许一个候选完整接口。多接口场景应为每个目标配置独立 `target_id` 与 `target_window=[x1,y1,x2,y2]`（0–1 归一化）。窗口内仍出现多个候选时拒绝选择，避免仅因置信度改变就切换目标。接触阶段的目标冻结由控制状态机负责。
 
@@ -66,7 +66,7 @@ max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 ## 手眼标定
 
 ```powershell
-.venv\Scripts\python.exe -m vision.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
 ```
 
 输入 JSON 顶层包含：
@@ -83,12 +83,13 @@ max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 
 程序调用 OpenCV 4 的 Tsai 手眼求解，并仅由训练姿态建立固定板参考。验证姿态不参与求解或板参考拟合。输出 `T_flange_camera`、每次观测的独立残差及验收状态；合成样本即使解析测试通过也不会获得 `validated=true`。固定板一致性不自动证明外部绝对定位精度。
 
-`T_flange_tool` 和 `T_tool_sensor` 继续为 `null`，需要独立测量，不能用手眼结果代替。`config/calibration.template.json` 展示这些独立项。OpenCV 5 当前 Python 包缺少 `calibrateHandEye`，本项目使用 `<5` 的依赖约束。
+`T_flange_tool` 和 `T_tool_sensor` 继续为 `null`，需要独立测量，不能用手眼结果代替。`config/calibration.template.json` 展示这些独立项。本项目在 `requirements.txt` 固定 OpenCV 4.13.0.92。
 
 ## 离线验证
 
 ```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests -p test_vision.py -v
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.check_project
+.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate --scenario nominal
 ```
 
-测试覆盖 SDK 畸变一致性、同帧 PnP、单位转换、过期与重复帧、无效覆盖、目标歧义、预算校准域、合成手眼恢复及独立验证失败。相机采集、手眼实测与机器人运动均不由这些测试执行。
+自检报告项目完整性与图库待办；仿真仅验证合成场景中的软件流程。这些命令不启动相机或机器人，也不能替代视觉精度、手眼实测及插装实验验收。

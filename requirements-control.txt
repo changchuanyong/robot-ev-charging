@@ -1,9 +1,5 @@
 # Verified Windows/Python 3.12 environment for control, calibration and training.
 # Install requirements-gpu.txt afterwards for the verified NVIDIA CUDA build.
-numpy==2.4.3
-opencv-python==4.13.0.92
-torch==2.14.1
-torchvision==0.29.1
-ultralytics==8.4.189
+-r requirements.txt
 pyrealsense2==2.59.1.11053
 Robotic_Arm==1.1.6

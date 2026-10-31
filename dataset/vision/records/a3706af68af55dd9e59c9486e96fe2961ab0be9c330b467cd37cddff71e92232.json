@@ -61,7 +61,7 @@
       "changed_at": "2026-10-30T09:51:51.949728+00:00"
     }
   ],
-  "updated_at": "2026-10-30T15:59:54.993539+00:00",
+  "updated_at": "2026-10-31T07:02:59.582238+00:00",
   "exclusion_reason": null,
   "depth": {
     "schema_version": 1,
@@ -96,6 +96,20 @@
       "file": "depth/frame_000001.png",
       "session_id": "20261030T071018Z_7989860f1feb4e22b4355519cd799188"
     },
-    "bound_at": "2026-10-30T15:59:54.993539+00:00"
-  }
+    "bound_at": "2026-10-30T15:59:54.993539+00:00",
+    "calibration": {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\depth_camera.json",
+      "sha256": "5da5b40cbf92ad8a7edeb2d8aabed9344d806123ff9bba33cbc48b3bda46371b",
+      "file": null,
+      "status": "missing"
+    }
+  },
+  "camera_calibrations": [
+    {
+      "source_file": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\artifacts\\d415_usb3_recheck\\20261030_current\\captures\\20261030T071018Z_7989860f1feb4e22b4355519cd799188\\camera.json",
+      "sha256": "c9f87bb567ab817c75634f04f5d31b445bc055b21c0f88569541c54f1f95dbfa",
+      "file": null,
+      "status": "missing"
+    }
+  ]
 }
