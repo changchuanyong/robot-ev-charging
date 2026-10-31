@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import re
 
-from .contracts import atomic_capture_json
+from .contracts import atomic_persist_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,5 +93,7 @@ def publish_current_model(weights, *, root=ROOT, training_report) -> dict:
         "independent_validation": report.get("independent_validation", False),
         "published_at": datetime.now(timezone.utc).isoformat(),
     }
-    atomic_capture_json(root / CURRENT_MODEL_CONFIG, registry)
+    # Publication is the last step after a long run: wait out a file scanner
+    # that briefly holds the registry rather than losing the whole training.
+    atomic_persist_json(root / CURRENT_MODEL_CONFIG, registry)
     return registry

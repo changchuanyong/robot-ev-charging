@@ -37,6 +37,15 @@ def group_for(entry, config):
     printing_batches = {s.get("metadata", {}).get("printing_batch_id") for s in declared} - {None, ""}
     paths = {str(s[key]).replace("\\", "/").lower() for s in sources
              for key in ("path", "original_image", "manifest") if s.get(key)}
+    source_group = None
+    if len(original_groups) == 1:
+        source_group = "collection:" + next(iter(original_groups))
+    elif len(sessions) == 1:
+        source_group = "session:" + next(iter(sessions))
+    elif not original_groups and not sessions:
+        originals = sorted(str(s["path"]).replace("\\", "/") for s in sources if s.get("path"))
+        if originals:
+            source_group = "source_directory:" + originals[0].rsplit("/", 1)[0]
     matched = []
     for name, rule in config["groups"].items():
         if (original_groups.intersection(rule.get("original_groups", []))
@@ -44,6 +53,8 @@ def group_for(entry, config):
                 or batches.intersection(rule.get("batch_ids", []))
                 or any(marker.lower() in path for marker in rule.get("source_path_markers", []) for path in paths)):
             matched.append(name)
+    if not matched and source_group in config["groups"]:
+        matched.append(source_group)
     # Explicit historical/session assignments remain authoritative. A specimen
     # alias only groups an explicitly assigned source. Unknown historical
     # captures must not acquire a split when another batch names their specimen.
@@ -55,15 +66,10 @@ def group_for(entry, config):
         raise ValueError(f"image_matches_multiple_groups: {entry['image_sha256']}: {matched}")
     if matched:
         return matched[0]
-    if len(original_groups) == 1:
-        return "collection:" + next(iter(original_groups))
-    if len(sessions) == 1:
-        return "session:" + next(iter(sessions))
+    if source_group:
+        return source_group
     if len(sessions) > 1 or len(original_groups) > 1:
         raise ValueError(f"explicit_merged_group_required: {entry['image_sha256']}")
-    originals = sorted(str(s["path"]).replace("\\", "/") for s in sources if s.get("path"))
-    if originals:
-        return "source_directory:" + originals[0].rsplit("/", 1)[0]
     raise ValueError(f"capture_group_metadata_required: {entry['image_sha256']}")
 
 
@@ -166,6 +172,128 @@ def ensure_capture_split(library_root, manifest, config_path=DEFAULT_SPLIT):
         if changed:
             atomic_capture_json(config_path, config)
         return {**result, "changed": changed}
+
+
+def _identity_tokens(values):
+    tokens = set()
+    for kind, value in values:
+        if value in (None, ""):
+            continue
+        if not isinstance(value, str) or value != value.strip():
+            raise ValueError(f"invalid_group_identity: {kind}")
+        tokens.add((kind, value))
+    return tokens
+
+
+def auto_assign_groups(entries, config_path=DEFAULT_SPLIT):
+    """Freeze new related source groups together, preserving every existing split.
+
+    Only unrelated, undeclared development groups default to train. Raw source
+    declarations remain provenance; an existing registry decision is authoritative.
+    Conflicting components are rejected before writing any part of the plan.
+    """
+    split_path = Path(config_path).resolve()
+    with _lock(split_path.parent):
+        config = read_split(split_path)
+        graph, owners, counts, declarations = {}, {}, Counter(), {}
+        direct_policy = {"groups": {
+            name: {key: value for key, value in rule.items()
+                   if key not in {"specimen_ids", "printing_batch_ids"}}
+            for name, rule in config["groups"].items()
+        }}
+
+        def connect(group, tokens):
+            graph.setdefault(group, set())
+            for token in tokens:
+                previous = owners.setdefault(token, group)
+                graph[group].add(previous)
+                graph[previous].add(group)
+
+        fields = ("original_groups", "session_ids", "batch_ids", "specimen_ids", "printing_batch_ids")
+        for group, rule in config["groups"].items():
+            values = []
+            for field in fields:
+                aliases = rule.get(field, [])
+                if not isinstance(aliases, list):
+                    raise ValueError(f"invalid_group_aliases: {group}.{field}")
+                values.extend((field, value) for value in aliases)
+            connect(group, _identity_tokens(values))
+
+        seen = set()
+        for entry in entries:
+            if entry.get("status") == "excluded":
+                continue
+            if entry.get("status") != "ready":
+                raise ValueError("auto_split_requires_ready_annotations")
+            digest = entry["image_sha256"]
+            if digest in seen:
+                raise ValueError("duplicate_image_in_split_inventory")
+            seen.add(digest)
+            group = group_for(entry, direct_policy)
+            counts[group] += 1
+            declared = declarations.setdefault(group, set())
+            tokens = set()
+            for source in entry["sources"]:
+                split = source.get("original_split")
+                if split not in (None, "", "unknown", "train", "val"):
+                    raise ValueError(f"source_split_not_for_training: {digest}: {split}")
+                # An earlier curated split can differ from its historical source.
+                if group not in config["groups"] and split in {"train", "val"}:
+                    declared.add(split)
+                metadata = source.get("metadata") or {}
+                if not isinstance(metadata, dict):
+                    raise ValueError(f"invalid_capture_metadata: {digest}")
+                tokens.update(_identity_tokens((
+                    ("original_groups", source.get("original_group")),
+                    ("session_ids", source.get("session_id")),
+                    ("batch_ids", source.get("batch_id")),
+                    ("specimen_ids", metadata.get("specimen_id")),
+                    ("printing_batch_ids", metadata.get("printing_batch_id")),
+                )))
+            # group_for already coalesces directory-only records. Do not link the
+            # common library storage directory of otherwise unrelated captures.
+            connect(group, tokens)
+
+        assignments, visited = [], set()
+        for first in sorted(graph):
+            if first in visited:
+                continue
+            component, stack = set(), [first]
+            while stack:
+                group = stack.pop()
+                if group in component:
+                    continue
+                component.add(group)
+                stack.extend(graph[group] - component)
+            visited.update(component)
+            if not any(counts[group] for group in component):
+                continue
+            fixed = sorted(group for group in component if group in config["groups"])
+            choices = {config["groups"][group]["split"] for group in fixed}
+            choices.update(split for group in component for split in declarations.get(group, ()))
+            if len(choices) > 1:
+                raise ValueError(f"automatic_split_conflict: {sorted(component)} have {sorted(choices)}")
+            split = next(iter(choices)) if choices else "train"
+            reason = ("inherited_fixed_group" if fixed else "declared_source_split" if choices
+                      else "unlisted_group_defaults_to_train")
+            for group in sorted(component):
+                if group in config["groups"]:
+                    continue
+                assignments.append({"group": group, "split": split, "images": counts[group],
+                                    "reason": reason, "related_fixed_groups": fixed})
+
+        assignments.sort(key=lambda item: item["group"])
+        for item in assignments:
+            config["groups"][item["group"]] = {
+                "split": item["split"],
+                "description": "Automatic assignment before training; existing groups remain fixed",
+                "automatic_assignment": {"rules_version": "fixed-validation-auto-train-v1",
+                                         "reason": item["reason"],
+                                         "related_fixed_groups": item["related_fixed_groups"]},
+            }
+        if assignments:
+            atomic_capture_json(split_path, config)
+        return config, assignments
 
 
 def split_entries(entries, config):

@@ -17,6 +17,9 @@ runs/*/weights/*
 !runs/*/weights/last.pt
 *.cache
 
+# Third-party caches kept inside the project by train/python/runtime_env.py
+.cache/
+
 # Live capture outputs and debug artifacts
 dataset/live/
 # dataset/vision is tracked on purpose: the image library, labels and provenance

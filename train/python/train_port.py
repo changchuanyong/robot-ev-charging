@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import shutil
 import sys
+import time
 import uuid
 
 
@@ -18,10 +19,16 @@ CONFIG_PATH = ROOT_DIR / "config" / "train_config.json"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from vision.contracts import atomic_capture_json
+from train.python.runtime_env import configure_caches, serialise_label_scan
+
+# Before ultralytics/matplotlib import: they resolve their cache and font
+# directories at import time, and the user profile is not writable here.
+CACHE_DIRS = configure_caches(ROOT_DIR)
+
+from vision.contracts import atomic_persist_json
 from vision.model_config import publish_current_model
-from vision.training_library import normalize_label, read_entries, validate_library
-from train.python.dataset_split import read_split, split_entries
+from vision.training_library import _lock, normalize_label, read_entries, validate_library
+from train.python.dataset_split import auto_assign_groups, read_split, split_entries
 
 GENERIC_PRETRAINED_SHA256 = "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36"
 
@@ -38,7 +45,13 @@ def _write_report(run, **values):
     path = run / "training_report.json"
     report = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     report.update(values, updated_at=datetime.now(timezone.utc).isoformat())
-    atomic_capture_json(path, report)
+    # Rewritten after every epoch, so it may fall back in place rather than
+    # abort the run; the next epoch refreshes it anyway.
+    started = time.perf_counter()
+    atomic_persist_json(path, report, in_place_fallback=True)
+    elapsed = time.perf_counter() - started
+    if elapsed > 2:
+        print(f"报告文件被占用 {elapsed:.1f} s，重试后写入。", flush=True)
 
 
 def verify_snapshot(run, manifest):
@@ -96,21 +109,26 @@ def prepare_training(*, root=ROOT_DIR, library=None, weights=None, project=None,
     if _sha(weights) != expected_weights_sha256:
         raise ValueError("generic_pretrained_weights_hash_required: project-finetuned weights may contain validation images")
     split_path = Path(split_config or root / "config/port_dataset_split.json").resolve()
-    split_policy = read_split(split_path)
     if not run_prefix or Path(run_prefix).name != run_prefix or run_prefix in {".", ".."}:
         raise ValueError("run_name_must_be_a_single_directory_name")
     synchronization = None
     if synchronize:
         from train.python.prepare_port_library import sync_library
         synchronization = sync_library(root=root, library=library)
-    entries = split_entries(validate_library(library), split_policy)
+    ready = validate_library(library)
+    split_policy, assignments = auto_assign_groups(ready, split_path)
+    with _lock(split_path.parent):
+        split_policy = read_split(split_path)
+        split_config_sha256 = _sha(split_path)
+    entries = split_entries(ready, split_policy)
     counts = dict(Counter(entry["split"] for entry in entries))
     run = project / (run_prefix + "_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ_") + uuid.uuid4().hex[:8])
     run.mkdir(parents=True, exist_ok=False)
     _write_report(run, schema_version=1, status="preparing", library=str(library),
                   independent_validation=False, evaluation="held_out_development", split_counts=counts,
                   coverage_unit="primary_training_image",
-                  scope="all ready images are assigned exactly once to train or validation; future groups require explicit assignment")
+                  automatic_split_assignments=assignments,
+                  scope="all ready images are assigned exactly once; fixed splits are preserved and unrelated unknown development groups default to train")
     try:
         dataset = run / "dataset"
         frozen = []
@@ -142,7 +160,8 @@ def prepare_training(*, root=ROOT_DIR, library=None, weights=None, project=None,
         all_entries = read_entries(library)
         manifest = {"schema_version": 1, "created_at": datetime.now(timezone.utc).isoformat(),
                     "library": str(library), "image_count": len(frozen),
-                    "split_counts": counts, "split_policy": split_policy, "split_config_sha256": _sha(split_path),
+                    "split_counts": counts, "split_policy": split_policy, "split_config_sha256": split_config_sha256,
+                    "automatic_split_assignments": assignments,
                     "initial_weights_kind": "generic_pretrained_coco",
                     "instance_count": sum(entry["instances"] for entry in frozen),
                     "entries": frozen, "initial_weights": str(weights), "initial_weights_sha256": initial_hash,
@@ -155,7 +174,7 @@ def prepare_training(*, root=ROOT_DIR, library=None, weights=None, project=None,
                     "evaluation": "held_out_development", "synchronization": synchronization,
                     "excluded": [{"image_sha256": entry["image_sha256"], "reason": entry["exclusion_reason"]}
                                  for entry in all_entries if entry["status"] == "excluded"]}
-        atomic_capture_json(run / "training_manifest.json", manifest)
+        atomic_persist_json(run / "training_manifest.json", manifest)
         _write_report(run, status="prepared", image_count=len(frozen), instance_count=manifest["instance_count"],
                       initial_weights_sha256=initial_hash, manifest_sha256=_sha(run / "training_manifest.json"))
         return run, manifest
@@ -326,14 +345,18 @@ def train_all(run, manifest, config, *, root=ROOT_DIR):
 
     run = Path(run)
     audit = CoverageAudit(run, manifest)
+    label_scan = "serial" if serialise_label_scan() else "thread_pool"
+    if label_scan == "serial":
+        print("当前环境不能创建命名管道，标注扫描改为串行。", flush=True)
     parameters = {key: config[key] for key in ("epochs", "imgsz", "batch", "device")}
     device_info = validate_device(config["device"])
     parameters.update(workers=0, optimizer="AdamW", lr0=.0003, cos_lr=True, freeze=0, seed=0,
                       deterministic=True, patience=0, fraction=1.0, compile=False,
                       cache=False, amp=False, plots=True, save=True, val=True)
     _write_report(run, requested_epochs=parameters["epochs"], training_parameters=parameters,
-                  coverage_unit="primary_training_image",
-                  ultralytics_version=__version__, python_version=sys.version, device=device_info)
+                  coverage_unit="primary_training_image", runtime_cache=CACHE_DIRS,
+                  label_scan=label_scan, ultralytics_version=__version__,
+                  python_version=sys.version, device=device_info)
     try:
         _write_report(run, snapshot_before_model_load=verify_snapshot(run, manifest))
         model = YOLO(run / "initial.pt")
@@ -365,7 +388,7 @@ def train_all(run, manifest, config, *, root=ROOT_DIR):
         )
         preview_config["weights"] = str(best.resolve())
         preview_config["weights_sha256"] = _sha(best)
-        atomic_capture_json(run / "preview_config.json", preview_config)
+        atomic_persist_json(run / "preview_config.json", preview_config)
         _write_report(run, status="completed", completed_epochs=audit.completed_epochs,
                       best_weights=str(best.resolve()), best_weights_sha256=_sha(best),
                       preview_config=str((run / "preview_config.json").resolve()))
@@ -439,6 +462,10 @@ def main(argv=None):
                                      split_config=args.split_config or config["split_config"],
                                      expected_weights_sha256=config["pretrained_weights_sha256"])
     print(f"全量快照：{manifest['image_count']} 张图片，{manifest['instance_count']} 个框。")
+    assignments = manifest["automatic_split_assignments"]
+    print(f"自动补齐 {len(assignments)} 个来源组；已有分组保持固定。")
+    for assignment in assignments:
+        print(f"  {assignment['group']} → {assignment['split']}：{assignment['images']} 张（{assignment['reason']}）")
     print(f"来源组划分: train={manifest['split_counts']['train']}, val={manifest['split_counts']['val']}；两者不重叠。")
     print("验证图不参与本轮训练；历史照片会话未知，结果定位为开发验证，不保证严格会话独立。")
     print(f"本轮目录: {run}", flush=True)
