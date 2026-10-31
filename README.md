@@ -2,10 +2,10 @@
 
 充电口检测、九孔定位与 PnP，以及面向 **RM75 六维力机械臂 + D435 眼在手 + Windows/Python** 的力觉–视觉插装程序。主线：**D415 采集 → YOLOv8n 检测 → 九孔/PnP 诊断 → D435 定位与控制**；默认配置不连接、不驱动机器人。
 
-- **默认模型**：`config/vision_model.json` → `runs/detect_split_20261030T110042Z_105be6be/weights/best.pt`，启动校验 SHA256。
+- **默认模型**：`config/vision_model.json` → `runs/detect_split_20261031T105817Z_14d8271b/weights/best.pt`，启动校验 SHA256。
 - **图库**：`dataset/vision/` 260 条记录（253 ready、0 pending、7 排除、173 条带深度），随 Git 跟踪；2026-10-31 的 19 张新图已人工复核并写入标签。
 - **权重**：`yolov8n.pt`、`runs/*/weights/best.pt` 和 `last.pt` 随 Git 跟踪。
-- **最近训练**：40 轮，197 train / 36 dev-val；P 0.970 / R 0.972 / mAP50 0.971 / mAP50-95 0.913。
+- **最近训练**：40 轮，217 train / 36 dev-val；P 0.97068 / R 0.97222 / mAP50 0.97250 / mAP50-95 0.90472（best epoch 21）。
 
 命令都在仓库根目录运行，直接用 `.venv\Scripts\python.exe`，不要激活虚拟环境。
 
@@ -154,7 +154,7 @@ Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在
 
 训练报告和清单的写入对 Windows 文件占用做重试（最长约 13 s，杀毒软件或文件监视器偶尔会短暂占住 JSON）；`training_report.json` 每轮都会重写，重试仍失败时改为就地写入，不会让几十轮训练白跑。
 
-当前模型：40 轮、197/197 覆盖、36/36 验证；P 0.97011 / R 0.97222 / mAP50 0.97111 / mAP50-95 0.91302（目标框，不是九孔或插装精度）。复现旧轮次：
+当前模型：40 轮、217/217 覆盖、36/36 验证；P 0.97068 / R 0.97222 / mAP50 0.97250 / mAP50-95 0.90472（best epoch 21；目标框，不是九孔或插装精度）。复现旧轮次：
 
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth --vision-config "runs/本轮目录/preview_config.json"

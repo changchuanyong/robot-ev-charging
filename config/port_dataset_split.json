@@ -9,7 +9,13 @@
     "val": 36,
     "total": 233
   },
-  "limitations": "Historical 74 photos lack real capture-session metadata. Preserve the previous 58 train / 16 val division as source groups, without claiming session independence. The adjacent 03:13/03:14/03:15 sessions are one collection. Current split is 84.5% / 15.5%; unknown future groups require explicit assignment.",
+  "current_counts": {
+    "train": 217,
+    "val": 36,
+    "total": 253,
+    "as_of": "2026-10-31"
+  },
+  "limitations": "Historical 74 photos lack real capture-session metadata. Preserve the previous 58 train / 16 val division as source groups, without claiming session independence. The adjacent 03:13/03:14/03:15 sessions are one collection. Current split is 217/253 train (85.8%) and 36 val (14.2%). Existing groups stay fixed; new related groups inherit their split; unrelated undeclared development groups are assigned to train automatically before training. Val is development-only, not independent.",
   "groups": {
     "historical_train_unknown_session": {
       "split": "train",

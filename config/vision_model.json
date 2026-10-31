@@ -1,10 +1,12 @@
 {
   "schema_version": 1,
-  "description": "Shared active YOLOv8n detector for preview, localization, batch evaluation and box suggestions. Camera calibration and control acceptance are configured separately.",
-  "weights": "runs/detect_split_20261030T110042Z_105be6be/weights/best.pt",
-  "weights_sha256": "d7dbdab48880ac8d1eceb5c50b2dad4783c733b043a87612ba06435f12803fe9",
-  "training_run": "runs/detect_split_20261030T110042Z_105be6be",
-  "training_report": "runs/detect_split_20261030T110042Z_105be6be/training_report.json",
+  "description": "Shared active YOLOv8n detector; camera calibration and control acceptance are configured separately.",
+  "weights": "runs/detect_split_20261031T105817Z_14d8271b/weights/best.pt",
+  "weights_sha256": "c6e76407feb5f8f36715da56405500c5850347dc4a1e0da154802433fe1099b4",
+  "training_run": "runs/detect_split_20261031T105817Z_14d8271b",
+  "training_report": "runs/detect_split_20261031T105817Z_14d8271b/training_report.json",
+  "training_report_sha256": "9ddf67cd379997b69997df6ee9f93d1619d8fd3603b0d8f07c1728e95d19ddd4",
   "evaluation": "held_out_development",
-  "independent_validation": false
+  "independent_validation": false,
+  "published_at": "2026-10-31T11:01:23.459684+00:00"
 }
