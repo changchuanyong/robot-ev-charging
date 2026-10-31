@@ -3,7 +3,7 @@
 充电口检测、九孔定位与 PnP，以及面向 **RM75 六维力机械臂 + D435 眼在手 + Windows/Python** 的力觉–视觉插装程序。主线：**D415 采集 → YOLOv8n 检测 → 九孔/PnP 诊断 → D435 定位与控制**；默认配置不连接、不驱动机器人。
 
 - **默认模型**：`config/vision_model.json` → `runs/detect_split_20261030T110042Z_105be6be/weights/best.pt`，启动校验 SHA256。
-- **图库**：`dataset/vision/` 260 条记录（234 ready、19 pending、7 排除、173 条带深度），随 Git 跟踪；19 张 2026-10-31 新采集图待复核框，1 张旧图待 train/val 分组。
+- **图库**：`dataset/vision/` 260 条记录（253 ready、0 pending、7 排除、173 条带深度），随 Git 跟踪；2026-10-31 的 19 张新图已人工复核并写入标签。
 - **权重**：`yolov8n.pt`、`runs/*/weights/best.pt` 和 `last.pt` 随 Git 跟踪。
 - **最近训练**：40 轮，197 train / 36 dev-val；P 0.970 / R 0.972 / mAP50 0.971 / mAP50-95 0.913。
 
@@ -120,7 +120,9 @@ Start-Process artifacts/port_library_review.html
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
 ```
 
-新采集的 `--split train/val` 会自动登记到 `config/port_dataset_split.json`，不按单张图片随机划分。旧的 197 train / 36 dev-val 划分保留；val 是开发验证集。主动指定 `--split unknown` 或历史未分组的会话仍需人工指定用途：
+新采集的 `--split train/val` 会自动登记到 `config/port_dataset_split.json`。训练前会自动补齐 `unknown` 或历史未分组的开发数据：同会话、批次、样件或打印批次关联的组继承已有用途；无关联且未声明用途的新组默认进入 train。新组明确声明的 train/val 会被尊重，跨用途关联或 test 来源会拒绝训练，且不会只写入一部分自动决定。
+
+已有分组保持固定，不为凑 80:20 拆开会话或重新洗牌；val 仍是开发验证集。自动决定及原因会保存在分组配置和本轮训练清单中，正常训练不再需要手动填写会话编号。需要查看待办或提前明确新组用途时仍可运行：
 
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 -m train.python.dataset_split --list-pending
@@ -146,7 +148,11 @@ Start-Process artifacts/port_library_review.html
 .\.venv\Scripts\python.exe -B -X utf8 train/python/train_port.py --epochs 40 --batch 16 --device 0
 ```
 
-训练前同步并检查全库，待标注、未分组、冲突、哈希不符都会报错；全部轮数与覆盖通过后才原子更新 `config/vision_model.json`。输出含 `training_manifest.json`、`training_report.json`、`epoch_coverage.jsonl`、`validation_coverage.jsonl`、`weights/`。
+训练前依次同步图库、检查图片和标注、自动补齐分组、冻结本轮数据。待标注、分组冲突、来源无法判断或哈希不符仍会报错。`--prepare-only` 同样会自动补齐分组并生成数据快照，但不会训练。训练完成全部轮数并通过覆盖检查后才原子更新 `config/vision_model.json`。输出含 `training_manifest.json`、`training_report.json`、`epoch_coverage.jsonl`、`validation_coverage.jsonl`、`weights/`。
+
+Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在项目内 `.cache/`（首次运行把系统的 `arial.ttf` 复制过去），因此训练不写用户目录、也不联网下载字体；`.cache/` 不纳入版本控制。
+
+训练报告和清单的写入对 Windows 文件占用做重试（最长约 13 s，杀毒软件或文件监视器偶尔会短暂占住 JSON）；`training_report.json` 每轮都会重写，重试仍失败时改为就地写入，不会让几十轮训练白跑。
 
 当前模型：40 轮、197/197 覆盖、36/36 验证；P 0.97011 / R 0.97222 / mAP50 0.97111 / mAP50-95 0.91302（目标框，不是九孔或插装精度）。复现旧轮次：
 
