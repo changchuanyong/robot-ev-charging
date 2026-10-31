@@ -1,15 +1,14 @@
 {
   "schema_version": 1,
   "library": "C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\dataset\\vision",
-  "source_visits": 391,
-  "unique_images": 241,
+  "source_visits": 19,
+  "unique_images": 260,
   "status_counts": {
-    "ready": 233,
-    "excluded": 7,
-    "pending": 1
+    "ready": 253,
+    "excluded": 7
   },
   "depth": {
-    "records_with_depth": 154,
+    "records_with_depth": 173,
     "conflicts": 0
   },
   "scope": "Original RGB and paired raw Z16 depth; duplicate files share one training identity. Excluded images retain reasons; depth is evidence, not a training channel.",

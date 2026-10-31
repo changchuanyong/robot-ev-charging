@@ -76,6 +76,10 @@
       "session_ids": [
         "20261031T100522Z_4cc133a4578743f6b34368f80c30f2ce"
       ]
+    },
+    "session:20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a": {
+      "split": "train",
+      "description": "Explicit assignment of a newly observed source group"
     }
   }
 }
