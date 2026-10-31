@@ -124,6 +124,17 @@ Start-Process artifacts/port_library_review.html
 .\.venv\Scripts\python.exe -B -X utf8 -m train.python.dataset_split --assign-group "实际group_id" --split train
 ```
 
+九孔位置的人工复核统一使用 `prepare_keypoint_review.py`；它生成孔名/中心复核页，与上面的 YOLO 目标框复核用途不同。新采集传 `--manifest`，使用该会话保存的相机参数；历史图片传 `--selection` 和 `--batch-report`，保留原历史参数：
+
+```powershell
+# 已结束的采集会话，输出默认在会话目录的 review/ 下
+.\.venv\Scripts\python.exe -B -X utf8 live/python/prepare_keypoint_review.py --manifest "artifacts/d415_preview/实际会话目录/manifest.json"
+# 历史图片，明确指定已有的图片选择清单和批量诊断报告
+.\.venv\Scripts\python.exe -B -X utf8 live/python/prepare_keypoint_review.py --selection "config/vision_annotation_pilot.json" --batch-report "artifacts/实际诊断目录/latest_details.json" --output-dir "artifacts/keypoint_review"
+```
+
+打开命令输出的 `review.html`，复核后导出 `reviewed_annotations.json`。加 `--annotations "已复核文件.json"` 可继续复核，工具不会覆盖原标注；`--manifest` 不能与历史数据参数混用。
+
 ## 训练
 
 ```powershell
