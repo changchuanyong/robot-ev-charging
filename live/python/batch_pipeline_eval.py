@@ -25,7 +25,6 @@ if str(ROOT_DIR) not in sys.path:
 
 from vision.model_config import current_model_path
 
-import Canny  # noqa: E402
 import enhance  # noqa: E402
 import latest_candidate_contours as contours_step  # noqa: E402
 import pnp2  # noqa: E402
@@ -223,7 +222,7 @@ def evaluate_one_image(
     enhanced_gray = enhanced_results["final"]
     enhanced_bgr = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
 
-    _gray, _enhanced, _smooth, _grad_mag, edges, low, high, morph_thresh = Canny.adaptive_canny_pipeline(enhanced_bgr)
+    _gray, _enhanced, _smooth, _grad_mag, edges, low, high, morph_thresh = enhance.adaptive_canny_pipeline(enhanced_bgr)
     edge_density = float(np.count_nonzero(edges > 0) / edges.size)
     result.update(
         {
@@ -508,7 +507,7 @@ def main() -> int:
         "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
                           [Path(__file__), PY_DIR / "pnp2.py", PY_DIR / "layout_prior.py",
                            PY_DIR / "pose_correspondence.py", PY_DIR / "latest_candidate_contours.py",
-                           PY_DIR / "center_fit.py", PY_DIR / "candidate_types.py"]},
+                           PY_DIR / "center_fit.py", PY_DIR / "enhance.py"]},
     }
     if observed_prior is not None:
         provenance["source_sha256"]["observed_layout.py"] = hashlib.sha256((PY_DIR / "observed_layout.py").read_bytes()).hexdigest()

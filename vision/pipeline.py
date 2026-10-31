@@ -94,7 +94,7 @@ class PosePipeline:
         script_path = str(ROOT / "live" / "python")
         if script_path not in sys.path:
             sys.path.insert(0, script_path)
-        names = ("enhance", "Canny", "latest_candidate_contours", "center_fit", "pnp2", "pose_correspondence")
+        names = ("enhance", "latest_candidate_contours", "center_fit", "pnp2", "pose_correspondence")
         modules = {name: importlib.import_module(name) for name in names}
         detector = self._detector
         if detector is None:
@@ -153,7 +153,7 @@ class PosePipeline:
         crop = image[y1:y2, x1:x2].copy()
         enhanced = self._modules["enhance"].preprocess_roi(crop)["final"]
         enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
-        edges = self._modules["Canny"].adaptive_canny_pipeline(enhanced_bgr)[4]
+        edges = self._modules["enhance"].adaptive_canny_pipeline(enhanced_bgr)[4]
         contours = self._modules["latest_candidate_contours"]
         # Existing functions are verbose. Keep their diagnostics out of control
         # timings and never persist large unbounded buffers.

@@ -13,9 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def check_entry_configs(root):
     """Check the files consumed by default preview, collect and run entrypoints."""
     from .model_config import resolve_model_config
+    from .collect import load_capture_config, validate_config, validate_depth_config
 
-    defaults = ("data_capture_d415.json", "d415_preview_usb3.json", "d415_depth_usb3.json",
-                "d415_preview.json", "geometry_nominal.json", "realsense_config.json")
+    defaults = ("d415.json", "geometry_nominal.json", "realsense_config.json")
     configs, errors = {}, []
     for name in defaults:
         path = root / "config" / name
@@ -26,12 +26,22 @@ def check_entry_configs(root):
             configs[name] = value
         except (OSError, ValueError, UnicodeError) as exc:
             errors.append(f"entry_config {name}: {exc}")
-    for name in ("d415_preview.json", "realsense_config.json"):
+    if "d415.json" in configs:
+        try:
+            for profile in ("collect", "preview"):
+                camera, options = load_capture_config(root / "config/d415.json", profile)
+                validate_config(camera)
+            validate_depth_config(options["depth"])
+            configs["d415.json"] = dict(options["vision"])
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            errors.append(f"entry_config d415.json: {exc}")
+            configs.pop("d415.json", None)
+    for name in ("d415.json", "realsense_config.json"):
         if name not in configs:
             continue
         config = configs[name]
         # preview's --geometry default overrides the pipeline's geometry field.
-        if name == "d415_preview.json":
+        if name == "d415.json":
             config["geometry_reference"] = "config/geometry_nominal.json"
         try:
             resolve_model_config(config, root=root, verify=True)

@@ -11,7 +11,7 @@ import uuid
 import numpy as np
 
 from .contracts import FrameClock, FramePacket, intrinsics_signature, validate_camera
-from .win_privilege import ensure_camera_privilege
+from .launch import ensure_camera_privilege
 
 
 def validated_camera_override(sdk_camera: dict, config: dict) -> dict:

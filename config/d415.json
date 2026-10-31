@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "description": "D415 collection and visual diagnostics. Actual intrinsics are read from each SDK stream.",
+  "device": {
+    "device_model": "D415",
+    "serial": "349222063070",
+    "timeout_ms": 5000
+  },
+  "profiles": {
+    "collect": {
+      "width": 1280,
+      "height": 720,
+      "fps": 15,
+      "warmup_frames": 30,
+      "output_root": "artifacts/captures"
+    },
+    "preview": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "warmup_frames": 60,
+      "output_root": "artifacts/d415_preview",
+      "rgb_options": {
+        "enable_auto_exposure": 1,
+        "auto_exposure_priority": 0
+      }
+    }
+  },
+  "depth": {
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "max_pair_skew_ms": 40.0
+  },
+  "vision": {
+    "description": "Shared detector with SDK intrinsics and nominal geometry; diagnostics do not authorize robot motion.",
+    "model_registry": "config/vision_model.json",
+    "observed_layout_prior": "config/observed_layout_prior.json",
+    "model_points": "config/charging_port_model.csv",
+    "geometry_reference": null,
+    "target_id": "connector_1",
+    "target_class": 0,
+    "target_window": null,
+    "confidence": 0.25,
+    "max_frame_age_s": 0.5,
+    "min_inliers": 7,
+    "max_reprojection_rms_px": 8.0,
+    "max_point_error_px": 15.0,
+    "visual_budget": null
+  }
+}

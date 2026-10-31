@@ -355,8 +355,8 @@ def train_all(run, manifest, config, *, root=ROOT_DIR):
         best = run / "weights/best.pt"
         if not best.is_file():
             raise ValueError("training_finished_without_best_weights")
-        preview = Path(root) / "config/d415_preview.json"
-        preview_config = json.loads(preview.read_text(encoding="utf-8"))
+        preview = Path(root) / "config/d415.json"
+        preview_config = json.loads(preview.read_text(encoding="utf-8"))["vision"]
         preview_config.pop("model_registry", None)
         preview_config["description"] = (
             f"YOLOv8n run {run.name}: {manifest['split_counts']['train']} train / "

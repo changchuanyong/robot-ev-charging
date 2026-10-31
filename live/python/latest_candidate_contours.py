@@ -9,7 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from candidate_types import CandidateContour, LayoutModel
+from center_fit import CandidateContour, LayoutModel
 from center_fit import export_fitted_centers, fit_ellipse_on_kept_candidates
 from layout_prior import apply_standard_layout_prior, draw_layout_prior
 

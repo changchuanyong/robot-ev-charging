@@ -14,15 +14,15 @@ import time
 
 import cv2
 
-from .collect import CaptureColorCamera, intake_status, print_intake_summary, validate_config
+from .collect import (CaptureColorCamera, CaptureRGBDCamera, PreviewCapture, intake_status,
+                      load_capture_config, print_intake_summary, validate_config)
 from .contracts import validate_camera
 from .diagnose import DiagnosticFrontend, solve_raw_points
 from .geometry_reference import load_geometry_reference
 from .pipeline import ROOT
 from .preview_render import render_depth, render_preview
-from .preview_session import PreviewSession
+from .capture_session import PreviewSession
 from .depth_diagnostic import analyze_depth
-from .preview_capture import PreviewCapture
 
 
 WINDOW = "D415 Visual Diagnostics"
@@ -273,7 +273,8 @@ def run_preview(camera, frontend, geometry, config, session, *, frames=0, save_f
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--capture-config", type=Path, default=ROOT / "config/d415_preview_usb3.json")
+    parser.add_argument("--config", "--capture-config", dest="capture_config", type=Path,
+                        default=ROOT / "config/d415.json", help="D415 capture, depth and vision configuration")
     parser.add_argument("--quality", choices=("full-hd", "hd"),
                         help="Override RGB to 1920x1080/30 or 1280x720/30; otherwise use capture config")
     exposure_group = parser.add_mutually_exclusive_group()
@@ -281,7 +282,7 @@ def main(argv=None):
     exposure_group.add_argument("--auto-exposure", action="store_true", help="Enable RGB auto exposure")
     parser.add_argument("--gain", type=float, help="Manual RGB gain in SDK option units")
     parser.add_argument("--zoom", action="store_true", help="Enlarge detected target for display; keep full raw images")
-    parser.add_argument("--vision-config", type=Path, default=ROOT / "config/d415_preview.json",
+    parser.add_argument("--vision-config", type=Path,
                         help="Detector and PnP settings only; no control output is written")
     parser.add_argument("--geometry", type=Path, default=ROOT / "config/geometry_nominal.json")
     parser.add_argument("--serial", help="Explicit D415 serial; otherwise use capture configuration")
@@ -291,7 +292,7 @@ def main(argv=None):
     parser.add_argument("--specimen")
     parser.add_argument("--printing-batch")
     parser.add_argument("--notes", default="D415 SDK visual diagnostics; unreviewed images")
-    parser.add_argument("--output-root", type=Path, default=ROOT / "artifacts/d415_preview")
+    parser.add_argument("--output-root", type=Path, help="Override the preview profile's output_root")
     library_group = parser.add_mutually_exclusive_group()
     library_group.add_argument("--library", type=Path, default=ROOT / "dataset/vision",
                                help="统一 RGB 图库，默认 dataset/vision；新图待标注")
@@ -299,7 +300,7 @@ def main(argv=None):
     parser.add_argument("--frames", type=int, default=0, help="Stop after N analyzed frames; 0 keeps window open")
     parser.add_argument("--save-first", action="store_true", help="Save first completed result, including failures")
     parser.add_argument("--depth", action="store_true", help="Add raw depth capture and diagnostic window")
-    parser.add_argument("--depth-config", type=Path, default=ROOT / "config/d415_depth_usb3.json")
+    parser.add_argument("--depth-config", type=Path, help="Override the depth section with a separate configuration")
     args = parser.parse_args(argv)
     if args.frames < 0:
         parser.error("--frames must be nonnegative")
@@ -309,7 +310,9 @@ def main(argv=None):
         parser.error("exposure and gain must be finite")
     session, status, error, code = None, "completed", None, 0
     try:
-        capture_config = json.loads(args.capture_config.read_text(encoding="utf-8-sig"))
+        capture_config, options = load_capture_config(args.capture_config, "preview")
+        if not options:
+            _, options = load_capture_config(ROOT / "config/d415.json", "preview")
         if args.serial:
             capture_config["serial"] = args.serial
         capture_config = configure_capture(capture_config, quality=args.quality,
@@ -317,7 +320,8 @@ def main(argv=None):
                                            exposure=args.exposure, gain=args.gain)
         if capture_config["device_model"] != "D415":
             raise ValueError("D415 preview requires an explicit D415 capture configuration")
-        output = args.output_root.resolve()
+        output = args.output_root or Path(capture_config["output_root"])
+        output = (output if output.is_absolute() else ROOT / output).resolve()
         if not output.is_relative_to(ROOT):
             raise ValueError("Preview output must be within the project for annotation review")
         library_root = None if args.no_library else (
@@ -334,15 +338,16 @@ def main(argv=None):
         if geometry["status"] == "measured_print" and (
                 geometry["specimen_id"] != args.specimen or geometry["printing_batch_id"] != args.printing_batch):
             raise ValueError("Measured geometry requires matching --specimen and --printing-batch")
-        config = json.loads(args.vision_config.read_text(encoding="utf-8-sig"))
+        config = (json.loads(args.vision_config.read_text(encoding="utf-8-sig"))
+                  if args.vision_config else options["vision"])
         config["geometry_reference"] = str(args.geometry.resolve())
         frontend = DiagnosticFrontend(config)
         print("正在加载检测模型和几何…", flush=True)
         frontend._load()
         config = frontend.config
         if args.depth:
-            from .rgbd_capture import CaptureRGBDCamera
-            depth_config = json.loads(args.depth_config.read_text(encoding="utf-8-sig"))
+            depth_config = (json.loads(args.depth_config.read_text(encoding="utf-8-sig"))
+                            if args.depth_config else options["depth"])
             capture = CaptureRGBDCamera(capture_config, depth_config)
         else:
             capture = CaptureColorCamera(capture_config)

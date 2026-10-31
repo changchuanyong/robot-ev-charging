@@ -1,29 +1,12 @@
+"""In-memory illumination enhancement and adaptive edge extraction."""
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 
-
-ROOT_DIR = Path(__file__).resolve().parents[2]
-INPUT_PATH = ROOT_DIR / "dataset" / "live" / "latest_roi.jpg"
-OUTPUT_PATH = ROOT_DIR / "dataset" / "live" / "latest_roi_enhanced.jpg"
-METRICS_PATH = ROOT_DIR / "dataset" / "live" / "latest_roi_enhance_metrics.json"
-
-SAVE_DEBUG = True
-DEBUG_DIR = OUTPUT_PATH.parent / "debug_roi_enhance"
-
-PIPELINE_MODE = os.environ.get("VISION_PIPELINE_MODE", "0") == "1"
-SHOW_POST_WINDOWS = os.environ.get("VISION_SHOW_POST_WINDOWS", "0") == "1"
-KEY_WINDOWS_ONLY = os.environ.get("VISION_KEY_WINDOWS", "0") == "1"
-WINDOW_WAIT_MS = max(1, int(os.environ.get("VISION_WINDOW_WAIT_MS", "700")))
-SHOW_WINDOW = (not PIPELINE_MODE) or SHOW_POST_WINDOWS
-MAX_SHOW_W = 1200
-MAX_SHOW_H = 900
 
 # Keep the final image stable for Canny: normalize illumination, avoid excessive local contrast,
 # then sharpen only edge regions so flat metal surfaces do not turn into noise.
@@ -43,48 +26,41 @@ SHARPEN_AMOUNT_MAX = 0.55
 EDGE_SHARPEN_PCT = 72
 
 
-def atomic_imwrite(path: Path, image: np.ndarray) -> bool:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(path.stem + "_tmp" + path.suffix)
+# 预处理参数
+CLAHE_CLIP = 2.0
+CLAHE_GRID = (8, 8)
 
-    ok = cv2.imwrite(str(tmp_path), image)
-    if not ok:
-        return False
+EDGE_BILATERAL_D = 5
+EDGE_BILATERAL_SIGMA_COLOR = 50
+EDGE_BILATERAL_SIGMA_SPACE = 50
 
-    try:
-        if path.exists():
-            path.unlink()
-        tmp_path.replace(path)
-        return True
-    except OSError:
-        return False
+# 边缘方法：canny / morph / hybrid
+# 默认使用 canny；hybrid 会补齐小孔边缘，但在当前样张上容易把大孔与外圈粘连。
+EDGE_METHOD = os.environ.get("VISION_EDGE_METHOD", "canny").strip().lower()
 
+# 自适应 Canny 参数
+# 推荐先用这个范围：
+# HIGH_PCT 80~90
+# LOW_RATIO 0.35~0.55
+HIGH_PCT = 90
+LOW_RATIO = 0.35
 
-def atomic_write_json(path: Path, data: Any) -> bool:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(path.stem + "_tmp" + path.suffix)
+# 形态学梯度用于补充孔位闭合轮廓
+MORPH_GRAD_KERNEL = 5
+MORPH_GRAD_PCT = 82
 
-    try:
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        if path.exists():
-            path.unlink()
-        tmp_path.replace(path)
-        return True
-    except OSError:
-        return False
+# 形态学
+CLOSE_KERNEL = 6
+CLOSE_ITER = 1
 
+# 结构区域掩膜：抑制桌面、外框边缘，保留中心孔位区域
+ENABLE_STRUCTURE_MASK = True
+STRUCTURE_MASK_RX_RATIO = 0.48
+STRUCTURE_MASK_RY_RATIO = 0.42
 
-def show_keep_ratio(win_name: str, img: np.ndarray, max_w: int = MAX_SHOW_W, max_h: int = MAX_SHOW_H) -> None:
-    h, w = img.shape[:2]
-    scale = min(max_w / w, max_h / h, 1.0)
-
-    show_w = max(1, int(w * scale))
-    show_h = max(1, int(h * scale))
-
-    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(win_name, show_w, show_h)
-    cv2.imshow(win_name, img)
+# 小连通域去除
+MIN_COMPONENT_AREA = 20
+# =========================
 
 
 def image_stats(gray: np.ndarray) -> dict[str, float]:
@@ -216,70 +192,151 @@ def preprocess_roi(roi_bgr: np.ndarray) -> dict[str, Any]:
     }
 
 
-def main() -> int:
-    if not INPUT_PATH.exists():
-        print(f"Input not found: {INPUT_PATH}")
-        return 1
+def remove_small_components(binary_img: np.ndarray, min_area: int) -> np.ndarray:
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary_img, connectivity=8)
+    out = np.zeros_like(binary_img)
 
-    roi = cv2.imread(str(INPUT_PATH))
-    if roi is None or roi.size == 0:
-        print("Failed to read ROI image.")
-        return 1
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area >= min_area:
+            out[labels == i] = 255
 
-    results = preprocess_roi(roi)
-    final_img = results["final"]
-
-    if not atomic_imwrite(OUTPUT_PATH, final_img):
-        print(f"Failed to save enhanced ROI: {OUTPUT_PATH}")
-        return 1
-
-    if not atomic_write_json(METRICS_PATH, results["metrics"]):
-        print(f"Failed to save enhance metrics: {METRICS_PATH}")
-        return 1
-
-    print("===== ROI Enhance Done =====")
-    print(f"Input   : {INPUT_PATH}")
-    print(f"Output  : {OUTPUT_PATH}")
-    print(f"Metrics : {METRICS_PATH}")
-    print(f"Shape   : {roi.shape}")
-    print("")
-    print("Adaptive params:")
-    print(f"  gamma                 = {results['metrics']['gamma']}")
-    print(f"  illumination_kernel   = {results['metrics']['illumination_kernel']}")
-    print(f"  clahe_clip_limit      = {results['metrics']['clahe_clip_limit']}")
-    print(f"  sharpen_amount        = {results['metrics']['sharpen']['amount']}")
-    print(f"  input_stats           = {results['metrics']['input']}")
-    print(f"  output_stats          = {results['metrics']['output']}")
-
-    if SAVE_DEBUG:
-        DEBUG_DIR.mkdir(parents=True, exist_ok=True)
-        atomic_imwrite(DEBUG_DIR / "01_gray.jpg", results["gray"])
-        atomic_imwrite(DEBUG_DIR / "02_gamma.jpg", results["gamma"])
-        atomic_imwrite(DEBUG_DIR / "03_illumination_background.jpg", results["illumination_background"])
-        atomic_imwrite(DEBUG_DIR / "04_illumination_normalized.jpg", results["illumination_normalized"])
-        atomic_imwrite(DEBUG_DIR / "05_clahe.jpg", results["clahe"])
-        atomic_imwrite(DEBUG_DIR / "06_filtered.jpg", results["filtered"])
-        atomic_imwrite(DEBUG_DIR / "07_gradient.jpg", results["gradient"])
-        atomic_imwrite(DEBUG_DIR / "08_final.jpg", results["final"])
-        print(f"Debug saved to: {DEBUG_DIR}")
-
-    if SHOW_WINDOW:
-        if KEY_WINDOWS_ONLY:
-            show_keep_ratio("enhance_final", results["final"])
-        else:
-            show_keep_ratio("roi_input", roi)
-            show_keep_ratio("01_gray", results["gray"])
-            show_keep_ratio("02_gamma", results["gamma"])
-            show_keep_ratio("04_illumination_normalized", results["illumination_normalized"])
-            show_keep_ratio("05_clahe", results["clahe"])
-            show_keep_ratio("06_filtered", results["filtered"])
-            show_keep_ratio("07_gradient", results["gradient"])
-            show_keep_ratio("08_final", results["final"])
-        cv2.waitKey(WINDOW_WAIT_MS)
-        cv2.destroyAllWindows()
-
-    return 0
+    return out
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def build_structure_mask(shape: tuple[int, int]) -> np.ndarray:
+    h_img, w_img = shape[:2]
+    mask = np.zeros((h_img, w_img), dtype=np.uint8)
+    center = (int(w_img / 2), int(h_img / 2))
+    axes = (
+        max(1, int(STRUCTURE_MASK_RX_RATIO * w_img)),
+        max(1, int(STRUCTURE_MASK_RY_RATIO * h_img)),
+    )
+    cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
+    return mask
+
+
+def preprocess(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    clahe = cv2.createCLAHE(clipLimit=CLAHE_CLIP, tileGridSize=CLAHE_GRID)
+    enhanced = clahe.apply(gray)
+
+    smooth = cv2.bilateralFilter(
+        enhanced,
+        d=EDGE_BILATERAL_D,
+        sigmaColor=EDGE_BILATERAL_SIGMA_COLOR,
+        sigmaSpace=EDGE_BILATERAL_SIGMA_SPACE,
+    )
+    return enhanced, smooth
+
+
+def compute_adaptive_thresholds(img_gray: np.ndarray) -> tuple[int, int, np.ndarray]:
+    """
+    用梯度幅值统计来估计 Canny 阈值：
+    先对预处理后的灰度图求 Sobel 梯度，
+    再按梯度分布百分位数自适应给出 high / low。
+    """
+    gx = cv2.Sobel(img_gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(img_gray, cv2.CV_32F, 0, 1, ksize=3)
+    mag = cv2.magnitude(gx, gy)
+
+    mag_u8 = cv2.convertScaleAbs(mag)
+
+    valid = mag_u8[mag_u8 > 0]
+    if valid.size < 50:
+        return 30, 80, mag_u8
+
+    high = int(np.percentile(valid, HIGH_PCT))
+    high = max(20, min(255, high))
+
+    low = int(max(0, min(high - 1, LOW_RATIO * high)))
+    low = max(5, low)
+
+    return low, high, mag_u8
+
+
+def morph_gradient_edges(img_gray: np.ndarray) -> tuple[np.ndarray, int]:
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (MORPH_GRAD_KERNEL, MORPH_GRAD_KERNEL),
+    )
+    grad = cv2.morphologyEx(img_gray, cv2.MORPH_GRADIENT, kernel)
+
+    valid = grad[grad > 0]
+    if valid.size < 50:
+        thresh = 20
+    else:
+        thresh = int(np.percentile(valid, MORPH_GRAD_PCT))
+        thresh = max(12, min(180, thresh))
+
+    _, edges = cv2.threshold(grad, thresh, 255, cv2.THRESH_BINARY)
+    return edges, thresh
+
+
+def adaptive_canny_pipeline(roi_bgr: np.ndarray):
+    gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
+
+    enhanced, smooth = preprocess(gray)
+    low, high, grad_mag = compute_adaptive_thresholds(smooth)
+
+    canny_edges = cv2.Canny(
+        smooth,
+        threshold1=low,
+        threshold2=high,
+        L2gradient=True
+    )
+
+    method = EDGE_METHOD.lower()
+    if method not in {"canny", "morph", "hybrid"}:
+        method = "canny"
+
+    morph_thresh = 0
+    if method in {"morph", "hybrid"}:
+        morph_edges, morph_thresh = morph_gradient_edges(smooth)
+    else:
+        morph_edges = None
+
+    if method == "morph" and morph_edges is not None:
+        edges = morph_edges
+    elif method == "hybrid" and morph_edges is not None:
+        edges = cv2.bitwise_or(canny_edges, morph_edges)
+    else:
+        edges = canny_edges
+
+    if ENABLE_STRUCTURE_MASK:
+        structure_mask = build_structure_mask(edges.shape)
+        edges = cv2.bitwise_and(edges, structure_mask)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (CLOSE_KERNEL, CLOSE_KERNEL))
+    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=CLOSE_ITER)
+
+    edges = remove_small_components(edges, MIN_COMPONENT_AREA)
+
+    return gray, enhanced, smooth, grad_mag, edges, low, high, morph_thresh
+
+
+def build_vis(roi_bgr: np.ndarray, edges: np.ndarray, low: int, high: int, morph_thresh: int) -> np.ndarray:
+    vis = roi_bgr.copy()
+
+    # 红色叠加边缘
+    vis[edges > 0] = (0, 0, 255)
+
+    cv2.putText(
+        vis,
+        f"{EDGE_METHOD}  canny={low}/{high} morph={morph_thresh}",
+        (20, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0),
+        2,
+    )
+    cv2.putText(
+        vis,
+        f"HIGH_PCT={HIGH_PCT} LOW_RATIO={LOW_RATIO:.2f} MASK={int(ENABLE_STRUCTURE_MASK)}",
+        (20, 60),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (0, 255, 255),
+        2,
+    )
+
+    return vis

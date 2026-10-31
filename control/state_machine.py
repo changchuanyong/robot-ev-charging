@@ -10,10 +10,9 @@ import numpy as np
 
 from .admittance import Admittance, advance_scale
 from .config import METHODS, require_config
-from .finite_trial import FiniteTrial
 from .geometry import invert, log_so3, offset_pose, pose_error, validate_transform
 from .risk import EngineeringRisk
-from .synergy import ACTIONS, CORRECTION_AXES, SynergyFilter, action_vector
+from .synergy import ACTIONS, CORRECTION_AXES, FiniteTrial, SynergyFilter, action_vector
 from .types import Decision, RobotSample
 from .wrench import WrenchProcessor
 

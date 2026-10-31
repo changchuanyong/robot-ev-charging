@@ -244,8 +244,7 @@ def validate_config(config, *, hardware=False, supervised_probe=False):
     if flags["learning"]:
         try:
             from .learning import ForcePolicy
-            from .finite_trial import FiniteTrial
-            from .synergy import SynergyFilter
+            from .synergy import FiniteTrial, SynergyFilter
             ForcePolicy({**config["learning"], "model_path": None})
             FiniteTrial(config["finite_trial"])
             SynergyFilter(config["synergy"])

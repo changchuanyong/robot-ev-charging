@@ -91,7 +91,7 @@ class DiagnosticFrontend(PosePipeline):
             crop = image[y1:y2, x1:x2].copy()
             enhanced = self._modules["enhance"].preprocess_roi(crop)["final"]
             enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
-            edges = self._modules["Canny"].adaptive_canny_pipeline(enhanced_bgr)[4]
+            edges = self._modules["enhance"].adaptive_canny_pipeline(enhanced_bgr)[4]
             contours, diagnostics = self._modules["latest_candidate_contours"], {}
             with open(os.devnull, "w") as sink, contextlib.redirect_stdout(sink):
                 candidates, _, _ = contours.filter_candidate_contours(
@@ -379,7 +379,7 @@ def main(argv=None):
         name: sha256_file(ROOT / name) for name in (
             "vision/pipeline.py", "vision/model_config.py", "vision/contracts.py", "live/python/pose_correspondence.py",
             "live/python/observed_layout.py", "live/python/latest_candidate_contours.py",
-            "live/python/center_fit.py", "live/python/enhance.py", "live/python/Canny.py")}
+            "live/python/center_fit.py", "live/python/enhance.py")}
     result["provenance"]["frontend_assets"] = {}
     if not args.manual_only:
         for key in ("weights", "observed_layout_prior"):

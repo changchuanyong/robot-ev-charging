@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
+from queue import Empty, Full, Queue
 import subprocess
 import sys
+from threading import Condition, Event, Thread
 import time
 
 import cv2
@@ -15,11 +18,27 @@ import numpy as np
 
 from .contracts import intrinsics_signature, validate_camera
 from .rgb_controls import RGBControls, validate_rgb_options
-from .win_privilege import ensure_camera_privilege
+from .launch import ensure_camera_privilege
 
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOW = "RealSense RGB data collection"
+
+
+def load_capture_config(path, profile):
+    """Read a D415 profile or an explicitly supplied flat camera configuration."""
+    config = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    if not isinstance(config, dict):
+        raise ValueError("camera_config_object_required")
+    if "profiles" not in config:
+        return config, {}
+    if (config.get("schema_version") != 1 or not isinstance(config["profiles"], dict)
+            or not isinstance(config["profiles"].get(profile), dict)
+            or not isinstance(config.get("device"), dict)
+            or not isinstance(config.get("depth"), dict)
+            or not isinstance(config.get("vision"), dict)):
+        raise ValueError("invalid_capture_profiles_config")
+    return {**config["device"], **config["profiles"][profile]}, config
 
 
 def list_devices(rs=None) -> list[dict]:
@@ -139,6 +158,326 @@ class CaptureColorCamera:
         self.close()
 
 
+def validate_depth_config(config):
+    for key in ("width", "height", "fps"):
+        value = config.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise ValueError(f"invalid_depth_{key}")
+    skew = config.get("max_pair_skew_ms")
+    if (isinstance(skew, bool) or not isinstance(skew, (int, float))
+            or not math.isfinite(skew) or skew <= 0):
+        raise ValueError("invalid_max_pair_skew_ms")
+
+
+def _stream_camera(profile, stream, serial, name, model):
+    intrinsics = profile.get_intrinsics()
+    camera = {
+        "stream": stream, "serial": serial, "device_name": name, "device_model": model,
+        "image_width": intrinsics.width, "image_height": intrinsics.height,
+        "fps": profile.fps(), "pixel_format": "bgr8" if stream == "color" else "z16",
+        "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx],
+                          [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
+        "dist_coeffs": list(intrinsics.coeffs), "distortion_model": intrinsics.model.name,
+        "source": f"device_{stream}_stream", "validated": False, "version": None,
+        "is_placeholder": False, "is_approximate": False,
+    }
+    # Validate matrix and distortion without claiming depth is an RGB stream.
+    validate_camera({**camera, "stream": "color"}, (intrinsics.height, intrinsics.width, 3))
+    camera["intrinsics_sha256"] = intrinsics_signature(camera)
+    return camera
+
+
+def _extrinsics(extrinsics):
+    # rs2_extrinsics.rotation is column-major; persisted matrices are row-major.
+    rotation = np.asarray(extrinsics.rotation, dtype=float).reshape(3, 3, order="F")
+    translation = np.asarray(extrinsics.translation, dtype=float)
+    if (translation.shape != (3,) or not np.isfinite(translation).all()
+            or not np.isfinite(rotation).all()
+            or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-5)
+            or not np.isclose(np.linalg.det(rotation), 1., atol=1e-5)):
+        raise ValueError("invalid_depth_to_color_extrinsics")
+    return {"rotation": rotation.tolist(), "translation_m": translation.tolist()}
+
+
+def _frame_metadata(frame, received_at):
+    return {"frame_number": frame.get_frame_number(),
+            "device_timestamp_ms": frame.get_timestamp(),
+            "timestamp_domain": frame.get_frame_timestamp_domain().name,
+            "received_at_utc": received_at}
+
+
+class CaptureRGBDCamera(CaptureColorCamera):
+    """Preserve SDK Z16 and map SDK pointcloud vertices to the color optical frame.
+
+    ``read_rgbd`` returns a copied RGB image, color frame metadata, and a depth
+    packet. Unusable pairs keep raw depth for diagnosis but have no derived 3D
+    points. The legacy ``read`` two-item contract remains available.
+    """
+    def __init__(self, config, depth_config):
+        validate_config(config)
+        validate_depth_config(depth_config)
+        super().__init__(config)
+        self.depth_config = dict(depth_config)
+        self._previous = {}
+
+    def __enter__(self):
+        import pyrealsense2 as rs
+        ensure_camera_privilege(sdk=rs)
+        serial, model = self.config["serial"], self.config["device_model"]
+        matches = [device for device in list_devices(rs) if device["serial"] == serial]
+        if len(matches) != 1 or matches[0]["name"].split()[-1] != model:
+            raise ValueError("RGBD_camera_model_or_serial_mismatch")
+        config = rs.config()
+        config.enable_device(serial)
+        config.enable_stream(rs.stream.color, self.config["width"], self.config["height"],
+                             rs.format.bgr8, self.config["fps"])
+        config.enable_stream(rs.stream.depth, self.depth_config["width"], self.depth_config["height"],
+                             rs.format.z16, self.depth_config["fps"])
+        self.pipeline = rs.pipeline()
+        try:
+            profile = self.pipeline.start(config)
+            device = profile.get_device()
+            actual_serial = device.get_info(rs.camera_info.serial_number)
+            name = device.get_info(rs.camera_info.name)
+            if actual_serial != serial or name.split()[-1] != model:
+                raise ValueError("RGBD_started_camera_identity_mismatch")
+            color = profile.get_stream(rs.stream.color).as_video_stream_profile()
+            depth = profile.get_stream(rs.stream.depth).as_video_stream_profile()
+            for video, requested, pixel_format in (
+                    (color, self.config, rs.format.bgr8), (depth, self.depth_config, rs.format.z16)):
+                intrinsic = video.get_intrinsics()
+                if (intrinsic.width, intrinsic.height, video.fps(), video.format()) != (
+                        requested["width"], requested["height"], requested["fps"], pixel_format):
+                    raise ValueError("RGBD_actual_stream_profile_mismatch")
+            self.camera = _stream_camera(color, "color", serial, name, model)
+            scale = float(device.first_depth_sensor().get_depth_scale())
+            if not math.isfinite(scale) or scale <= 0:
+                raise ValueError("invalid_depth_scale_m")
+            self.depth_calibration = {
+                "schema_version": 1, "source": "device_sdk", "validated": False,
+                "depth_camera": _stream_camera(depth, "depth", serial, name, model),
+                "color_intrinsics_sha256": self.camera["intrinsics_sha256"],
+                "depth_scale_m": scale, "depth_to_color": _extrinsics(depth.get_extrinsics_to(color)),
+                "depth_profile": {key: self.depth_config[key] for key in ("width", "height", "fps")},
+                "max_pair_skew_ms": self.depth_config["max_pair_skew_ms"],
+                "firmware_version": device.get_info(rs.camera_info.firmware_version),
+                "usb_type_descriptor": device.get_info(rs.camera_info.usb_type_descriptor),
+                "point_frame": "camera_color_optical", "point_unit": "m",
+                "depth_pixels": "native_unaligned_unfiltered_z16",
+            }
+            self.depth_calibration["depth_profile"]["format"] = "z16"
+            self._pointcloud = rs.pointcloud()
+            self._previous = {}
+            self._start_rgb_controls(device, rs)
+            for _ in range(self.config["warmup_frames"]):
+                self.read_rgbd()
+        except BaseException:
+            self.close()
+            raise
+        return self
+
+    def _check_frame(self, stream, frame, reasons):
+        timestamp = frame["device_timestamp_ms"]
+        if not math.isfinite(timestamp) or timestamp <= 0:
+            reasons.append(f"invalid_{stream}_timestamp")
+            return
+        if frame["timestamp_domain"] not in {"hardware_clock", "system_time", "global_time"}:
+            reasons.append(f"invalid_{stream}_timestamp_domain")
+            return
+        previous = self._previous.get(stream)
+        if previous is not None and (
+                frame["frame_number"] <= previous["frame_number"]
+                or (frame["timestamp_domain"] == previous["timestamp_domain"]
+                    and timestamp <= previous["device_timestamp_ms"])):
+            reasons.append(f"repeated_or_reordered_{stream}_frame")
+            return
+        if previous is not None and frame["timestamp_domain"] != previous["timestamp_domain"]:
+            reasons.append(f"{stream}_timestamp_domain_changed")
+        self._previous[stream] = frame
+
+    def read_rgbd(self):
+        if self.pipeline is None:
+            raise RuntimeError("RGBD_camera_not_started")
+        frames = self.pipeline.wait_for_frames(self.config["timeout_ms"])
+        received_at = datetime.now(timezone.utc).isoformat()
+        color, depth = frames.get_color_frame(), frames.get_depth_frame()
+        if not color:
+            raise ValueError("RGBD_missing_color_frame")
+        image = np.asanyarray(color.get_data()).copy()
+        if image.dtype != np.uint8 or image.shape != (self.config["height"], self.config["width"], 3):
+            raise ValueError("RGBD_invalid_color_pixels")
+        frame = _frame_metadata(color, received_at)
+        if self.rgb_controls is not None:
+            frame["rgb_settings"] = self.rgb_controls.frame_settings(color)
+        packet = {"raw_z16": None, "frame": None, "color_frame": dict(frame),
+                  "calibration": self.depth_calibration,
+                  "points_color_m": None, "color_pixels": None, "pair_skew_ms": None, "reasons": []}
+        reasons = packet["reasons"]
+        self._check_frame("color", frame, reasons)
+        if not depth:
+            reasons.append("missing_depth")
+            return image, frame, packet
+        depth_frame = _frame_metadata(depth, received_at)
+        packet["frame"] = depth_frame
+        self._check_frame("depth", depth_frame, reasons)
+        raw = np.asanyarray(depth.get_data()).copy()
+        shape = (self.depth_config["height"], self.depth_config["width"])
+        if raw.dtype != np.uint16 or raw.shape != shape:
+            reasons.append("invalid_depth_pixels")
+            return image, frame, packet
+        packet["raw_z16"] = raw
+        if frame["timestamp_domain"] != depth_frame["timestamp_domain"]:
+            reasons.append("depth_timestamp_domain_mismatch")
+        else:
+            skew = abs(frame["device_timestamp_ms"] - depth_frame["device_timestamp_ms"])
+            if math.isfinite(skew):
+                packet["pair_skew_ms"] = skew
+                if skew > self.depth_config["max_pair_skew_ms"]:
+                    reasons.append("depth_pair_skew_exceeded")
+        if reasons:
+            return image, frame, packet
+        try:
+            self._pointcloud.map_to(color)
+            cloud = self._pointcloud.calculate(depth)
+            vertices = np.asanyarray(cloud.get_vertices()).view(np.float32).reshape(*shape, 3)
+            texture = np.asanyarray(cloud.get_texture_coordinates()).view(np.float32).reshape(*shape, 2)
+        except (RuntimeError, ValueError) as exc:
+            reasons.append("depth_projection_failed")
+            packet["error"] = f"{type(exc).__name__}: {exc}"
+            return image, frame, packet
+        transform = self.depth_calibration["depth_to_color"]
+        # SDK vertices already use metres. Do not multiply them by depth_scale_m.
+        xyz = vertices @ np.asarray(transform["rotation"], dtype=np.float32).T
+        xyz += np.asarray(transform["translation_m"], dtype=np.float32)
+        uv = texture * np.array([self.config["width"], self.config["height"]], dtype=np.float32)
+        invalid = (raw == 0) | ~np.isfinite(vertices).all(axis=2) | (vertices[:, :, 2] <= 0)
+        xyz[invalid] = np.nan
+        uv[invalid] = np.nan
+        packet["points_color_m"], packet["color_pixels"] = xyz, uv
+        return image, frame, packet
+
+    def read(self):
+        image, frame, _ = self.read_rgbd()
+        return image, frame
+
+
+class PreviewCapture:
+    """One SDK reader, one pending pair, and bounded sensor-control requests.
+
+    The source camera must return owned arrays, as CaptureColorCamera and
+    CaptureRGBDCamera do. Replacing the latest pair never mutates a held pair.
+    The caller owns source startup/cleanup; this context owns only its reader.
+    """
+
+    def __init__(self, source):
+        self.source = source
+        self.camera = source.camera
+        self.rgb_controls = getattr(source, "rgb_controls", None)
+        self._has_depth = callable(getattr(source, "read_rgbd", None))
+        self._read = source.read_rgbd if self._has_depth else source.read
+        # run_preview detects the callable, preserving its RGB-only contract.
+        if not self._has_depth:
+            self.read_rgbd = None
+        self._condition = Condition()
+        self._stop = Event()
+        self._commands = Queue(maxsize=8)
+        self._thread = None
+        self._latest = self._error = None
+        self._version = self._consumed = self._count = 0
+        self._previous_frame = None
+        self._arrivals = deque(maxlen=120)
+        self._first_at = self._last_at = None
+        self.control_message = ""
+
+    def __enter__(self):
+        self._thread = Thread(target=self._run, name="d415-capture", daemon=True)
+        self._thread.start()
+        return self
+
+    def _run(self):
+        try:
+            while not self._stop.is_set():
+                self._apply_commands()
+                sample = self._read()
+                now = time.monotonic()
+                identity = (sample[1].get("frame_number"), sample[1].get("device_timestamp_ms"))
+                with self._condition:
+                    self._latest = sample
+                    self._version += 1
+                    if identity != self._previous_frame:
+                        self._previous_frame = identity
+                        self._arrivals.append(now)
+                        self._first_at = now if self._first_at is None else self._first_at
+                        self._last_at = now
+                        self._count += 1
+                    self._condition.notify_all()
+        except BaseException as exc:
+            with self._condition:
+                self._error = exc
+                self._condition.notify_all()
+
+    def _next(self):
+        timeout = self.source.config.get("timeout_ms", 5000) / 1000 + 1
+        with self._condition:
+            ready = self._condition.wait_for(
+                lambda: self._error is not None or self._version > self._consumed
+                or self._stop.is_set(), timeout=timeout)
+            if self._error is not None:
+                raise self._error
+            if not ready or self._version <= self._consumed:
+                raise RuntimeError("D415 acquisition did not return a new frame")
+            self._consumed = self._version
+            return self._latest
+
+    def read(self):
+        return self._next()[:2]
+
+    def read_rgbd(self):
+        return self._next()
+
+    def capture_stats(self):
+        with self._condition:
+            span = self._arrivals[-1] - self._arrivals[0] if len(self._arrivals) > 1 else 0
+            total_span = (self._last_at - self._first_at) if self._count > 1 else 0
+            return {"capture_fps": (len(self._arrivals) - 1) / span if span > 0 else 0.,
+                    "capture_mean_fps": (self._count - 1) / total_span if total_span > 0 else 0.,
+                    "captured_frames": self._count}
+
+    def change_rgb(self, action, direction=None):
+        if action not in {"toggle_auto", "adjust_exposure", "adjust_gain"}:
+            raise ValueError("Unknown RGB control")
+        if self.rgb_controls is None:
+            return "当前配置未启用 RGB 曝光控制"
+        try:
+            self._commands.put_nowait((action, direction))
+        except Full:
+            return "曝光调整队列已满，请稍后再按"
+        self.control_message = "正在调整 RGB 成像参数…"
+        return self.control_message
+
+    def _apply_commands(self):
+        while True:
+            try:
+                action, direction = self._commands.get_nowait()
+            except Empty:
+                return
+            try:
+                method = getattr(self.rgb_controls, action)
+                result = method() if direction is None else method(direction)
+                values = result["values"]
+                self.control_message = (f"自动曝光 {values.get('enable_auto_exposure', '--')} | "
+                                        f"曝光 {values.get('exposure', '--')} | 增益 {values.get('gain', '--')}")
+            except (ValueError, RuntimeError) as exc:
+                self.control_message = f"RGB 参数调整失败：{exc}"
+
+    def __exit__(self, *_):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=self.source.config.get("timeout_ms", 5000) / 1000 + 2)
+            if self._thread.is_alive():
+                raise RuntimeError("D415 acquisition thread did not stop before camera cleanup")
+
+
 # Keep the previous import working; model identity still comes from explicit config.
 D415ColorCamera = CaptureColorCamera
 
@@ -241,7 +580,7 @@ def collect(camera, session, interval: float = 0, max_images: int = 0, *,
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="D415/D435 原始彩色数据采集：空格/S 保存，Q/ESC 结束")
-    parser.add_argument("--config", type=Path, default=ROOT / "config/data_capture_d415.json")
+    parser.add_argument("--config", type=Path, default=ROOT / "config/d415.json")
     parser.add_argument("--list-devices", action="store_true", help="只列出型号和序列号，不启动图像流")
     parser.add_argument("--device-model", choices=("D415", "D435"), help="明确选择采集型号，覆盖配置")
     parser.add_argument("--serial", help="完整序列号，覆盖采集配置")
@@ -271,7 +610,7 @@ def main(argv=None) -> int:
         if args.list_devices:
             print(json.dumps(list_devices(), ensure_ascii=False, indent=2))
             return 0
-        config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+        config, _ = load_capture_config(args.config, "collect")
         if args.device_model is not None:
             config["device_model"] = args.device_model
         if args.serial is not None:

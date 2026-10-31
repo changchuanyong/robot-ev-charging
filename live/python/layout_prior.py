@@ -7,7 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from candidate_types import CandidateContour, LayoutModel
+from center_fit import CandidateContour, LayoutModel
 
 
 ENABLE_LAYOUT_PRIOR = True

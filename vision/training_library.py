@@ -633,11 +633,15 @@ def import_review(library_root, review_path) -> list[dict]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="统一充电口图片库状态与标注导入")
-    parser.add_argument("command", choices=["status", "annotate", "depth-status",
+    parser.add_argument("command", choices=["status", "validate", "annotate", "depth-status",
                                            "calibration-status", "preserve-calibrations"])
     parser.add_argument("--library", type=Path, default=DEFAULT_LIBRARY)
     parser.add_argument("--review-json", type=Path)
     args = parser.parse_args(argv)
+    if args.command == "validate":
+        entries = validate_library(args.library)
+        print(f"Dataset: {args.library.resolve()}\nReady images: {len(entries)}\nTotal blocking issues: 0")
+        return 0
     if args.command in {"calibration-status", "preserve-calibrations"}:
         report = (preserve_calibrations(args.library) if args.command == "preserve-calibrations"
                   else calibration_status(args.library))
