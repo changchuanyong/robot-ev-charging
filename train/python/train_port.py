@@ -18,7 +18,7 @@ CONFIG_PATH = ROOT_DIR / "config" / "train_config.json"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from vision.capture_files import atomic_capture_json
+from vision.contracts import atomic_capture_json
 from vision.model_config import publish_current_model
 from vision.training_library import normalize_label, read_entries, validate_library
 from train.python.dataset_split import read_split, split_entries

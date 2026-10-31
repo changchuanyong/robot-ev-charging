@@ -34,6 +34,23 @@ def atomic_json(path: Path, data: dict) -> None:
             temporary.unlink()
 
 
+_RETRY_DELAYS_S = (.025, .05, .1, .2, .4)
+_RETRYABLE_WINERRORS = {5, 32, 33}
+
+
+def atomic_capture_json(path: Path, data: dict) -> None:
+    """Retry temporary Windows sharing conflicts for capture files, outside control loops."""
+    for attempt in range(len(_RETRY_DELAYS_S) + 1):
+        try:
+            atomic_json(path, data)
+            return
+        except PermissionError as exc:
+            if (getattr(exc, "winerror", None) not in _RETRYABLE_WINERRORS
+                    or attempt == len(_RETRY_DELAYS_S)):
+                raise
+            time.sleep(_RETRY_DELAYS_S[attempt])
+
+
 @dataclass(frozen=True)
 class FramePacket:
     image: np.ndarray

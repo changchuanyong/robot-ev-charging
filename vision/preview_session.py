@@ -11,7 +11,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .capture_files import atomic_capture_json as atomic_json
+from .contracts import atomic_capture_json as atomic_json
 from .capture_session import CaptureSession
 from .contracts import intrinsics_signature, validate_camera
 from .model_config import resolve_model_config
@@ -79,11 +79,11 @@ class PreviewSession:
         code = {name: _asset(name) for name in
                 ("vision/preview.py", "vision/preview_render.py", "vision/preview_session.py",
                  "vision/preview_capture.py", "vision/rgb_controls.py", "vision/collect.py",
-                 "vision/diagnose.py", "vision/model_config.py", "vision/capture_session.py", "vision/capture_files.py", "vision/contracts.py",
+                 "vision/diagnose.py", "vision/model_config.py", "vision/capture_session.py", "vision/contracts.py",
                  "live/python/pose_correspondence.py", "live/python/pnp2.py")}
         if self._depth_calibration is not None:
             code.update({name: _asset(name) for name in
-                         ("vision/rgbd_capture.py", "vision/depth_diagnostic.py", "vision/depth_render.py")})
+                         ("vision/rgbd_capture.py", "vision/depth_diagnostic.py")})
         self._capture = CaptureSession(output_root, camera, batch_id, split,
                                        "Live diagnostic samples; automatic points are not human labels.",
                                        metadata=metadata)

@@ -136,7 +136,7 @@ def check_project(library=None):
         checks["library"] = result
         errors.extend(library_errors)
         warnings.extend(library_warnings)
-    except (ImportError, OSError, ValueError, KeyError, TypeError, TimeoutError) as exc:
+    except (ImportError, OSError, ValueError, KeyError, TypeError, TimeoutError, RuntimeError) as exc:
         errors.append(f"library: {exc}")
     try:
         from control.simulate import run_simulation

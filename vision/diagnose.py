@@ -19,8 +19,7 @@ from .model_config import resolve_model_config
 if str(ROOT / "live/python") not in sys.path:
     sys.path.insert(0, str(ROOT / "live/python"))
 from keypoint_annotations import LABELS, sha256_file, validate_annotations, visible_points
-from prepare_capture_review import build_capture_annotations
-from prepare_keypoint_review import repo_path, require_same_manifest
+from prepare_keypoint_review import build_capture_annotations, repo_path, require_same_manifest
 import pnp2
 
 

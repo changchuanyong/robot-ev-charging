@@ -21,6 +21,7 @@ runs/*/weights/*
 dataset/live/
 # dataset/vision is tracked on purpose: the image library, labels and provenance
 # records are the training data of record, and a clone must be able to reproduce it.
+.library.guard
 artifacts/
 
 # Local assistant/project notes

@@ -11,7 +11,7 @@ from pathlib import Path
 import threading
 import time
 
-from .capture_files import atomic_capture_json
+from .contracts import atomic_capture_json
 from .training_library import DEFAULT_LIBRARY, _lock, register_image
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -130,13 +130,13 @@ def _register_saved(session_path, saved, library_root):
     return entry
 
 
-def retry_session(session_path, library_root, *, attempts=3):
+def retry_session(session_path, library_root, *, attempts=3, attempt_budget=None):
     """Rebuild pending work from the source manifest after interruption, then retry."""
     with _lock(Path(session_path).resolve() / ".intake-retry"):
-        return _retry_session(session_path, library_root, attempts=attempts)
+        return _retry_session(session_path, library_root, attempts=attempts, attempt_budget=attempt_budget)
 
 
-def _retry_session(session_path, library_root, *, attempts):
+def _retry_session(session_path, library_root, *, attempts, attempt_budget):
     session, library = Path(session_path).resolve(), Path(library_root).resolve()
     manifest = _json(session / "manifest.json")
     metadata = manifest.get("metadata", {})
@@ -160,8 +160,11 @@ def _retry_session(session_path, library_root, *, attempts):
         if item["status"] == "imported":
             if (library / "records" / f"{saved['image_sha256']}.json").is_file():
                 continue
-        for attempt in range(attempts):
+        remaining = attempts if attempt_budget is None else min(attempts, max(0, 3-attempt_budget.get(saved["image_sha256"], 0)))
+        for attempt in range(remaining):
             item["attempts"] += 1
+            if attempt_budget is not None:
+                attempt_budget[saved["image_sha256"]] = attempt_budget.get(saved["image_sha256"], 0) + 1
             try:
                 register_saved(session, saved, library)
                 item.update(status="imported", error=None)
@@ -170,7 +173,7 @@ def _retry_session(session_path, library_root, *, attempts):
             atomic_capture_json(state_path, state)
             if item["status"] == "imported":
                 break
-            if attempt + 1 < attempts:
+            if attempt + 1 < remaining:
                 time.sleep(.05 * (attempt + 1))
     return {"imported": sum(i["status"] == "imported" for i in state["items"].values()),
             "pending_sync": sum(i["status"] != "imported" for i in state["items"].values()),
@@ -185,6 +188,7 @@ class CaptureIntake:
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="capture-intake")
         self._lock = threading.Lock()
         self._seen = set()
+        self._attempt_budget = {}
         self._closed = False
         self._status = dict(queued=0, saved=0, imported=0, pending_sync=0, failed_saves=0,
                             pending_annotation=0, pending_split=0, last_message="", save_ms=[],
@@ -286,7 +290,8 @@ class CaptureIntake:
     def _refresh(self, *, attempts):
         if self.library is None:
             return
-        result = retry_session(self.session.path, self.library, attempts=attempts)
+        result = retry_session(self.session.path, self.library, attempts=attempts,
+                               attempt_budget=self._attempt_budget)
         manifest = _json(self.session.path / "manifest.json")
         from train.python.dataset_split import read_split, group_for, DEFAULT_SPLIT
         split = read_split(DEFAULT_SPLIT)

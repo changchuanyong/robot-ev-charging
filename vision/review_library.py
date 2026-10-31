@@ -12,7 +12,7 @@ import threading
 from urllib.parse import urlsplit
 import webbrowser
 
-from .capture_files import atomic_capture_json
+from .contracts import atomic_capture_json
 from .training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries, set_annotation
 
 
@@ -182,7 +182,7 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
                     self.reply(200, {"saved": True, "record": _item(root, digest, {})})
                 else:
                     self.reply(404, {"error": "未知复核操作。"})
-            except (ValueError, OSError, KeyError, TypeError) as exc:
+            except (ValueError, OSError, KeyError, TypeError, RuntimeError) as exc:
                 message = ("该图已被其他操作更新，请刷新页面后重新复核。"
                            if "annotation_record_changed" in str(exc)
                            else f"保存失败，请检查标签后重试：{exc}")

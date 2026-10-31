@@ -12,7 +12,7 @@ import uuid
 import cv2
 import numpy as np
 
-from .capture_files import atomic_capture_json as atomic_json
+from .contracts import atomic_capture_json as atomic_json
 from .contracts import intrinsics_signature, validate_camera
 
 

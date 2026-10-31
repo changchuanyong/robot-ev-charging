@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from vision.capture_files import atomic_capture_json
+from vision.contracts import atomic_capture_json
 from vision.model_config import current_model_path
 from vision.training_library import read_entries, register_image
 from vision.photo_sources import resolve_photo

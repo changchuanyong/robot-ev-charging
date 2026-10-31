@@ -19,10 +19,9 @@ from .contracts import validate_camera
 from .diagnose import DiagnosticFrontend, solve_raw_points
 from .geometry_reference import load_geometry_reference
 from .pipeline import ROOT
-from .preview_render import render_preview
+from .preview_render import render_depth, render_preview
 from .preview_session import PreviewSession
 from .depth_diagnostic import analyze_depth
-from .depth_render import render_depth
 from .preview_capture import PreviewCapture
 
 

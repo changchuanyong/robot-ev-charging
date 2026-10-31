@@ -5,6 +5,7 @@ import argparse
 import copy
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import errno
 import hashlib
 import json
 import math
@@ -41,24 +42,47 @@ def _inside(root, relative):
 @contextmanager
 def _lock(root, timeout=10.):
     root.mkdir(parents=True, exist_ok=True)
-    path = root / ".library.lock"
-    token = uuid.uuid4().hex
+    legacy = root / ".library.lock"
+    path = root / ".library.guard"
     deadline = time.monotonic() + timeout
-    while True:
+    if legacy.exists():
+        raise RuntimeError(f"legacy_library_lock_requires_manual_check: {legacy}")
+    if os.name == "nt":
+        import msvcrt
+    else:
+        import fcntl
+    # Keep the guard file: unlinking it could let writers lock different files.
+    # The OS releases this lock even when its owning process is terminated.
+    with path.open("a+b", buffering=0) as stream:
+        acquired = False
         try:
-            with path.open("x", encoding="utf-8") as stream:
-                stream.write(token)
-            break
-        except FileExistsError:
-            if time.monotonic() >= deadline:
-                raise TimeoutError(f"library_busy_or_stale_lock: {path}")
-            time.sleep(.05)
-    try:
-        yield
-    finally:
-        # A process must never remove another writer's lock.
-        if path.exists() and path.read_text(encoding="utf-8") == token:
-            path.unlink()
+            while True:
+                if legacy.exists():
+                    raise RuntimeError(f"legacy_library_lock_requires_manual_check: {legacy}")
+                stream.seek(0)
+                try:
+                    if os.name == "nt":
+                        msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    acquired = True
+                    break
+                except OSError as exc:
+                    if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                        raise
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(f"library_busy: {path}") from exc
+                    time.sleep(.05)
+            if legacy.exists():
+                raise RuntimeError(f"legacy_library_lock_requires_manual_check: {legacy}")
+            yield
+        finally:
+            if acquired:
+                stream.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 def _atomic_bytes(path, data):

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import re
 
-from .capture_files import atomic_capture_json
+from .contracts import atomic_capture_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
