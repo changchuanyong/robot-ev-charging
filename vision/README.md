@@ -1,6 +1,6 @@
 # D435 同帧定位与眼在手标定
 
-`vision.run` 在内存中顺序复用现有 YOLO、增强、Canny、孔位筛选、椭圆中心和 PnP 算法。每次调用只处理一张图像，不读取 `latest_roi.jpg` 等共享中间文件。旧视觉程序仍可独立使用；机器人应消费新的 `latest_control_pose.json`。
+`vision.run` 在内存中顺序复用现有 YOLO、增强、Canny、孔位筛选、椭圆中心和 PnP 算法。每次调用只处理一张图像，不读取 `latest_roi.jpg` 等共享中间文件。机器人消费 `latest_control_pose.json`；历史图片可使用批量评估和九孔复核工具。
 
 当前检测权重统一由 `config/vision_model.json` 指定，D435 的 `config/realsense_config.json` 与 D415 预览均引用这份记录。启动核对权重文件与 SHA256；训练完整成功后更新记录，已运行的进程需重启才能加载新模型。`config/observed_layout_prior.json` 根据人工复核的 train 图学习孔名关联，仅输出实际内孔口中心；PnP 仍使用原三维模型。共享检测权重不代表实际 D435 图像、几何或位姿已验收。
 

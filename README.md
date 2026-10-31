@@ -34,6 +34,8 @@ Windows 相机入口需要进程内的 `SeSecurityPrivilege`，统一使用 `vis
 
 日常流程：**F5 拍照并入库 → 退出后复核检测框 → 准备训练**。新会话默认 `train`；需要开发验证数据时，在采集前指定 `--split val`。建议填写 `--batch` 和 `--specimen`，同批次、同样件、同打印批次沿用一致分组，冲突会在打开相机前提示。
 
+D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`profiles.preview` 设置检测预览（默认 1920×1080 / 30 fps），`profiles.collect` 设置纯 RGB 采集（默认 1280×720 / 15 fps），`depth` 设置深度流，`vision` 设置检测与 PnP。预览和纯采集都可用 `--config` 指定这份配置；`--vision-config` 仍可单独加载某次训练导出的检测配置。D435 继续使用自己的设备与定位配置。
+
 **管理员终端**可以省掉启动器：
 
 ```powershell
@@ -96,6 +98,7 @@ Windows 相机入口需要进程内的 `SeSecurityPrivilege`，统一使用 `vis
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 train/python/prepare_port_library.py       # 同步入库
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library status          # 库状态
+.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library validate        # 图片、标签和哈希检查
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library depth-status    # 深度绑定
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library calibration-status # 参数完整性
 .\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library preserve-calibrations # 保存现有参数或标记缺失
@@ -161,6 +164,27 @@ Start-Process artifacts/port_library_review.html
 
 `vision.check_project` 检查项目完整性并报告数据待办，不启动相机或机器人，不能替代算法与硬件验证。仿真其他场景见 `--help`。批量评估默认跑 `dataset/vision/images/historical`，用 Kinect v2 近似内参（`config/camera_intrinsics.json`），结果在 `artifacts/batch_eval/`；不要用它评价 D415/D435 的重投影误差。
 
+合并后的工具按子命令选择用途，以下命令显示各自完整参数：
+
+```powershell
+.\.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_keypoint_annotations.py annotations --help
+.\.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_keypoint_annotations.py labeled --help
+.\.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_keypoint_annotations.py batch --help
+.\.venv\Scripts\python.exe -B -X utf8 live/python/keypoint_annotations.py repeatability --help
+.\.venv\Scripts\python.exe -B -X utf8 -m control.force_dataset --help
+.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py train --help
+.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py evaluate --help
+.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py accept --help
+.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py demo --help
+.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate simulate --help
+.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate replay --help
+.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate admittance --help
+.\.venv\Scripts\python.exe -B -X utf8 -m control.experiments evaluate --help
+.\.venv\Scripts\python.exe -B -X utf8 -m control.risk --help
+```
+
+视觉评价的 `annotations`、`labeled`、`batch` 分别对应人工点求解、带标注回归比较和批量结果比较，各自保留原统计口径。`control.force_dataset` 用 `--review-logs` 准备人工标签清单，用 `--annotations` 导出确认后的数据。力觉模型的训练、评价、验收和合成数据演示分别执行；训练不会自动通过真机验收。实验配置冻结、排程及统计统一由 `control.experiments` 提供。源码合并改变了代码指纹，新正式实验需按当前版本重新冻结，历史记录保留原指纹。
+
 ## Git 跟踪
 
 - **跟踪**：源码、`config/`、`dataset/vision/`、`yolov8n.pt`、`runs/*/weights/{best,last}.pt`。
@@ -174,6 +198,6 @@ Start-Process artifacts/port_library_review.html
 - val 是开发验证集，最终泛化需要独立 test。
 - 真机手眼标定、载荷限值、力觉模型和插装效果仍需实验验收。
 
-## 历史 Kinect 流程
+## 历史数据与算法
 
-`live/cpp/`、`train/cpp/` 中的 Kinect 采集入口需要 Kinect SDK v2、设备和自行编译的程序（仓库不含 exe）；`config/camera_intrinsics.json` 仅用于历史数据。`live/python/` 中的增强、轮廓、孔位和 PnP 模块仍由 `vision.pipeline` 复用，属于当前视觉流程的依赖。
+Kinect 采集程序、旧磁盘流水线和一次性图库迁移脚本已移除。`config/camera_intrinsics.json` 仍供历史图片分析使用；`config/legacy_photo_index.json` 保留旧图片路径到统一图库的映射，历史标注继续可读。`live/python/enhance.py` 集中图像增强与边缘提取，`center_fit.py` 集中候选类型与中心拟合；这些算法和孔位/PnP 模块仍由当前视觉流程复用。
