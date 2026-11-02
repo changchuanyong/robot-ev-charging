@@ -86,6 +86,16 @@
     "session:20261030T113406Z_08daa1e7cb41483aa29c681ddc53910a": {
       "split": "train",
       "description": "Explicit assignment of a newly observed source group"
+    },
+    "capture_batch:d415_preview_20261102T005308721130Z": {
+      "split": "train",
+      "description": "Explicit whole-capture assignment",
+      "batch_ids": [
+        "d415_preview_20261102T005308721130Z"
+      ],
+      "session_ids": [
+        "20261102T005316Z_46fa4b9ee3934d42890c56429f23ecc6"
+      ]
     }
   }
 }
