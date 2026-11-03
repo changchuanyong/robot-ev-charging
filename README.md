@@ -21,7 +21,7 @@
 & "$env:USERPROFILE\anaconda3\Scripts\conda.exe" env create --format environment-yaml -f environment-vision.yml
 ```
 
-本机 Anaconda 安装在 `C:\Users\admin\anaconda3`。可在 Navigator 的 Environments 中查看 `ev-vision`，或在 Anaconda Prompt 中执行 `conda activate ev-vision` 后使用 `python`。旧 `.venv` 保留用于回退。
+本机 Anaconda 安装在 `C:\Users\admin\anaconda3`。可在 Navigator 的 Environments 中查看 `ev-vision`，或在 Anaconda Prompt 中执行 `conda activate ev-vision` 后使用 `python`。
 
 GPU 自检（历史输出为 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`；当前 Windows 应用控制拦截 CUDA DLL，新旧环境均受影响，GPU 验收暂未通过，见 [迁移记录](environments/MIGRATION.md)）：
 
