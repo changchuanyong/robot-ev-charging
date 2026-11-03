@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import csv
-import os
 import time
 from pathlib import Path
 from typing import Any
@@ -14,12 +12,12 @@ from ultralytics import YOLO
 
 from ev_charging.file_io import atomic_json, sha256_file
 from ev_charging.paths import PACKAGE_ROOT, PROJECT_ROOT
-from ev_charging.vision.algorithms import enhance, pnp2
-from ev_charging.vision.algorithms import latest_candidate_contours as contours_step
+from ev_charging.vision.algorithms import pnp2
 from ev_charging.vision.algorithms import roi as roi_step
 from ev_charging.vision.algorithms.observed_layout import DEFAULT_PRIOR_PATH, load_prior
 from ev_charging.vision.algorithms.pose_correspondence import select_correspondences
 from ev_charging.vision.model_config import current_model_path
+from ev_charging.vision.pipeline import preprocess_candidates
 
 ROOT_DIR = PROJECT_ROOT
 ALGORITHM_DIR = PACKAGE_ROOT / "vision/algorithms"
@@ -206,47 +204,16 @@ def evaluate_one_image(
         }
     )
 
-    enhanced_results = enhance.preprocess_roi(roi_img)
-    enhanced_gray = enhanced_results["final"]
-    enhanced_bgr = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
-
-    _gray, _enhanced, _smooth, _grad_mag, edges, low, high, morph_thresh = enhance.adaptive_canny_pipeline(
-        enhanced_bgr
+    contour_diagnostics = {}
+    enhanced_bgr, raw_candidates, edges, (low, high, morph_thresh) = preprocess_candidates(
+        roi_img, diagnostics=contour_diagnostics, prepare=False, verbose=verbose
     )
-    edge_density = float(np.count_nonzero(edges > 0) / edges.size)
     result.update(
-        {
-            "edge_density": round(edge_density, 6),
-            "canny_low": int(low),
-            "canny_high": int(high),
-            "morph_thresh": int(morph_thresh),
-        }
+        edge_density=round(float(np.count_nonzero(edges > 0) / edges.size), 6),
+        canny_low=int(low),
+        canny_high=int(high),
+        morph_thresh=int(morph_thresh),
     )
-
-    contour_diagnostics: dict = {}
-    old_reject_log = contours_step.PRINT_REJECT_LOG
-    contours_step.PRINT_REJECT_LOG = verbose
-    try:
-        if verbose:
-            raw_candidates, _all_contours, _layout_model = contours_step.filter_candidate_contours(
-                edges,
-                enhanced_bgr,
-                apply_layout=False,
-                diagnostics=contour_diagnostics,
-                gray_source=roi_img,
-            )
-        else:
-            with open(os.devnull, "w", encoding="utf-8") as devnull:
-                with contextlib.redirect_stdout(devnull):
-                    raw_candidates, _all_contours, _layout_model = contours_step.filter_candidate_contours(
-                        edges,
-                        enhanced_bgr,
-                        apply_layout=False,
-                        diagnostics=contour_diagnostics,
-                        gray_source=roi_img,
-                    )
-    finally:
-        contours_step.PRINT_REJECT_LOG = old_reject_log
 
     selection = select_correspondences(
         raw_candidates,
@@ -256,6 +223,7 @@ def evaluate_one_image(
         dist_coeffs,
         (crop_x1, crop_y1),
         observed_prior=observed_prior,
+        prefitted=True,
     )
     scored_variants = [selection["best"]] if selection["best"] is not None else []
     result["contour_diagnostics"] = contour_diagnostics
@@ -499,6 +467,7 @@ def main() -> int:
             verbose=args.verbose,
             visualization_dir=run_dir / "visualizations" if args.save_visualizations else None,
             observed_prior=observed_prior,
+            prefitted=True,
         )
         rows.append(row)
         print(

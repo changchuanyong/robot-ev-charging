@@ -23,6 +23,28 @@ from tests.governance_helpers import FixedDetector, assert_json_close, baseline,
 
 
 class FrozenVisionTests(unittest.TestCase):
+    def test_prefitted_candidates_preserve_measurements_without_refitting(self):
+        from copy import deepcopy
+
+        from ev_charging.vision.algorithms.center_fit import fit_ellipse_on_kept_candidates
+        from ev_charging.vision.pipeline import padded_crop, preprocess_candidates
+
+        case = baseline()["images"][-1]
+        image = cv2.imdecode(
+            np.frombuffer((PROJECT_ROOT / case["image"]).read_bytes(), np.uint8), cv2.IMREAD_COLOR
+        )
+        crop, _ = padded_crop(image, case["boxes"][0]["xyxy"])
+        _, candidates, _, _ = preprocess_candidates(crop)
+        repeated = fit_ellipse_on_kept_candidates(deepcopy(candidates), verbose=False)
+        with patch.object(cv2, "fitEllipse", wraps=cv2.fitEllipse) as fit:
+            reused = fit_ellipse_on_kept_candidates(deepcopy(candidates), verbose=False, reuse=True)
+        fit.assert_not_called()
+        self.assertGreater(len(reused), 0)
+        for left, right in zip(repeated, reused):
+            self.assertEqual(left.fit_valid, right.fit_valid)
+            self.assertEqual(left.fit_reject_reason, right.fit_reject_reason)
+            np.testing.assert_allclose(left.fitted_center, right.fitted_center, rtol=0, atol=1e-10)
+
     def test_fixed_image_outputs(self):
         fixture = baseline()
         for case in fixture["images"]:

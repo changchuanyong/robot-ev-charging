@@ -102,12 +102,19 @@ def ellipse_center_valid(
 
 def fit_ellipse_on_kept_candidates(
     kept_candidates: list[CandidateContour],
+    *,
+    verbose: bool = True,
+    reuse: bool = False,
 ) -> list[CandidateContour]:
-    print("\n===== Stage 5: fitEllipse on kept candidates =====")
+    if verbose:
+        print("\n===== Stage 5: fitEllipse on kept candidates =====")
 
     fitted_results: list[CandidateContour] = []
 
     for cand in kept_candidates:
+        if reuse and cand.fit_reject_reason != "not_fitted":
+            fitted_results.append(cand)
+            continue
         cnt = cand.contour
         n_points = len(cnt)
 
@@ -122,20 +129,22 @@ def fit_ellipse_on_kept_candidates(
         cand.fit_reject_reason = "insufficient_points"
 
         if n_points < FIT_MIN_POINTS_HARD:
-            print(
-                f"fit=fallback_points   "
-                f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                f"points={n_points}"
-            )
+            if verbose:
+                print(
+                    f"fit=fallback_points   "
+                    f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                    f"points={n_points}"
+                )
             fitted_results.append(cand)
             continue
 
         if n_points < FIT_MIN_POINTS:
-            print(
-                f"fit=fallback_sparse   "
-                f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                f"points={n_points}"
-            )
+            if verbose:
+                print(
+                    f"fit=fallback_sparse   "
+                    f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                    f"points={n_points}"
+                )
             fitted_results.append(cand)
             continue
 
@@ -143,7 +152,8 @@ def fit_ellipse_on_kept_candidates(
             ellipse = cv2.fitEllipse(cnt)
         except cv2.error:
             cand.fit_reject_reason = "fit_error"
-            print(f"fit=fallback_error    center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})")
+            if verbose:
+                print(f"fit=fallback_error    center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})")
             fitted_results.append(cand)
             continue
 
@@ -156,32 +166,35 @@ def fit_ellipse_on_kept_candidates(
 
         if ma < FIT_MIN_AXIS or mi < FIT_MIN_AXIS:
             cand.fit_reject_reason = "small_axis"
-            print(
-                f"fit=fallback_axis     "
-                f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                f"axes=({ma:.1f},{mi:.1f})"
-            )
+            if verbose:
+                print(
+                    f"fit=fallback_axis     "
+                    f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                    f"axes=({ma:.1f},{mi:.1f})"
+                )
             fitted_results.append(cand)
             continue
 
         ellipse_aspect_ratio = max(ma, mi) / (min(ma, mi) + 1e-6)
         if ellipse_aspect_ratio > FIT_MAX_ASPECT_RATIO:
             cand.fit_reject_reason = "extreme_aspect"
-            print(
-                f"fit=fallback_aspect   "
-                f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                f"e_aspect={ellipse_aspect_ratio:.2f}"
-            )
+            if verbose:
+                print(
+                    f"fit=fallback_aspect   "
+                    f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                    f"e_aspect={ellipse_aspect_ratio:.2f}"
+                )
             fitted_results.append(cand)
             continue
 
         if not ellipse_center_valid((cx, cy), cand.bbox, FIT_CENTER_IN_BBOX_MARGIN):
             cand.fit_reject_reason = "center_outside_bbox"
-            print(
-                f"fit=fallback_bbox     "
-                f"raw=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                f"fit=({cx:6.1f},{cy:6.1f})"
-            )
+            if verbose:
+                print(
+                    f"fit=fallback_bbox     "
+                    f"raw=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                    f"fit=({cx:6.1f},{cy:6.1f})"
+                )
             fitted_results.append(cand)
             continue
 
@@ -190,12 +203,13 @@ def fit_ellipse_on_kept_candidates(
         max_shift = FIT_MAX_CENTER_SHIFT_RATIO * max(bbox_w, bbox_h)
         if center_shift > max_shift:
             cand.fit_reject_reason = "center_shift"
-            print(
-                f"fit=fallback_shift    "
-                f"raw=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                f"fit=({cx:6.1f},{cy:6.1f})  "
-                f"shift={center_shift:5.1f}/{max_shift:4.1f}"
-            )
+            if verbose:
+                print(
+                    f"fit=fallback_shift    "
+                    f"raw=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                    f"fit=({cx:6.1f},{cy:6.1f})  "
+                    f"shift={center_shift:5.1f}/{max_shift:4.1f}"
+                )
             fitted_results.append(cand)
             continue
 
@@ -219,13 +233,14 @@ def fit_ellipse_on_kept_candidates(
         cand.fit_valid = True
         cand.fit_reject_reason = ""
 
-        print(
-            f"fit=ellipse           "
-            f"raw=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-            f"fit=({cx:6.1f},{cy:6.1f})  "
-            f"axes=({ma:5.1f},{mi:5.1f})  "
-            f"angle={angle:6.1f}"
-        )
+        if verbose:
+            print(
+                f"fit=ellipse           "
+                f"raw=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                f"fit=({cx:6.1f},{cy:6.1f})  "
+                f"axes=({ma:5.1f},{mi:5.1f})  "
+                f"angle={angle:6.1f}"
+            )
 
         fitted_results.append(cand)
 

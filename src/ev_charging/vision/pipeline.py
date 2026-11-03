@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
 import csv
-import os
 import time
 from pathlib import Path
 
@@ -95,6 +93,41 @@ def select_detection(boxes: list[dict], image_shape: tuple, target_window: list 
     return candidates[0]
 
 
+def padded_crop(image: np.ndarray, xyxy) -> tuple[np.ndarray, tuple[int, int, int, int]]:
+    """Crop online detections with the existing exclusive pixel bounds."""
+    x1, y1, x2, y2 = xyxy
+    padding = max(20, int(max(x2 - x1, y2 - y1) * 0.08))
+    height, width = image.shape[:2]
+    bounds = (
+        max(0, int(x1) - padding),
+        max(0, int(y1) - padding),
+        min(width, int(x2) + padding),
+        min(height, int(y2) + padding),
+    )
+    x1, y1, x2, y2 = bounds
+    return image[y1:y2, x1:x2].copy(), bounds
+
+
+def preprocess_candidates(crop: np.ndarray, *, diagnostics=None, prepare=True, verbose=False):
+    """Share enhancement and measured contour extraction, without choosing hole identities."""
+    import cv2
+
+    from ev_charging.vision.algorithms import enhance
+    from ev_charging.vision.algorithms import latest_candidate_contours as contours
+
+    enhanced = cv2.cvtColor(enhance.preprocess_roi(crop)["final"], cv2.COLOR_GRAY2BGR)
+    *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced)
+    candidates, _, _ = contours.filter_candidate_contours(
+        contours.prepare_edges(edges) if prepare else edges,
+        enhanced,
+        apply_layout=False,
+        diagnostics=diagnostics,
+        gray_source=crop,
+        verbose=verbose,
+    )
+    return enhanced, candidates, edges, (low, high, morph_threshold)
+
+
 class PosePipeline:
     def __init__(self, config: dict, detector=None):
         self.config = resolve_model_config(config)
@@ -170,7 +203,6 @@ class PosePipeline:
         self._modules, self._detector = modules, detector
 
     def _extract_points(self, image: np.ndarray, *, projection: tuple) -> tuple[dict, dict]:
-        import cv2
 
         self._load()
         result = self._detector(image, conf=float(self.config["confidence"]), verbose=False)
@@ -185,29 +217,11 @@ class PosePipeline:
                         }
                     )
         selected = select_detection(boxes, image.shape, self.config.get("target_window"))
-        x1, y1, x2, y2 = selected["xyxy"]
-        padding = max(20, int(max(x2 - x1, y2 - y1) * 0.08))
-        height, width = image.shape[:2]
-        x1, y1 = max(0, int(x1) - padding), max(0, int(y1) - padding)
-        x2, y2 = min(width, int(x2) + padding), min(height, int(y2) + padding)
+        crop, (x1, y1, x2, y2) = padded_crop(image, selected["xyxy"])
         if x2 <= x1 or y2 <= y1:
             raise ValueError("invalid_detection_bbox")
-        crop = image[y1:y2, x1:x2].copy()
-        enhanced = self._modules["enhance"].preprocess_roi(crop)["final"]
-        enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
-        edges = self._modules["enhance"].adaptive_canny_pipeline(enhanced_bgr)[4]
-        contours = self._modules["latest_candidate_contours"]
-        # Existing functions are verbose. Keep their diagnostics out of control
-        # timings and never persist large unbounded buffers.
         diagnostics = {}
-        with open(os.devnull, "w") as sink, contextlib.redirect_stdout(sink):
-            candidates, _, _ = contours.filter_candidate_contours(
-                contours.prepare_edges(edges),
-                enhanced_bgr,
-                apply_layout=False,
-                diagnostics=diagnostics,
-                gray_source=crop,
-            )
+        enhanced_bgr, candidates, _, _ = preprocess_candidates(crop, diagnostics=diagnostics)
         matrix, coefficients, distortion_model = projection
         selection = self._modules["pose_correspondence"].select_correspondences(
             candidates,
@@ -221,6 +235,7 @@ class PosePipeline:
             min_inlier_count=int(self.config["min_inliers"]),
             min_correspondence_count=max(6, int(self.config["min_inliers"])),
             observed_prior=self.observed_prior,
+            prefitted=True,
         )
         if selection["best"] is None:
             raise ValueError("no_layout_variant")

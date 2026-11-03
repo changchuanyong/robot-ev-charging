@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
 import math
-import os
 from pathlib import Path
 
 import cv2
@@ -12,6 +10,7 @@ import numpy as np
 
 from ev_charging.review.keypoint_annotations import LABELS
 from ev_charging.vision.model_config import resolve_model_config
+from ev_charging.vision.pipeline import padded_crop, preprocess_candidates
 
 
 def promote_dark_apertures(candidates, crop, contours):
@@ -109,27 +108,14 @@ class SuggestionEngine:
             self.modules = [enhance, latest_candidate_contours, observed_layout]
             self.prior = self.modules[2].load_prior(self.root / "config/observed_layout_prior.json")
         height, width = image.shape[:2]
-        x1, y1, x2, y2 = box
-        padding = max(20, int(max(x2 - x1, y2 - y1) * 0.08))
-        x1, y1 = max(0, int(x1) - padding), max(0, int(y1) - padding)
-        x2, y2 = min(width, int(x2) + padding), min(height, int(y2) + padding)
-        crop = image[y1:y2, x1:x2].copy()
-        enhance, contours, layout = self.modules
-        enhanced = cv2.cvtColor(enhance.preprocess_roi(crop)["final"], cv2.COLOR_GRAY2BGR)
-        edges = enhance.adaptive_canny_pipeline(enhanced)[4]
+        crop, (x1, y1, x2, y2) = padded_crop(image, box)
+        _, contours, layout = self.modules
         contour_trace = {} if diagnostics else None
-        with open(os.devnull, "w") as sink, contextlib.redirect_stdout(sink):
-            candidates, _, _ = contours.filter_candidate_contours(
-                contours.prepare_edges(edges),
-                enhanced,
-                apply_layout=False,
-                gray_source=crop,
-                diagnostics=contour_trace,
-            )
-            promoted = promote_dark_apertures(candidates, crop, contours)
-            selected = layout.select_observed_correspondences(
-                candidates, enhanced.shape, self.prior, (x1, y1), review_mode=True
-            )
+        enhanced, candidates, _, _ = preprocess_candidates(crop, diagnostics=contour_trace)
+        promoted = promote_dark_apertures(candidates, crop, contours)
+        selected = layout.select_observed_correspondences(
+            candidates, enhanced.shape, self.prior, (x1, y1), review_mode=True, prefitted=True
+        )
         if diagnostics:
             by_index = {candidate.contour_index: candidate for candidate in candidates}
             for outcome in contour_trace["candidate_trace"]["outcomes"]:

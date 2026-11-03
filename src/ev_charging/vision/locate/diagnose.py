@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
 import math
-import os
 from pathlib import Path
 
 import cv2
@@ -28,7 +26,13 @@ from ev_charging.vision.contracts import (
     validate_camera,
 )
 from ev_charging.vision.model_config import resolve_model_config
-from ev_charging.vision.pipeline import ROOT, PosePipeline, select_detection
+from ev_charging.vision.pipeline import (
+    ROOT,
+    PosePipeline,
+    padded_crop,
+    preprocess_candidates,
+    select_detection,
+)
 
 
 def distance_summary(values) -> dict:
@@ -125,26 +129,12 @@ class DiagnosticFrontend(PosePipeline):
             output["detected_boxes"] = boxes
             selected = select_detection(boxes, image.shape, self.config.get("target_window"))
             output["selected_bbox_xyxy"] = list(selected["xyxy"])
-            x1, y1, x2, y2 = selected["xyxy"]
-            padding = max(20, int(max(x2 - x1, y2 - y1) * 0.08))
-            x1, y1 = max(0, int(x1) - padding), max(0, int(y1) - padding)
-            x2, y2 = min(image.shape[1], int(x2) + padding), min(image.shape[0], int(y2) + padding)
+            crop, (x1, y1, x2, y2) = padded_crop(image, selected["xyxy"])
             output.update(roi_bbox_xyxy=[x1, y1, x2, y2], detection_score=selected["confidence"])
             if x2 <= x1 or y2 <= y1:
                 raise ValueError("invalid_detection_bbox")
-            crop = image[y1:y2, x1:x2].copy()
-            enhanced = self._modules["enhance"].preprocess_roi(crop)["final"]
-            enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
-            edges = self._modules["enhance"].adaptive_canny_pipeline(enhanced_bgr)[4]
-            contours, diagnostics = self._modules["latest_candidate_contours"], {}
-            with open(os.devnull, "w") as sink, contextlib.redirect_stdout(sink):
-                candidates, _, _ = contours.filter_candidate_contours(
-                    contours.prepare_edges(edges),
-                    enhanced_bgr,
-                    apply_layout=False,
-                    diagnostics=diagnostics,
-                    gray_source=crop,
-                )
+            diagnostics = {}
+            enhanced_bgr, candidates, _, _ = preprocess_candidates(crop, diagnostics=diagnostics)
             # Candidate recall is deliberately measured before identity selection and PnP.
             for candidate in candidates:
                 center = next(
@@ -170,6 +160,7 @@ class DiagnosticFrontend(PosePipeline):
                 min_inlier_count=int(self.config["min_inliers"]),
                 min_correspondence_count=max(6, int(self.config["min_inliers"])),
                 observed_prior=self.observed_prior,
+                prefitted=True,
             )
             details = selection["diagnostics"]
             output["correspondence_diagnostics"] = details

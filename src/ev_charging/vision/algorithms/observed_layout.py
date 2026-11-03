@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
 import copy
-import io
 import json
 from pathlib import Path
 
@@ -118,9 +116,8 @@ def _diameter(candidate):
     return float(np.sqrt(np.prod(candidate.ellipse_axes)))
 
 
-def _prepare(candidates):
-    with contextlib.redirect_stdout(io.StringIO()):
-        fitted = fit_ellipse_on_kept_candidates(copy.deepcopy(candidates))
+def _prepare(candidates, *, prefitted=False):
+    fitted = fit_ellipse_on_kept_candidates(copy.deepcopy(candidates), verbose=False, reuse=prefitted)
     unique = []
     for candidate in sorted(fitted, key=lambda item: item.score, reverse=True):
         if (
@@ -227,11 +224,11 @@ def _review_topology(association, points):
 
 
 def select_observed_correspondences(
-    candidates, roi_shape, prior: dict, offset_xy=(0, 0), *, review_mode=False
+    candidates, roi_shape, prior: dict, offset_xy=(0, 0), *, review_mode=False, prefitted=False
 ) -> dict:
     """Associate observed centers without consulting PnP, filenames or annotations."""
     validate_prior(prior)
-    fitted = _prepare(candidates)
+    fitted = _prepare(candidates, prefitted=prefitted)
     diagnostics = {
         "method": "observed_2d_layout",
         "valid_center_count": len(fitted),

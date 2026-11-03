@@ -222,6 +222,8 @@ def filter_candidate_contours(
     apply_layout: bool = True,
     diagnostics: dict | None = None,
     gray_source: np.ndarray | None = None,
+    *,
+    verbose: bool = True,
 ) -> tuple[list[CandidateContour], list[np.ndarray], LayoutModel | None]:
     h_img, w_img = roi_bgr.shape[:2]
     roi_area = h_img * w_img
@@ -295,7 +297,8 @@ def filter_candidate_contours(
     def reject(
         reason: str, feat: CandidateContour, *, representative=None, aperture_transferred=False
     ) -> None:
-        reject_log(reason, feat)
+        if verbose:
+            reject_log(reason, feat)
         if diagnostics is not None:
             counts = diagnostics["rejection_counts"]
             counts[reason] = counts.get(reason, 0) + 1
@@ -329,7 +332,8 @@ def filter_candidate_contours(
 
     raw_candidates: list[CandidateContour] = []
 
-    print("===== Stage 1&2: geometry + coarse prior filtering =====")
+    if verbose:
+        print("===== Stage 1&2: geometry + coarse prior filtering =====")
     for contour_index, cnt in enumerate(contours):
         feat = compute_candidate_features(cnt, roi_bgr.shape, allow_open=not apply_layout)
         if feat is None:
@@ -359,7 +363,7 @@ def filter_candidate_contours(
             # A gap in a Canny ring produces a contour that retraces the arc and
             # encloses almost no area. Validate the observed boundary before
             # using enclosed area or circularity as a proxy for hole geometry.
-            fit_ellipse_on_kept_candidates([feat])
+            fit_ellipse_on_kept_candidates([feat], verbose=verbose)
         if feat.fit_valid and not apply_layout:
             old_center_score = max(0.0, min(1.0, 1.0 - feat.prior_value))
             feat.inside_prior, feat.prior_value = inside_structure_prior(*feat.fitted_center, roi_bgr.shape)
@@ -415,10 +419,11 @@ def filter_candidate_contours(
             continue
 
         raw_candidates.append(feat)
-        keep_log("keep_raw", feat)
+        if verbose:
+            keep_log("keep_raw", feat)
 
     if apply_layout:
-        fit_ellipse_on_kept_candidates(raw_candidates)
+        fit_ellipse_on_kept_candidates(raw_candidates, verbose=verbose)
     raw_candidates.sort(
         key=lambda c: (
             c.fit_valid,
@@ -444,7 +449,8 @@ def filter_candidate_contours(
             return True
         return same_hole_boundaries(first, second)
 
-    print("\n===== Stage 3: duplicate removal =====")
+    if verbose:
+        print("\n===== Stage 3: duplicate removal =====")
     kept: list[CandidateContour] = []
     for cand in raw_candidates:
         duplicated = False
@@ -458,19 +464,21 @@ def filter_candidate_contours(
                     old.aperture_center = cand.aperture_center
                     aperture_transferred = True
                 reject("duplicate", cand, representative=old, aperture_transferred=aperture_transferred)
-                print(
-                    f"reject=duplicate       "
-                    f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
-                    f"score={cand.score:5.3f}  "
-                    f"close_to=({old.center[0]:6.1f},{old.center[1]:6.1f})"
-                )
+                if verbose:
+                    print(
+                        f"reject=duplicate       "
+                        f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})  "
+                        f"score={cand.score:5.3f}  "
+                        f"close_to=({old.center[0]:6.1f},{old.center[1]:6.1f})"
+                    )
                 duplicated = True
                 break
 
         if not duplicated:
             cand.hole_group_id = len(kept)
             kept.append(cand)
-            keep_log("keep_final_dup", cand)
+            if verbose:
+                keep_log("keep_final_dup", cand)
 
     if diagnostics is not None:
         diagnostics["uncapped_candidate_count"] = len(kept)

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
 import copy
-import io
 
 import cv2
 import numpy as np
@@ -106,6 +104,8 @@ def select_correspondences(
     min_inlier_count=4,
     min_correspondence_count=6,
     observed_prior=None,
+    *,
+    prefitted=False,
 ):
     """Return best/diagnostics using only valid fitted input contours.
 
@@ -126,10 +126,10 @@ def select_correspondences(
             min_inlier_count,
             min_correspondence_count,
             observed_prior,
+            prefitted=prefitted,
         )
     candidates = copy.deepcopy(candidates)
-    with contextlib.redirect_stdout(io.StringIO()):
-        candidates = fit_ellipse_on_kept_candidates(candidates)
+    candidates = fit_ellipse_on_kept_candidates(candidates, verbose=False, reuse=prefitted)
     fitted = [
         c
         for c in candidates
@@ -367,11 +367,13 @@ def _select_observed(
     min_inlier_count,
     min_correspondence_count,
     prior,
+    *,
+    prefitted=False,
 ):
     """Fix observed identities before PnP; pose residuals cannot relabel holes."""
     from ev_charging.vision.algorithms.observed_layout import select_observed_correspondences
 
-    selection = select_observed_correspondences(candidates, roi_shape, prior, offset_xy)
+    selection = select_observed_correspondences(candidates, roi_shape, prior, offset_xy, prefitted=prefitted)
     diagnostics = dict(selection["diagnostics"])
     image_points = selection["image_points"]
     kept = selection["candidates"]
