@@ -225,7 +225,7 @@ def evaluate_one_image(
         observed_prior=observed_prior,
         prefitted=True,
     )
-    scored_variants = [selection["best"]] if selection["best"] is not None else []
+    best_variant = selection["best"]
     result["contour_diagnostics"] = contour_diagnostics
     result["correspondence_diagnostics"] = selection["diagnostics"]
     result["pose_hypotheses"] = selection["hypotheses"]
@@ -234,9 +234,7 @@ def evaluate_one_image(
         [float(c.center[0] + crop_x1), float(c.center[1] + crop_y1)] for c in raw_candidates
     ]
 
-    if scored_variants:
-        best_variant = scored_variants[0]
-        _fitted_candidates = best_variant["candidates"]
+    if best_variant is not None:
         centers = best_variant["centers"]
         result["association_points_full"] = {
             name: list(point) for name, point in best_variant["image_points"].items()
@@ -244,7 +242,6 @@ def evaluate_one_image(
         result["layout_variant"] = best_variant["variant_name"]
         result["layout_variant_count"] = len(selection["hypotheses"])
     else:
-        _fitted_candidates = []
         centers = []
         result["layout_variant"] = ""
         result["layout_variant_count"] = 0
@@ -259,8 +256,8 @@ def evaluate_one_image(
         }
     )
 
-    if scored_variants and scored_variants[0]["pose"] is not None:
-        pose = scored_variants[0]["pose"]
+    if best_variant is not None and best_variant["pose"] is not None:
+        pose = best_variant["pose"]
         result.update(
             {
                 "pnp_ok": True,
@@ -280,14 +277,14 @@ def evaluate_one_image(
             }
         )
         result["image_points_full"] = {
-            name: list(point) for name, point in scored_variants[0]["image_points"].items()
+            name: list(point) for name, point in best_variant["image_points"].items()
         }
         projected, _ = cv2.projectPoints(
             pose["object_points"], pose["rvec"], pose["tvec"], camera_matrix, dist_coeffs
         )
         result["projected_points_full"] = dict(zip(pose["matched_names"], projected.reshape(-1, 2).tolist()))
     else:
-        result["pnp_error"] = scored_variants[0]["pnp_error"] if scored_variants else "no_layout_variant"
+        result["pnp_error"] = best_variant["pnp_error"] if best_variant is not None else "no_layout_variant"
 
     categories = classify_result(result)
     result["failure_categories"] = ";".join(categories)

@@ -2,7 +2,12 @@
 
 import ast
 import itertools
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -10,6 +15,21 @@ from ev_charging.paths import PACKAGE_ROOT
 
 
 class ArchitectureTests(unittest.TestCase):
+    def test_help_can_import_with_explicit_root_without_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, "-I", "-B", "-X", "utf8", "-m", "ev_charging.control.simulate", "--help"],
+                cwd=directory,
+                env={**os.environ, "EV_CHARGING_ROOT": directory},
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("usage:", result.stdout)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_internal_import_graph_is_acyclic(self):
         modules = {
             "ev_charging."

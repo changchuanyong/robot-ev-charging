@@ -103,13 +103,13 @@ class SuggestionEngine:
             }
         box = boxes[0]["xyxy"]
         if self.modules is None:
-            from ev_charging.vision.algorithms import enhance, latest_candidate_contours, observed_layout
+            from ev_charging.vision.algorithms import latest_candidate_contours, observed_layout
 
-            self.modules = [enhance, latest_candidate_contours, observed_layout]
-            self.prior = self.modules[2].load_prior(self.root / "config/observed_layout_prior.json")
+            self.modules = [latest_candidate_contours, observed_layout]
+            self.prior = self.modules[1].load_prior(self.root / "config/observed_layout_prior.json")
         height, width = image.shape[:2]
         crop, (x1, y1, x2, y2) = padded_crop(image, box)
-        _, contours, layout = self.modules
+        contours, layout = self.modules
         contour_trace = {} if diagnostics else None
         enhanced, candidates, _, _ = preprocess_candidates(crop, diagnostics=contour_trace)
         promoted = promote_dark_apertures(candidates, crop, contours)

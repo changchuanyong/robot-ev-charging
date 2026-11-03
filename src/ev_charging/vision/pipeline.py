@@ -146,18 +146,9 @@ class PosePipeline:
     def _load(self):
         if self._modules is not None:
             return
-        from ev_charging.vision.algorithms import (
-            center_fit,
-            enhance,
-            latest_candidate_contours,
-            pnp2,
-            pose_correspondence,
-        )
+        from ev_charging.vision.algorithms import pnp2, pose_correspondence
 
         modules = {
-            "enhance": enhance,
-            "latest_candidate_contours": latest_candidate_contours,
-            "center_fit": center_fit,
             "pnp2": pnp2,
             "pose_correspondence": pose_correspondence,
         }
