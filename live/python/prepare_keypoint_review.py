@@ -349,6 +349,9 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, help="Defaults to the capture session's review/ or artifacts/keypoint_review_pilot")
     parser.add_argument("--annotations", type=Path, help="Existing annotation JSON to embed; never overwritten")
     args = parser.parse_args(argv)
+    if not any((args.selection, args.manifest, args.batch_report, args.output_dir, args.annotations)):
+        from vision.review_keypoints import main as review_library_keypoints
+        return review_library_keypoints([])
     if args.manifest is not None:
         if args.batch_report is not None:
             parser.error("--batch-report cannot be combined with --manifest")

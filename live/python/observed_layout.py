@@ -107,7 +107,7 @@ def _prepare(candidates):
     return unique
 
 
-def _anchor_pairs(candidates, points, diameters):
+def _anchor_pairs(candidates, points, diameters, *, review_shape=None):
     pairs = []
     for first in range(len(candidates)):
         for second in range(first + 1, len(candidates)):
@@ -117,6 +117,10 @@ def _anchor_pairs(candidates, points, diameters):
             sizes = diameters[[first, second]]
             if not np.all((sizes / span >= .12) & (sizes / span <= .75)) or min(sizes) / max(sizes) < .55:
                 continue
+            if review_shape is not None:
+                extent = min(review_shape[:2])
+                if span < .25 * extent or min(sizes) < .07 * extent or min(sizes) / max(sizes) < .70:
+                    continue
             if not all(getattr(candidates[index], "aperture_diameter_px", None) for index in (first, second)):
                 continue
             size = float(np.mean(sizes))
@@ -151,7 +155,42 @@ def _assign(predicted, points, diameters, aperture_known, anchors, pe_index, sca
     return fixed
 
 
-def select_observed_correspondences(candidates, roi_shape, prior: dict, offset_xy=(0, 0)) -> dict:
+def _review_topology(association, points):
+    """Check small-hole sides using measured DC, PE and CC2 centers only."""
+    if not {4, 5, 7} <= association.keys():
+        return {}, list(association)
+    if 1 not in association:
+        kept = {slot: index for slot, index in association.items() if slot in (4, 5, 7)}
+        return kept, [slot for slot in association if slot not in kept]
+    origin = (points[association[4]] + points[association[5]]) / 2
+    axis = points[association[5]] - points[association[4]]
+    scale2 = float(np.dot(axis, axis))
+    if scale2 <= 0:
+        return {}, list(association)
+    uv = (points-origin) @ np.array([axis, [-axis[1], axis[0]]]).T / scale2
+    top, bottom = uv[association[1]], uv[association[7]]
+    if top[1] >= -.1 or bottom[1] <= .1:
+        return {}, list(association)
+    kept, rejected = dict(association), []
+    for slot in (0, 2, 3, 6, 8):
+        if slot not in association:
+            continue
+        u, v = uv[association[slot]]
+        centerline = top[0] + (bottom[0]-top[0])*(v-top[1])/(bottom[1]-top[1])
+        side = u-centerline
+        signal_row = .5 <= v/top[1] <= 1.5
+        valid = ((slot == 0 and side <= -.10 and signal_row)
+                 or (slot == 2 and side >= .10 and signal_row)
+                 or (slot == 3 and abs(side) <= .15 and -.55 < v < .05)
+                 or (slot == 6 and side <= -.10 and v > .1)
+                 or (slot == 8 and side >= .10 and v > .1))
+        if not valid:
+            kept.pop(slot)
+            rejected.append(slot)
+    return kept, rejected
+
+
+def select_observed_correspondences(candidates, roi_shape, prior: dict, offset_xy=(0, 0), *, review_mode=False) -> dict:
     """Associate observed centers without consulting PnP, filenames or annotations."""
     validate_prior(prior)
     fitted = _prepare(candidates)
@@ -164,11 +203,16 @@ def select_observed_correspondences(candidates, roi_shape, prior: dict, offset_x
     points = np.asarray([_center(candidate) for candidate in fitted])
     diameters = np.asarray([_diameter(candidate) for candidate in fitted])
     aperture_known = np.asarray([bool(getattr(candidate, "aperture_diameter_px", None)) for candidate in fitted])
+    # A contrast-checked Canny boundary is a useful review point, but is not
+    # independent evidence for relaxing the small-hole assignment constraints.
+    assignment_apertures = aperture_known.copy()
+    if review_mode:
+        assignment_apertures &= ~np.asarray([candidate.review_only_aperture for candidate in fitted])
     scores = np.asarray([candidate.score for candidate in fitted])
     templates = [np.asarray([view["points"].get(label, prior["fallback_centers"][label]) for label in LABELS])
                  for view in prior["templates"]]
     proposals = {}
-    pairs = _anchor_pairs(fitted, points, diameters)
+    pairs = _anchor_pairs(fitted, points, diameters, review_shape=roi_shape if review_mode else None)
     diagnostics["anchor_pair_count"] = len(pairs)
     for _, first, second in pairs:
         for anchors in ((first, second), (second, first)):
@@ -180,7 +224,7 @@ def select_observed_correspondences(candidates, roi_shape, prior: dict, offset_x
             main_size = float(np.mean(diameters[list(anchors)]))
             pe_choices = [index for index in range(len(points)) if index not in anchors
                           and .15 <= uv[index, 1] <= .85 and abs(uv[index, 0]) <= .65
-                          and .25 <= diameters[index] / main_size <= .85
+                          and (.35 if review_mode else .25) <= diameters[index] / main_size <= (.75 if review_mode else .85)
                           and getattr(fitted[index], "aperture_diameter_px", None)]
             for pe_index in pe_choices:
                 for template_index, template in enumerate(templates):
@@ -193,7 +237,7 @@ def select_observed_correspondences(candidates, roi_shape, prior: dict, offset_x
                     warped[:, 0] += shear * template[:, 1]
                     warped[:, 1] *= stretch
                     predicted = origin + warped[:, :1] * axis + warped[:, 1:] * perp
-                    assignment = _assign(predicted, points, diameters, aperture_known, anchors, pe_index, scale, scores)
+                    assignment = _assign(predicted, points, diameters, assignment_apertures, anchors, pe_index, scale, scores)
                     if 1 not in assignment:
                         continue
                     errors = {slot: float(np.linalg.norm(predicted[slot] - points[index]) / scale)
@@ -219,6 +263,22 @@ def select_observed_correspondences(candidates, roi_shape, prior: dict, offset_x
     comparable = [item for item in ordered[1:] if item["structural_support_ok"] == best["structural_support_ok"]]
     margin = best["score"] - comparable[0]["score"] if comparable else None
     association = dict(best["assignment"])
+    if review_mode:
+        if not best["structural_support_ok"]:
+            association = {}
+            diagnostics["review_rejection"] = "outside_connector_structure"
+        else:
+            contenders = [item for item in comparable if best["score"] - item["score"] < .15]
+            disputed = [slot for slot, index in association.items()
+                        if any(item["assignment"].get(slot) != index for item in contenders)]
+            diagnostics["review_disputed_labels"] = [LABELS[slot] for slot in disputed]
+            for slot in disputed:
+                association.pop(slot)
+            if not {4, 5, 7} <= association.keys():
+                association = {}
+                diagnostics["review_rejection"] = "ambiguous_main_hole_orientation"
+            association, rejected = _review_topology(association, points)
+            diagnostics["review_topology_rejected"] = [LABELS[slot] for slot in rejected]
     # Canny-only outer rings may support a layout hypothesis, but they are not
     # verified observations of the inner aperture used by the 3D point model.
     assignment = {slot: index for slot, index in association.items() if aperture_known[index]}

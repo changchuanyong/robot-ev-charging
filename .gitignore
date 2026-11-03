@@ -37,6 +37,10 @@ runs/*/weights/*
 dataset/live/
 artifacts/
 
+# Unconfirmed local box-review drafts are UI state, not training data; confirmed
+# labels and records stay under dataset/vision/labels and dataset/vision/records.
+dataset/vision/review_drafts.json
+
 # Process-safe lock state written by vision/training_library.py::_lock: the
 # guard file must persist, and .intake/ / .intake-retry/ are lock roots.
 .library.guard

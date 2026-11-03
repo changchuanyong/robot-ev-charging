@@ -11,7 +11,7 @@
 在项目根目录运行。Windows 非管理员终端每次启动相机都可能弹出 UAC；启动器返回成功仅表示已发起子进程，采集结果需查看新窗口：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.run --config config/realsense_config.json
+.\run_vision.cmd -m vision.launch vision.run --config config/realsense_config.json
 ```
 
 首次接设备前，填写 D435 完整序列号。`intrinsics_validated` 初始为 `false`；可在获准采集后用 `--export-intrinsics artifacts/d435_color_intrinsics.json` 保存实际彩色流的参数和 `intrinsics_sha256`。完成该分辨率、设备和工作距离下的独立图像验证后，再填写校准版本、匹配的参数指纹并设置验证状态。改变序列号、分辨率、内参或畸变参数会使旧指纹失效。SDK 工厂内参不自动等同于任务标定已验收。
@@ -19,7 +19,7 @@
 离线单张图像不需要启动器或管理员权限：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.run --image path/to/image.jpg --camera-config path/to/that_camera.json --output artifacts/offline_pose.json
+.\run_vision.cmd -m vision.run --image path/to/image.jpg --camera-config path/to/that_camera.json --output artifacts/offline_pose.json
 ```
 
 离线结果始终标记 `source=offline`，不能作为真机运动输入。缺少 YOLO 权重、目标丢失、畸变模型不支持、图像尺寸不符、过期或未验证标定会产生明确无效结果。新消息以原子替换发布，失败不会保留上一帧的有效标记。实时采集退出后也会发布无效状态。
@@ -66,7 +66,7 @@ max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 ## 手眼标定
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
+.\run_vision.cmd -m vision.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
 ```
 
 输入 JSON 顶层包含：
@@ -88,8 +88,8 @@ max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 ## 离线验证
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.check_project
-.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate --scenario nominal
+.\run_vision.cmd -m vision.check_project
+.\run_vision.cmd -m control.simulate --scenario nominal
 ```
 
 自检报告项目完整性与图库待办；仿真仅验证合成场景中的软件流程。这些命令不启动相机或机器人，也不能替代视觉精度、手眼实测及插装实验验收。

@@ -45,6 +45,7 @@ class CandidateContour:
     hole_group_id: int = -1
     aperture_diameter_px: float | None = None
     aperture_center: tuple[float, float] | None = None
+    review_only_aperture: bool = False
 
 
 @dataclass

@@ -55,8 +55,8 @@ def visible_points(image: dict) -> dict[str, list[float]]:
 
 def validate_annotations(data: dict) -> None:
     """Validate the schema without reading files or trusting a draft as human truth."""
-    if not isinstance(data, dict) or data.get("schema_version") not in (1, 2):
-        raise ValueError("Expected annotation schema_version 1 or 2")
+    if not isinstance(data, dict) or data.get("schema_version") not in (1, 2, 3):
+        raise ValueError("Expected annotation schema_version 1, 2 or 3")
     if data.get("purpose") != "development_diagnostic" or data.get("independent_test_set") is not False:
         raise ValueError("This annotation set must remain a development diagnostic")
     if data.get("labels") != list(LABELS):
@@ -71,7 +71,7 @@ def validate_annotations(data: dict) -> None:
             normalized_image_key(provenance.get(field))
         for field in ("batch_report_sha256", "camera_config_sha256", "model_points_sha256", "pnp_source_sha256"):
             _hash(provenance.get(field), field)
-    else:
+    elif data["schema_version"] == 2:
         if provenance.get("kind") != "capture_session":
             raise ValueError("Capture annotations require capture_session provenance")
         for field in ("manifest_path", "camera_config_path"):
@@ -81,6 +81,10 @@ def validate_annotations(data: dict) -> None:
         for field in ("session_id", "batch_id", "camera_serial"):
             if not isinstance(provenance.get(field), str) or not provenance[field].strip():
                 raise ValueError(f"Capture provenance requires {field}")
+    else:
+        if provenance.get("kind") != "training_library":
+            raise ValueError("Library annotations require training_library provenance")
+        normalized_image_key(provenance.get("library_path"))
     if not isinstance(data.get("images"), list) or not data["images"]:
         raise ValueError("Expected a nonempty images list")
     paths, hashes = set(), set()
