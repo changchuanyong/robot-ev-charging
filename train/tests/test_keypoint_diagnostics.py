@@ -1,7 +1,6 @@
 import contextlib
 import copy
 import io
-import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -9,14 +8,12 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from train.python.evaluate_library_keypoints import ROOT, compare_reports, point_diagnostic, topology_warnings
-from vision.review.review_apertures import promote_dark_apertures
+from vision.evaluation.evaluate_library_keypoints import ROOT, compare_reports, point_diagnostic, topology_warnings
+from vision.review.keypoint_suggestions import promote_dark_apertures
 
-if str(ROOT / "live/python") not in sys.path:
-    sys.path.insert(0, str(ROOT / "live/python"))
-import latest_candidate_contours as contours
-from center_fit import fit_ellipse_on_kept_candidates
-import observed_layout
+from vision.algorithms import latest_candidate_contours as contours
+from vision.algorithms.center_fit import fit_ellipse_on_kept_candidates
+from vision.algorithms import observed_layout
 
 
 class ApertureEvidenceTests(unittest.TestCase):

@@ -2,17 +2,33 @@
 from __future__ import annotations
 
 import contextlib
-import importlib
+import math
 import os
 from pathlib import Path
-import sys
 
 import cv2
 import numpy as np
 
-from live.python.keypoint_annotations import LABELS
+from vision.review.keypoint_annotations import LABELS
 from ..model_config import resolve_model_config
-from .review_apertures import promote_dark_apertures
+
+
+def promote_dark_apertures(candidates, crop, contours):
+    """Verify already fitted Canny centers against raw-image dark-hole evidence."""
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 1.2)
+    promoted = []
+    for item in candidates:
+        if item.contour_source != "canny" or item.aperture_center is not None or not item.fit_valid:
+            continue
+        contrast = contours.dark_boundary_contrast(gray, item)
+        if contrast >= contours.DARK_CONTRAST_OFFSET:
+            item.aperture_center = item.fitted_center
+            item.aperture_diameter_px = math.sqrt(np.prod(item.ellipse_axes))
+            item.review_only_aperture = True
+            promoted.append({"center": list(item.aperture_center), "contrast": contrast,
+                             "contour_index": item.contour_index})
+    return promoted
 
 
 def valid_points(points, width, height):
@@ -62,11 +78,9 @@ class SuggestionEngine:
                     **({"diagnostics": trace} if diagnostics else {})}
         box = boxes[0]["xyxy"]
         if self.modules is None:
-            path = str(self.root / "live/python")
-            if path not in sys.path:
-                sys.path.insert(0, path)
-            self.modules = [importlib.import_module(name) for name in
-                            ("enhance", "latest_candidate_contours", "observed_layout")]
+            from ..algorithms import enhance, latest_candidate_contours, observed_layout
+
+            self.modules = [enhance, latest_candidate_contours, observed_layout]
             self.prior = self.modules[2].load_prior(self.root / "config/observed_layout_prior.json")
         height, width = image.shape[:2]
         x1, y1, x2, y2 = box

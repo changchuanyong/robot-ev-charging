@@ -7,11 +7,8 @@ import hashlib
 import json
 from pathlib import Path
 import re
-import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from vision.contracts import atomic_capture_json
 from vision.model_config import current_model_path
@@ -182,7 +179,7 @@ def write_review(library, output, weights=None, review_all=False, session_id=Non
                       "status": record["status"], "label_text": label_text,
                       "sources": record["sources"], "label_candidates": record.get("label_candidates", []),
                       "box_suggestions": record.get("box_suggestions", [])})
-    template = Path(__file__).with_name("port_box_review.html").read_text(encoding="utf-8")
+    template = (ROOT / "vision/review/port_box_review.html").read_text(encoding="utf-8")
     payload = json.dumps(items, ensure_ascii=False).replace("<", "\\u003c")
     output.parent.mkdir(parents=True, exist_ok=True)
     config = {"scope_key": hashlib.sha256((str(library) + ":" + str(session_id)).encode()).hexdigest()}

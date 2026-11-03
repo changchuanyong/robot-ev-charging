@@ -9,17 +9,14 @@ import hashlib
 import json
 import math
 from pathlib import Path
-import sys
 
 import cv2
 import numpy as np
 
-from keypoint_annotations import LABELS, normalized_image_key, sha256_file, validate_annotations
+from vision.review.keypoint_annotations import LABELS, normalized_image_key, sha256_file, validate_annotations
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
 from vision.library.photo_sources import resolve_photo
 from vision.contracts import intrinsics_signature, validate_camera
 TEMPLATE_PATH = Path(__file__).with_name("keypoint_review.html")
@@ -45,7 +42,7 @@ def build_annotations(selection: dict, batch: dict, root: Path, batch_report_pat
     provenance = batch["provenance"]
     camera_path = root / "config/camera_intrinsics.json"
     model_path = root / "config/charging_port_model.csv"
-    source_path = root / "live/python/pnp2.py"
+    source_path = root / "vision/algorithms/pnp2.py"
     for path, expected in (
         (camera_path, provenance["camera_config_sha256"]),
         (model_path, provenance["model_points_sha256"]),

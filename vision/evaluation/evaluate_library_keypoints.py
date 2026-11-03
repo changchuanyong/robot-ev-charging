@@ -8,20 +8,16 @@ import html
 import json
 import os
 from pathlib import Path
-import sys
 
 import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-from live.python.keypoint_annotations import validate_annotations
+from vision.review.keypoint_annotations import validate_annotations
 from vision.review.review_keypoints import KeypointStore
 
-SOURCES = ("vision/keypoint_suggestions.py", "live/python/observed_layout.py",
-           "live/python/latest_candidate_contours.py", "live/python/center_fit.py", "live/python/enhance.py",
-           "vision/review_apertures.py")
+SOURCES = ("vision/review/keypoint_suggestions.py", "vision/algorithms/observed_layout.py",
+           "vision/algorithms/latest_candidate_contours.py", "vision/algorithms/center_fit.py", "vision/algorithms/enhance.py")
 
 
 def topology_warnings(reference):

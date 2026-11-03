@@ -4,10 +4,10 @@
 
 充电口检测、九孔定位与 PnP，以及面向 **RM75 六维力机械臂 + D435 眼在手 + Windows/Python** 的力觉–视觉插装程序。主线：**D415 采集 → YOLOv8n 检测 → 九孔/PnP 诊断 → D435 定位与控制**；默认配置不连接、不驱动机器人。
 
-- **默认模型**：`config/vision_model.json` → `runs/detect_split_20261031T105817Z_14d8271b/weights/best.pt`，启动校验 SHA256。
-- **图库**：`dataset/vision/` 260 条记录（253 ready、0 pending、7 排除、173 条带深度），随 Git 跟踪；2026-10-31 的 19 张新图已人工复核并写入标签。
+- **默认模型**：以 `config/vision_model.json` 为准；其中记录当前权重、训练报告及 SHA256，启动校验权重哈希。
+- **图库**：`dataset/vision/` 保存图片、标签及来源记录，随 Git 跟踪；实时数量使用 `python -m vision.library.training_library status` 查看。
 - **权重**：`yolov8n.pt`、`runs/*/weights/best.pt` 和 `last.pt` 随 Git 跟踪。
-- **最近训练**：40 轮，217 train / 36 dev-val；P 0.97068 / R 0.97222 / mAP50 0.97250 / mAP50-95 0.90472（best epoch 21）。
+- **训练结果**：查看模型配置中 `training_report` 指向的报告；开发验证指标不等于独立验收结果。
 
 日常命令在各自项目根目录运行，使用前先执行 `conda activate ev-vision`，再直接运行 `python` 命令。日常只走 **采集 → 复核 → 训练 → 离线检查**；不常用的带参数命令和维护命令集中在 [进阶命令](#4-进阶命令不常用参数)，正常流程不需要逐个了解。
 
@@ -87,7 +87,7 @@ D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`p
 正常入库与检查：
 
 ```powershell
-python train/python/prepare_port_library.py       # 同步入库
+python -m vision.library.prepare_port_library       # 同步入库
 python -m vision.library.training_library status          # 库状态
 ```
 
@@ -121,7 +121,7 @@ Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在
 
 训练报告和清单的写入对 Windows 文件占用做重试（最长约 13 s，杀毒软件或文件监视器偶尔会短暂占住 JSON）；`training_report.json` 每轮都会重写，重试仍失败时改为就地写入，不会让几十轮训练白跑。
 
-当前模型：40 轮、217/217 覆盖、36/36 验证；P 0.97068 / R 0.97222 / mAP50 0.97250 / mAP50-95 0.90472（best epoch 21；目标框，不是九孔或插装精度）。复现旧轮次用 `--vision-config`，命令见 [训练与复现](#46-训练与复现)。
+当前轮次的覆盖检查和指标以模型配置关联的训练报告为准；指标衡量目标框，不代表九孔或插装精度。复现旧轮次用 `--vision-config`，命令见 [训练与复现](#46-训练与复现)。
 
 ### 3.4 离线检查
 
@@ -190,7 +190,7 @@ python -m vision.review.review_library --no-browser
 退出采集时生成的 `review.html` 是离线副本，离线复核继续使用导出/导入：
 
 ```powershell
-python train/python/prepare_port_library.py --review artifacts/port_library_review.html
+python -m vision.library.prepare_port_library --review artifacts/port_library_review.html
 Start-Process artifacts/port_library_review.html
 python -m vision.library.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
 ```
@@ -198,8 +198,8 @@ python -m vision.library.training_library annotate --review-json "$env:USERPROFI
 ### 4.4 数据分组
 
 ```powershell
-python -m train.python.dataset_split --list-pending
-python -m train.python.dataset_split --assign-group "实际group_id" --split train
+python -m vision.library.dataset_split --list-pending
+python -m vision.library.dataset_split --assign-group "实际group_id" --split train
 ```
 
 ### 4.5 九孔复核
@@ -223,9 +223,9 @@ python -m vision.review.review_keypoints
 已确认的全图库孔位 JSON 可直接做逐孔诊断，不再需要历史批处理报告：
 
 ```powershell
-python train/python/evaluate_library_keypoints.py --annotations "$env:USERPROFILE\Downloads\reviewed_annotations.json" --output-dir artifacts/keypoint_eval_first
+python -m vision.evaluation.evaluate_library_keypoints --annotations "$env:USERPROFILE\Downloads\reviewed_annotations.json" --output-dir artifacts/keypoint_eval_first
 # 修改算法后，使用冻结的相同标注；权重必须与基线一致
-python train/python/evaluate_library_keypoints.py --annotations artifacts/keypoint_eval_first/annotations.json --output-dir artifacts/keypoint_eval_second --baseline artifacts/keypoint_eval_first/report.json
+python -m vision.evaluation.evaluate_library_keypoints --annotations artifacts/keypoint_eval_first/annotations.json --output-dir artifacts/keypoint_eval_second --baseline artifacts/keypoint_eval_first/report.json
 ```
 
 输出目录必须是新目录。报告包含阶段诊断、逐图叠加图和参考来源分类；对比模式另外生成 `comparison.html` 与 `comparison.json`。默认 5 原像素是诊断邻域，可用 `--tolerance-px` 明确指定，不能当作精度验收标准。孔名拓扑矛盾只提示人工检查，不修改标注。
@@ -234,9 +234,9 @@ python train/python/evaluate_library_keypoints.py --annotations artifacts/keypoi
 
 ```powershell
 # 已结束的采集会话，输出默认在会话目录的 review/ 下
-python live/python/prepare_keypoint_review.py --manifest "artifacts/d415_preview/实际会话目录/manifest.json"
+python -m vision.review.prepare_keypoint_review --manifest "artifacts/d415_preview/实际会话目录/manifest.json"
 # 历史图片，明确指定已有的图片选择清单和批量诊断报告
-python live/python/prepare_keypoint_review.py --selection "config/vision_annotation_pilot.json" --batch-report "artifacts/实际诊断目录/latest_details.json" --output-dir "artifacts/keypoint_review"
+python -m vision.review.prepare_keypoint_review --selection "config/vision_annotation_pilot.json" --batch-report "artifacts/实际诊断目录/latest_details.json" --output-dir "artifacts/keypoint_review"
 ```
 
 打开命令输出的 `review.html`，复核后导出 `reviewed_annotations.json`。加 `--annotations "已复核文件.json"` 可继续复核，工具不会覆盖原标注；`--manifest` 不能与历史数据参数混用。
@@ -259,7 +259,7 @@ python -m vision.launch vision.capture.preview --depth --vision-config "runs/本
 ### 4.7 评估、控制与力觉
 
 ```powershell
-python live\python\batch_pipeline_eval.py --max-images 50
+python -m vision.evaluation.batch_pipeline_eval --max-images 50
 ```
 
 批量评估默认跑 `dataset/vision/images/historical`，用 Kinect v2 近似内参（`config/camera_intrinsics.json`），结果在 `artifacts/batch_eval/`；不要用它评价 D415/D435 的重投影误差。
@@ -267,10 +267,10 @@ python live\python\batch_pipeline_eval.py --max-images 50
 合并后的工具按子命令选择用途，以下命令显示各自完整参数：
 
 ```powershell
-python live/python/evaluate_keypoint_annotations.py annotations --help
-python live/python/evaluate_keypoint_annotations.py labeled --help
-python live/python/evaluate_keypoint_annotations.py batch --help
-python live/python/keypoint_annotations.py repeatability --help
+python -m vision.evaluation.evaluate_keypoint_annotations annotations --help
+python -m vision.evaluation.evaluate_keypoint_annotations labeled --help
+python -m vision.evaluation.evaluate_keypoint_annotations batch --help
+python -m vision.review.keypoint_annotations repeatability --help
 python -m control.force_dataset --help
 python train/python/train_force_gru.py train --help
 python train/python/train_force_gru.py evaluate --help
@@ -317,6 +317,25 @@ python -m control.simulate admittance --output 报告.json   # 导纳离散化�
 
 ## 5. 工程信息
 
+代码按职责集中在以下位置：
+
+| 位置 | 职责 |
+| --- | --- |
+| `vision/capture/` | 采集、预览、会话保存、补入库、RealSense 相机 |
+| `vision/algorithms/` | 图像增强、轮廓、中心拟合、孔位关联、PnP |
+| `vision/review/` | 检测框与九孔复核、标注格式、HTML 页面 |
+| `vision/library/` | 图库、来源映射、同步、训练/验证分组 |
+| `vision/evaluation/` | 历史批量评估、人工点对比、当前图库诊断 |
+| `vision/locate/`、`vision/calibration/` | D435 定位、诊断与标定 |
+| `train/python/` | 检测器/力觉模型训练、布局拟合、运行环境及 Labelme 导入工具 |
+| `control/` | 力觉与视觉插装控制、实验管理和软件仿真 |
+
+原 `live/python/` 的算法、评估与复核实现已迁入 `vision`，不再维护第二套脚本入口。迁移后的命令使用 `python -m vision.<子包>.<模块>`，上文命令已同步；外部保存的旧命令需要相应更新。原 `train/python/prepare_port_library.py`、`dataset_split.py` 位于 `vision/library/`；`evaluate_library_keypoints.py`、`check_reviewed_detection_labels.py` 位于 `vision/evaluation/`。
+
+`capture` 保留五个业务模块：`collect.py`、`preview.py`、`capture_session.py`、`intake.py`、`realsense.py`。RGB 控制并入采集，显示渲染并入预览；复核专用的暗孔补充逻辑并入 `keypoint_suggestions.py`。
+
+离线回归测试：`python -m unittest discover -s train/tests -p "test_*.py" -v`。源码迁移会改变新报告中的代码路径和哈希；历史采集清单、训练报告及人工标注保留原始内容。
+
 ### 5.1 Git 跟踪
 
 - **跟踪**：源码、`config/`、`dataset/vision/`、`yolov8n.pt`、`runs/*/weights/{best,last}.pt`。
@@ -332,4 +351,4 @@ python -m control.simulate admittance --output 报告.json   # 导纳离散化�
 
 ### 5.3 历史数据与算法
 
-Kinect 采集程序、旧磁盘流水线和一次性图库迁移脚本已移除。`config/camera_intrinsics.json` 仍供历史图片分析使用；`config/legacy_photo_index.json` 保留旧图片路径到统一图库的映射，历史标注继续可读。`live/python/enhance.py` 集中图像增强与边缘提取，`center_fit.py` 集中候选类型与中心拟合；这些算法和孔位/PnP 模块仍由当前视觉流程复用。
+Kinect 采集程序、旧磁盘流水线和一次性图库迁移脚本已移除。`config/camera_intrinsics.json` 仍供历史图片分析使用；`config/legacy_photo_index.json` 保留旧图片路径到统一图库的映射，历史标注继续可读。`vision/algorithms/enhance.py` 集中图像增强与边缘提取，`center_fit.py` 集中候选类型与中心拟合；这些算法和孔位/PnP 模块仍由当前视觉流程复用。

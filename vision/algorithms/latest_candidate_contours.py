@@ -5,8 +5,8 @@ import math
 import cv2
 import numpy as np
 
-from center_fit import CandidateContour, fit_ellipse_on_kept_candidates
-from layout_prior import apply_standard_layout_prior
+from vision.algorithms.center_fit import CandidateContour, fit_ellipse_on_kept_candidates
+from vision.algorithms.layout_prior import apply_standard_layout_prior
 
 
 MIN_CONTOUR_AREA = 60

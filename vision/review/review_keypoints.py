@@ -14,12 +14,12 @@ import webbrowser
 import cv2
 import numpy as np
 
-from live.python.keypoint_annotations import LABELS, validate_annotations
+from vision.review.keypoint_annotations import LABELS, validate_annotations
 from ..contracts import atomic_capture_json
 from ..library.training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = ROOT / "live/python/keypoint_review.html"
+TEMPLATE = ROOT / "vision/review/keypoint_review.html"
 EDITABLE = {"points", "review_status", "reviewer", "reviewed_at", "notes"}
 
 

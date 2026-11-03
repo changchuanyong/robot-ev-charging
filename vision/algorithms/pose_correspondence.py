@@ -8,10 +8,10 @@ import io
 import cv2
 import numpy as np
 
-from center_fit import export_fitted_centers, fit_ellipse_on_kept_candidates
-from layout_prior import (LAYOUT_TO_MODEL_LABEL, MAIN_PAIR_RELATIVE_SCORE_MIN,
+from vision.algorithms.center_fit import export_fitted_centers, fit_ellipse_on_kept_candidates
+from vision.algorithms.layout_prior import (LAYOUT_TO_MODEL_LABEL, MAIN_PAIR_RELATIVE_SCORE_MIN,
                           find_main_big_hole_pair_hypotheses, normalized_model_points)
-import pnp2
+from vision.algorithms import pnp2
 
 
 def _measurement_center(candidate):
@@ -295,7 +295,7 @@ def _select_observed(candidates, roi_shape, object_points, K, dist, offset_xy,
                      point_transform, max_mean_error_px, min_inlier_count,
                      min_correspondence_count, prior):
     """Fix observed identities before PnP; pose residuals cannot relabel holes."""
-    from observed_layout import select_observed_correspondences
+    from vision.algorithms.observed_layout import select_observed_correspondences
 
     selection = select_observed_correspondences(candidates, roi_shape, prior, offset_xy)
     diagnostics = dict(selection["diagnostics"])

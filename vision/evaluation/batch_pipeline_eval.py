@@ -6,7 +6,6 @@ import csv
 import hashlib
 import json
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -17,20 +16,16 @@ from ultralytics import YOLO
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-PY_DIR = Path(__file__).resolve().parent
-if str(PY_DIR) not in sys.path:
-    sys.path.insert(0, str(PY_DIR))
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+ALGORITHM_DIR = ROOT_DIR / "vision/algorithms"
 
 from vision.model_config import current_model_path
 
-import enhance  # noqa: E402
-import latest_candidate_contours as contours_step  # noqa: E402
-import pnp2  # noqa: E402
-from pose_correspondence import select_correspondences  # noqa: E402
-import roi as roi_step  # noqa: E402
-from observed_layout import DEFAULT_PRIOR_PATH, load_prior  # noqa: E402
+from vision.algorithms import enhance  # noqa: E402
+from vision.algorithms import latest_candidate_contours as contours_step  # noqa: E402
+from vision.algorithms import pnp2  # noqa: E402
+from vision.algorithms.pose_correspondence import select_correspondences  # noqa: E402
+from vision.algorithms import roi as roi_step  # noqa: E402
+from vision.algorithms.observed_layout import DEFAULT_PRIOR_PATH, load_prior  # noqa: E402
 
 
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "artifacts" / "batch_eval"
@@ -505,12 +500,12 @@ def main() -> int:
         "thresholds_px": {"legacy_warn_mean": PNP_WARN_REPROJ_PX, "quality_fail_mean": PNP_FAIL_REPROJ_PX,
                            "inlier": pnp2.RANSAC_REPROJ_ERROR_PX},
         "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
-                          [Path(__file__), PY_DIR / "pnp2.py", PY_DIR / "layout_prior.py",
-                           PY_DIR / "pose_correspondence.py", PY_DIR / "latest_candidate_contours.py",
-                           PY_DIR / "center_fit.py", PY_DIR / "enhance.py"]},
+                          [Path(__file__), ALGORITHM_DIR / "pnp2.py", ALGORITHM_DIR / "layout_prior.py",
+                           ALGORITHM_DIR / "pose_correspondence.py", ALGORITHM_DIR / "latest_candidate_contours.py",
+                           ALGORITHM_DIR / "center_fit.py", ALGORITHM_DIR / "enhance.py"]},
     }
     if observed_prior is not None:
-        provenance["source_sha256"]["observed_layout.py"] = hashlib.sha256((PY_DIR / "observed_layout.py").read_bytes()).hexdigest()
+        provenance["source_sha256"]["observed_layout.py"] = hashlib.sha256((ALGORITHM_DIR / "observed_layout.py").read_bytes()).hexdigest()
     report = {"summary": summary, "by_split": {split: summarize([r for r in rows if r.get("split") == split])
               for split in sorted({r.get("split", "unknown") for r in rows})}, "provenance": provenance, "rows": rows}
     write_csv(run_dir / "summary.csv", rows)

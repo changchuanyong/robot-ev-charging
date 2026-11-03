@@ -9,8 +9,9 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "live/python"))
-from observed_layout import DEFAULT_PRIOR_PATH, fit_observed_layout
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from vision.algorithms.observed_layout import DEFAULT_PRIOR_PATH, fit_observed_layout
 
 
 def main():

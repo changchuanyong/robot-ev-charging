@@ -16,7 +16,7 @@ from ..contracts import atomic_capture_json
 from ..library.training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries, set_annotation
 
 
-TEMPLATE = Path(__file__).resolve().parents[2] / "train/python/port_box_review.html"
+TEMPLATE = Path(__file__).resolve().parents[2] / "vision/review/port_box_review.html"
 MAX_BODY = 128 * 1024
 
 

@@ -36,7 +36,7 @@ def finite_json(value):
 def source_digest():
     root = Path(__file__).resolve().parents[1]
     digest = hashlib.sha256()
-    for directory in ("control", "vision", "live/python", "train/python"):
+    for directory in ("control", "vision", "train/python"):
         for path in sorted((root / directory).rglob("*.py")):
             digest.update(path.relative_to(root).as_posix().encode())
             digest.update(path.read_bytes())

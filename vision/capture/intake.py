@@ -63,7 +63,7 @@ def _register_saved(session_path, saved, library_root):
     manifest, saved, preview = _saved_sample(session, saved)
     if manifest.get("metadata", {}).get("training_library_enabled") is False:
         raise ValueError("session_opted_out_of_training_library")
-    from train.python.dataset_split import check_capture_split, ensure_capture_split, read_split, group_for, DEFAULT_SPLIT
+    from vision.library.dataset_split import check_capture_split, ensure_capture_split, read_split, group_for, DEFAULT_SPLIT
     check_capture_split(library_root, manifest["batch_id"], manifest["split"], manifest.get("metadata", {}))
     existing = Path(library_root) / "records" / f"{saved['image_sha256']}.json"
     if existing.exists() and manifest["split"] in {"train", "val"}:
@@ -293,7 +293,7 @@ class CaptureIntake:
         result = retry_session(self.session.path, self.library, attempts=attempts,
                                attempt_budget=self._attempt_budget)
         manifest = _json(self.session.path / "manifest.json")
-        from train.python.dataset_split import read_split, group_for, DEFAULT_SPLIT
+        from vision.library.dataset_split import read_split, group_for, DEFAULT_SPLIT
         split = read_split(DEFAULT_SPLIT)
         annotations = groups = 0
         for frame in manifest["frames"]:
@@ -312,7 +312,7 @@ class CaptureIntake:
             self._refresh(attempts=2)
             manifest = _json(self.session.path / "manifest.json")
             if self.poll()["imported"]:
-                from train.python.prepare_port_library import write_review
+                from vision.library.prepare_port_library import write_review
                 path = self.session.path / "review.html"
                 write_review(self.library, path, weights=None, session_id=manifest["session_id"])
                 self._update(review_file=str(path))

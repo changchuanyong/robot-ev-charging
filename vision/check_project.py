@@ -85,7 +85,7 @@ def check_library(library):
                 warnings.append(issue)
             else:
                 errors.append(issue)
-    from train.python.dataset_split import read_split, group_for
+    from vision.library.dataset_split import read_split, group_for
     split = read_split(ROOT / "config/port_dataset_split.json")
     pending_groups = sorted({group_for(entry, split) for entry in entries
                              if entry["status"] != "excluded"

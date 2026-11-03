@@ -9,9 +9,9 @@ from pathlib import Path
 
 import numpy as np
 
-from center_fit import fit_ellipse_on_kept_candidates
-from keypoint_annotations import LABELS, validate_annotations
-from layout_prior import LAYOUT_TO_MODEL_LABEL
+from vision.algorithms.center_fit import fit_ellipse_on_kept_candidates
+from vision.review.keypoint_annotations import LABELS, validate_annotations
+from vision.algorithms.layout_prior import LAYOUT_TO_MODEL_LABEL
 
 
 DEFAULT_PRIOR_PATH = Path(__file__).resolve().parents[2] / "config" / "observed_layout_prior.json"
@@ -132,7 +132,7 @@ def _anchor_pairs(candidates, points, diameters, *, review_shape=None):
 def _assign(predicted, points, diameters, aperture_known, anchors, pe_index, scale, scores):
     # Shared Hungarian implementation is imported lazily to avoid an import cycle
     # when the main correspondence module calls this independent frontend.
-    from pose_correspondence import _minimum_assignment
+    from vision.algorithms.pose_correspondence import _minimum_assignment
     fixed = {4: anchors[0], 5: anchors[1], 7: pe_index}
     slots = [0, 1, 2, 3, 6, 8]
     available = [index for index in range(len(points)) if index not in fixed.values()]

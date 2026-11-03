@@ -7,7 +7,6 @@ import json
 import math
 import os
 from pathlib import Path
-import sys
 
 import cv2
 import numpy as np
@@ -16,11 +15,9 @@ from ..contracts import distort_normalized, intrinsics_signature, rectify_points
 from ..pipeline import PosePipeline, ROOT, select_detection
 from ..model_config import resolve_model_config
 
-if str(ROOT / "live/python") not in sys.path:
-    sys.path.insert(0, str(ROOT / "live/python"))
-from keypoint_annotations import LABELS, sha256_file, validate_annotations, visible_points
-from prepare_keypoint_review import build_capture_annotations, repo_path, require_same_manifest
-import pnp2
+from vision.review.keypoint_annotations import LABELS, sha256_file, validate_annotations, visible_points
+from vision.review.prepare_keypoint_review import build_capture_annotations, repo_path, require_same_manifest
+from vision.algorithms import pnp2
 
 
 def distance_summary(values) -> dict:
@@ -377,9 +374,9 @@ def main(argv=None):
     result["provenance"]["pipeline_config"] = config
     result["provenance"]["source_sha256"] = {
         name: sha256_file(ROOT / name) for name in (
-            "vision/pipeline.py", "vision/model_config.py", "vision/contracts.py", "live/python/pose_correspondence.py",
-            "live/python/observed_layout.py", "live/python/latest_candidate_contours.py",
-            "live/python/center_fit.py", "live/python/enhance.py")}
+            "vision/pipeline.py", "vision/model_config.py", "vision/contracts.py", "vision/algorithms/pose_correspondence.py",
+            "vision/algorithms/observed_layout.py", "vision/algorithms/latest_candidate_contours.py",
+            "vision/algorithms/center_fit.py", "vision/algorithms/enhance.py")}
     result["provenance"]["frontend_assets"] = {}
     if not args.manual_only:
         for key in ("weights", "observed_layout_prior"):

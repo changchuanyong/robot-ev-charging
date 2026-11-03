@@ -231,13 +231,12 @@ class PreviewSession:
         assets = {key: _asset(pipeline.get(key)) for key in
                   ("weights", "observed_layout_prior", "model_points", "geometry_reference")}
         code = {name: _asset(name) for name in
-                ("vision/preview.py", "vision/preview_render.py", "vision/rgb_controls.py",
-                 "vision/collect.py", "vision/launch.py",
-                 "vision/diagnose.py", "vision/model_config.py", "vision/capture_session.py", "vision/contracts.py",
-                 "live/python/pose_correspondence.py", "live/python/pnp2.py")}
+                ("vision/capture/preview.py", "vision/capture/collect.py", "vision/launch.py",
+                 "vision/locate/diagnose.py", "vision/model_config.py", "vision/capture/capture_session.py", "vision/contracts.py",
+                 "vision/algorithms/pose_correspondence.py", "vision/algorithms/pnp2.py")}
         if self._depth_calibration is not None:
             code.update({name: _asset(name) for name in
-                         ("vision/depth_diagnostic.py",)})
+                         ("vision/calibration/depth_diagnostic.py",)})
         self._capture = CaptureSession(output_root, camera, batch_id, split,
                                        "Live diagnostic samples; automatic points are not human labels.",
                                        metadata=metadata)

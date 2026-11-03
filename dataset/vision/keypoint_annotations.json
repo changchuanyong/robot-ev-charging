@@ -539,22 +539,34 @@
       "auto_points": {},
       "points": {
         "S_neg": {
-          "xy": null,
-          "visibility": "unlabeled",
-          "source": "unlabeled",
-          "note": ""
+          "xy": [
+            802.2438507080078,
+            430.35508728027344
+          ],
+          "visibility": "visible",
+          "source": "ai_visual",
+          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
+          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
         },
         "CC2": {
-          "xy": null,
-          "visibility": "unlabeled",
-          "source": "unlabeled",
-          "note": ""
+          "xy": [
+            847.853759765625,
+            412.75355529785156
+          ],
+          "visibility": "visible",
+          "source": "ai_visual",
+          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
+          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
         },
         "S_pos": {
-          "xy": null,
-          "visibility": "unlabeled",
-          "source": "unlabeled",
-          "note": ""
+          "xy": [
+            891.2649536132812,
+            450.2937774658203
+          ],
+          "visibility": "visible",
+          "source": "ai_visual",
+          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
+          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
         },
         "CC1": {
           "xy": [
@@ -956,8 +968,8 @@
         },
         "DC_neg": {
           "xy": [
-            767.8670043945312,
-            424.1934509277344
+            953.4134521484375,
+            472.1358642578125
           ],
           "visibility": "visible",
           "source": "ai_visual",
@@ -966,8 +978,8 @@
         },
         "DC_pos": {
           "xy": [
-            953.4134521484375,
-            472.1358642578125
+            767.8670043945312,
+            424.1934509277344
           ],
           "visibility": "visible",
           "source": "ai_visual",
@@ -982,8 +994,8 @@
         },
         "PE": {
           "xy": [
-            839.8475341796875,
-            498.07940673828125
+            885.5692138671875,
+            339.4814453125
           ],
           "visibility": "visible",
           "source": "ai_visual",
@@ -1231,14 +1243,10 @@
           "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
         },
         "S_pos": {
-          "xy": [
-            797.9056396484375,
-            506.5830383300781
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "CC1": {
           "xy": null,
@@ -1283,14 +1291,10 @@
           "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
         },
         "A_pos": {
-          "xy": [
-            836.430908203125,
-            294.94606018066406
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         }
       }
     },
@@ -1405,54 +1409,34 @@
           "note": ""
         },
         "CC2": {
-          "xy": [
-            834.418212890625,
-            650.5265197753906
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "S_pos": {
-          "xy": [
-            763.1979370117188,
-            635.3875732421875
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "CC1": {
-          "xy": [
-            827.2940063476562,
-            584.091064453125
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "DC_neg": {
-          "xy": [
-            932.1766357421875,
-            549.348388671875
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "DC_pos": {
-          "xy": [
-            762.988037109375,
-            521.34130859375
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_neg": {
           "xy": null,
@@ -1461,14 +1445,10 @@
           "note": ""
         },
         "PE": {
-          "xy": [
-            856.6397399902344,
-            436.0530242919922
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_pos": {
           "xy": null,
@@ -4314,24 +4294,16 @@
           "note": ""
         },
         "DC_neg": {
-          "xy": [
-            927.4320373535156,
-            479.4031524658203
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "DC_pos": {
-          "xy": [
-            887.6326904296875,
-            449.92430114746094
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_neg": {
           "xy": null,
@@ -4340,14 +4312,10 @@
           "note": ""
         },
         "PE": {
-          "xy": [
-            922.9066467285156,
-            447.4727249145508
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_pos": {
           "xy": null,
@@ -4398,24 +4366,16 @@
           "note": ""
         },
         "DC_neg": {
-          "xy": [
-            760.7364807128906,
-            550.4610748291016
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "DC_pos": {
-          "xy": [
-            815.51708984375,
-            497.69610595703125
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_neg": {
           "xy": null,
@@ -4424,14 +4384,10 @@
           "note": ""
         },
         "PE": {
-          "xy": [
-            814.14013671875,
-            550.4548950195312
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_pos": {
           "xy": null,
@@ -4482,24 +4438,16 @@
           "note": ""
         },
         "DC_neg": {
-          "xy": [
-            781.4979858398438,
-            548.9219360351562
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "DC_pos": {
-          "xy": [
-            700.0326538085938,
-            498.0727081298828
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_neg": {
           "xy": null,
@@ -4508,14 +4456,10 @@
           "note": ""
         },
         "PE": {
-          "xy": [
-            733.9792022705078,
-            492.4503631591797
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_pos": {
           "xy": null,
@@ -4566,24 +4510,16 @@
           "note": ""
         },
         "DC_neg": {
-          "xy": [
-            946.5676879882812,
-            589.4769287109375
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "DC_pos": {
-          "xy": [
-            878.2877349853516,
-            485.9801788330078
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_neg": {
           "xy": null,
@@ -4592,14 +4528,10 @@
           "note": ""
         },
         "PE": {
-          "xy": [
-            926.910888671875,
-            478.7765350341797
-          ],
-          "visibility": "visible",
-          "source": "ai_visual",
-          "note": "自动候选，孔名与内孔中心待人工复核；权重：C:\\Users\\admin\\Desktop\\doc\\毕业设计\\robot-ev-charging\\runs\\detect_split_20261102T013835Z_535a9a87\\weights\\best.pt；SHA256：614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-          "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332"
+          "xy": null,
+          "visibility": "unlabeled",
+          "source": "unlabeled",
+          "note": ""
         },
         "A_pos": {
           "xy": null,

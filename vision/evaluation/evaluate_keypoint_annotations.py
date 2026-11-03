@@ -12,13 +12,11 @@ import sys
 import cv2
 import numpy as np
 
-from keypoint_annotations import LABELS, normalized_image_key, sha256_file, validate_annotations, visible_points
-import pnp2
+from vision.review.keypoint_annotations import LABELS, normalized_image_key, sha256_file, validate_annotations, visible_points
+from vision.algorithms import pnp2
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
 from vision.library.photo_sources import resolve_photo
 
 
@@ -188,7 +186,7 @@ def validate_output_path(output_path: Path, annotations_path: Path, batch_report
     """A diagnostic report must never replace a bound input or its evaluator."""
     provenance = annotations["provenance"]
     protected = [annotations_path, batch_report_path, Path(pnp2.__file__), Path(__file__),
-                 Path(__file__).with_name("keypoint_annotations.py"),
+                 (ROOT_DIR / "vision/review/keypoint_annotations.py"),
                  _repo_path(root, provenance["camera_config_path"]),
                  _repo_path(root, provenance["model_points_path"])]
     protected.extend(_repo_path(root, entry["image"]) for entry in annotations["images"])
@@ -217,7 +215,7 @@ def annotations_main(argv=None):
     result["provenance"] = {**provenance, "annotations_sha256": sha256_file(args.annotations),
                             "inputs_verified": True, "camera_is_placeholder": placeholder,
                             "evaluator_sha256": sha256_file(Path(__file__)),
-                            "schema_validator_sha256": sha256_file(Path(__file__).with_name("keypoint_annotations.py"))}
+                            "schema_validator_sha256": sha256_file((ROOT_DIR / "vision/review/keypoint_annotations.py"))}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
     print(json.dumps({"selected_images": result["selected_images"], "pending_human_review": len(result["pending_human_review"]),

@@ -30,7 +30,7 @@ CACHE_DIRS = configure_caches(ROOT_DIR)
 from vision.contracts import atomic_persist_json
 from vision.model_config import publish_current_model
 from vision.library.training_library import _lock, normalize_label, read_entries, validate_library
-from train.python.dataset_split import auto_assign_groups, read_split, split_entries
+from vision.library.dataset_split import auto_assign_groups, read_split, split_entries
 
 GENERIC_PRETRAINED_SHA256 = "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36"
 
@@ -115,7 +115,7 @@ def prepare_training(*, root=ROOT_DIR, library=None, weights=None, project=None,
         raise ValueError("run_name_must_be_a_single_directory_name")
     synchronization = None
     if synchronize:
-        from train.python.prepare_port_library import sync_library
+        from vision.library.prepare_port_library import sync_library
         synchronization = sync_library(root=root, library=library)
     ready = validate_library(library)
     split_policy, assignments = auto_assign_groups(ready, split_path)
@@ -170,8 +170,8 @@ def prepare_training(*, root=ROOT_DIR, library=None, weights=None, project=None,
                     "frozen_initial_weights": "initial.pt", "independent_validation": False,
                     "coverage_unit": "primary_training_image", "dataset_yaml_sha256": _sha(run / "dataset.yaml"),
                     "code_sha256": {name: _sha(ROOT_DIR / name) for name in
-                                    ("train/python/train_port.py", "vision/training_library.py",
-                                     "train/python/prepare_port_library.py", "train/python/dataset_split.py",
+                                    ("train/python/train_port.py", "vision/library/training_library.py",
+                                     "vision/library/prepare_port_library.py", "vision/library/dataset_split.py",
                                      "vision/model_config.py")},
                     "evaluation": "held_out_development", "synchronization": synchronization,
                     "excluded": [{"image_sha256": entry["image_sha256"], "reason": entry["exclusion_reason"]}

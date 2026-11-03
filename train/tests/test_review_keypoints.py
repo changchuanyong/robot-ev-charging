@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import cv2
 import numpy as np
 
-from live.python.keypoint_annotations import validate_annotations
+from vision.review.keypoint_annotations import validate_annotations
 from vision.review.review_keypoints import KeypointStore, ROOT, _version, create_server
 from vision.review.keypoint_suggestions import valid_points
 

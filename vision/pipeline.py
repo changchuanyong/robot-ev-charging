@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import contextlib
 import csv
-import importlib
 import os
 from pathlib import Path
-import sys
 import time
 
 import numpy as np
@@ -89,13 +87,10 @@ class PosePipeline:
     def _load(self):
         if self._modules is not None:
             return
-        # The old scripts use sibling imports. These functions do not execute
-        # their main() blocks and do not read intermediate image files.
-        script_path = str(ROOT / "live" / "python")
-        if script_path not in sys.path:
-            sys.path.insert(0, script_path)
-        names = ("enhance", "latest_candidate_contours", "center_fit", "pnp2", "pose_correspondence")
-        modules = {name: importlib.import_module(name) for name in names}
+        from .algorithms import center_fit, enhance, latest_candidate_contours, pnp2, pose_correspondence
+
+        modules = {"enhance": enhance, "latest_candidate_contours": latest_candidate_contours,
+                   "center_fit": center_fit, "pnp2": pnp2, "pose_correspondence": pose_correspondence}
         detector = self._detector
         if detector is None:
             from ultralytics import YOLO
@@ -129,7 +124,8 @@ class PosePipeline:
             prior_path = Path(self.config["observed_layout_prior"])
             if not prior_path.is_absolute():
                 prior_path = ROOT / prior_path
-            self.observed_prior = importlib.import_module("observed_layout").load_prior(prior_path)
+            from .algorithms.observed_layout import load_prior
+            self.observed_prior = load_prior(prior_path)
         self._modules, self._detector = modules, detector
 
     def _extract_points(self, image: np.ndarray, *, projection: tuple) -> tuple[dict, dict]:
