@@ -2,16 +2,16 @@
 
 Current measured risk admits a trial. It does not predict post-action loading.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections import deque
 from copy import deepcopy
+from dataclasses import dataclass
 
 import numpy as np
 
 from ev_charging.control.geometry import exp_so3
-
 
 ACTIONS = ("+x", "-x", "+y", "-y", "+Rx", "-Rx", "+Ry", "-Ry", "Hold")
 CORRECTION_AXES = (0, 1, 3, 4)
@@ -52,10 +52,17 @@ class SynergyFilter:
         for pin in config.get("pins", []):
             point = np.asarray(pin["point_m"], dtype=float)
             clearance, engagement = float(pin["clearance_m"]), float(pin["engagement_m"])
-            if (point.shape != (3,) or not np.all(np.isfinite(point))
-                    or not np.isfinite(clearance) or clearance <= 0
-                    or not np.isfinite(engagement) or engagement < 0):
-                raise ValueError("pin geometry needs finite point, positive clearance and nonnegative engagement")
+            if (
+                point.shape != (3,)
+                or not np.all(np.isfinite(point))
+                or not np.isfinite(clearance)
+                or clearance <= 0
+                or not np.isfinite(engagement)
+                or engagement < 0
+            ):
+                raise ValueError(
+                    "pin geometry needs finite point, positive clearance and nonnegative engagement"
+                )
             self.pins.append((point.copy(), clearance, engagement))
         if np.any(self.action_step[[2, 5]] != 0):
             raise ValueError("finite corrections require zero z/Rz steps")
@@ -100,8 +107,7 @@ class SynergyFilter:
                 return "visual_correction_budget"
         return ""
 
-    def allowed(self, pose_offset6, vision_budget4, risk6, wrench6,
-                phase: str = "INSERT") -> SynergyResult:
+    def allowed(self, pose_offset6, vision_budget4, risk6, wrench6, phase: str = "INSERT") -> SynergyResult:
         try:
             offset = self._six(pose_offset6, "pose_offset")
             wrench = self._six(wrench6, "wrench")
@@ -120,8 +126,11 @@ class SynergyFilter:
                 risk = self._six(risk6, "risk")
             except (TypeError, ValueError):
                 return self._unavailable("invalid_risk")
-            if (not current.valid or not self.risk_model.calibrated or
-                    not np.allclose(current.values, risk, atol=1e-7, rtol=0)):
+            if (
+                not current.valid
+                or not self.risk_model.calibrated
+                or not np.allclose(current.values, risk, atol=1e-7, rtol=0)
+            ):
                 return self._unavailable("risk_input_inconsistent")
             if np.max(risk) > self.max_risk:
                 return SynergyResult(("Hold",), dict.fromkeys(ACTIONS[:-1], "current_risk_admission"), True)
@@ -142,8 +151,15 @@ class FiniteTrial:
         self.config = deepcopy(config)
         if config.get("version") != "finite-trial-v2":
             raise ValueError("finite trial version must equal finite-trial-v2")
-        for key in ("baseline_s", "trial_timeout_s", "observation_s", "confirmation_s",
-                    "min_advance_m", "load_drop", "max_wait_s"):
+        for key in (
+            "baseline_s",
+            "trial_timeout_s",
+            "observation_s",
+            "confirmation_s",
+            "min_advance_m",
+            "load_drop",
+            "max_wait_s",
+        ):
             value = config[key]
             if isinstance(value, bool) or not np.isfinite(value) or value <= 0:
                 raise ValueError(f"finite_trial.{key} must be positive")
@@ -181,8 +197,7 @@ class FiniteTrial:
             self.samples.popleft()
 
     def ready(self, now):
-        return (len(self.samples) >= 2 and
-                now - self.samples[0][0] + 1e-12 >= self.config["baseline_s"])
+        return len(self.samples) >= 2 and now - self.samples[0][0] + 1e-12 >= self.config["baseline_s"]
 
     def start(self, action, now, start_pose, start_bias, step, rate, depth):
         if self.active:
@@ -207,15 +222,27 @@ class FiniteTrial:
         self.observations = []
         self.phase = "TRIAL"
         self.record = {
-            "version": "finite-trial-v2", "trial_id": str(self.count), "phase": self.phase,
-            "action": action, "outcome": None, "started_at": now,
-            "start_pose": self.start_pose.tolist(), "start_bias": self.start_bias.tolist(),
-            "total_increment": delta.tolist(), "trial_deadline": now + self.config["trial_timeout_s"],
-            "observation_deadline": None, "confirmation_deadline": None,
+            "version": "finite-trial-v2",
+            "trial_id": str(self.count),
+            "phase": self.phase,
+            "action": action,
+            "outcome": None,
+            "started_at": now,
+            "start_pose": self.start_pose.tolist(),
+            "start_bias": self.start_bias.tolist(),
+            "total_increment": delta.tolist(),
+            "trial_deadline": now + self.config["trial_timeout_s"],
+            "observation_deadline": None,
+            "confirmation_deadline": None,
             "baseline_load": float(np.median([v for _, v in self.samples])),
-            "baseline_started_at": self.samples[0][0], "baseline_ended_at": self.samples[-1][0],
-            "observation_load": None, "trial_peak": [0.] * 6, "release_clue": False,
-            "measured_advance_m": 0., "loads_allowed": True, "start_depth_m": depth,
+            "baseline_started_at": self.samples[0][0],
+            "baseline_ended_at": self.samples[-1][0],
+            "observation_load": None,
+            "trial_peak": [0.0] * 6,
+            "release_clue": False,
+            "measured_advance_m": 0.0,
+            "loads_allowed": True,
+            "start_depth_m": depth,
         }
 
     def finish(self, outcome, now, reason=""):
@@ -240,8 +267,9 @@ class FiniteTrial:
             if now > r["trial_deadline"] + 1e-12:
                 self.finish("unconfirmed", now, "finite_trial_timeout")
                 return "finite_trial_timeout"
-            reached = (np.all(np.abs(self.increment - self.delta) <= 1e-12) and
-                       np.all(np.abs(actual_increment - self.delta) <= self.config["endpoint_tolerance"]))
+            reached = np.all(np.abs(self.increment - self.delta) <= 1e-12) and np.all(
+                np.abs(actual_increment - self.delta) <= self.config["endpoint_tolerance"]
+            )
             if reached:
                 self.phase = "OBSERVE"
                 r["observation_started_at"] = now
@@ -252,7 +280,7 @@ class FiniteTrial:
                 return "finite_trial_timeout"
             else:
                 remaining = self.delta - self.increment
-                effective_dt = min(dt, max(0., r["trial_deadline"] - now))
+                effective_dt = min(dt, max(0.0, r["trial_deadline"] - now))
                 amount = np.minimum(np.abs(remaining), self.rate * effective_dt)
                 self.increment += np.sign(remaining) * amount
         elif self.phase == "OBSERVE":
@@ -284,5 +312,9 @@ class FiniteTrial:
             result = deepcopy(self.record)
             result["commanded_increment"] = self.increment.tolist()
             return result
-        return {"version": "finite-trial-v2", "phase": self.phase,
-                "trials_completed": self.count, "cumulative_increment": self.cumulative.tolist()}
+        return {
+            "version": "finite-trial-v2",
+            "phase": self.phase,
+            "trials_completed": self.count,
+            "cumulative_increment": self.cumulative.tolist(),
+        }

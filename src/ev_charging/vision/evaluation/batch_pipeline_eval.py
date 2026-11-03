@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from ev_charging.paths import PACKAGE_ROOT, PROJECT_ROOT
-
 import argparse
 import contextlib
 import csv
-import hashlib
-import json
 import os
 import time
 from pathlib import Path
@@ -16,18 +12,17 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from ev_charging.file_io import atomic_json, sha256_file
+from ev_charging.paths import PACKAGE_ROOT, PROJECT_ROOT
+from ev_charging.vision.algorithms import enhance, pnp2
+from ev_charging.vision.algorithms import latest_candidate_contours as contours_step
+from ev_charging.vision.algorithms import roi as roi_step
+from ev_charging.vision.algorithms.observed_layout import DEFAULT_PRIOR_PATH, load_prior
+from ev_charging.vision.algorithms.pose_correspondence import select_correspondences
+from ev_charging.vision.model_config import current_model_path
 
 ROOT_DIR = PROJECT_ROOT
 ALGORITHM_DIR = PACKAGE_ROOT / "vision/algorithms"
-
-from ev_charging.vision.model_config import current_model_path
-
-from ev_charging.vision.algorithms import enhance  # noqa: E402
-from ev_charging.vision.algorithms import latest_candidate_contours as contours_step  # noqa: E402
-from ev_charging.vision.algorithms import pnp2  # noqa: E402
-from ev_charging.vision.algorithms.pose_correspondence import select_correspondences  # noqa: E402
-from ev_charging.vision.algorithms import roi as roi_step  # noqa: E402
-from ev_charging.vision.algorithms.observed_layout import DEFAULT_PRIOR_PATH, load_prior  # noqa: E402
 
 
 DEFAULT_OUTPUT_DIR = ROOT_DIR / "artifacts" / "batch_eval"
@@ -71,16 +66,6 @@ def list_images(image_dirs: list[Path], max_images: int) -> list[Path]:
                 if len(images) >= max_images:
                     return images
     return images
-
-
-def atomic_write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.stem + "_tmp" + path.suffix)
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, allow_nan=False)
-    if path.exists():
-        path.unlink()
-    tmp.replace(path)
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -172,7 +157,11 @@ def evaluate_one_image(
     # OpenCV's Windows filename API cannot read this workspace's Chinese path.
     try:
         image_bytes = image_path.read_bytes()
-        frame = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR) if image_bytes else None
+        frame = (
+            cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if image_bytes
+            else None
+        )
     except (OSError, cv2.error):
         frame = None
     if frame is None or frame.size == 0:
@@ -184,12 +173,14 @@ def evaluate_one_image(
         }
 
     result: dict[str, Any] = {
-        "image": str(image_path.relative_to(ROOT_DIR)) if image_path.is_relative_to(ROOT_DIR) else str(image_path),
+        "image": str(image_path.relative_to(ROOT_DIR))
+        if image_path.is_relative_to(ROOT_DIR)
+        else str(image_path),
         "status": "ok",
         "roi_ok": False,
         "pnp_ok": False,
         "split": image_path.parent.name if image_path.parent.name in {"train", "val", "test"} else "unknown",
-        "image_sha256": hashlib.sha256(image_path.read_bytes()).hexdigest(),
+        "image_sha256": sha256_file(image_path),
     }
 
     roi_img, det_bbox, crop_bbox, score, _pad = roi_step.extract_best_roi(
@@ -219,7 +210,9 @@ def evaluate_one_image(
     enhanced_gray = enhanced_results["final"]
     enhanced_bgr = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
 
-    _gray, _enhanced, _smooth, _grad_mag, edges, low, high, morph_thresh = enhance.adaptive_canny_pipeline(enhanced_bgr)
+    _gray, _enhanced, _smooth, _grad_mag, edges, low, high, morph_thresh = enhance.adaptive_canny_pipeline(
+        enhanced_bgr
+    )
     edge_density = float(np.count_nonzero(edges > 0) / edges.size)
     result.update(
         {
@@ -255,27 +248,35 @@ def evaluate_one_image(
     finally:
         contours_step.PRINT_REJECT_LOG = old_reject_log
 
-    selection = select_correspondences(raw_candidates, enhanced_bgr.shape, object_points,
-                                       camera_matrix, dist_coeffs, (crop_x1, crop_y1),
-                                       observed_prior=observed_prior)
+    selection = select_correspondences(
+        raw_candidates,
+        enhanced_bgr.shape,
+        object_points,
+        camera_matrix,
+        dist_coeffs,
+        (crop_x1, crop_y1),
+        observed_prior=observed_prior,
+    )
     scored_variants = [selection["best"]] if selection["best"] is not None else []
     result["contour_diagnostics"] = contour_diagnostics
     result["correspondence_diagnostics"] = selection["diagnostics"]
     result["pose_hypotheses"] = selection["hypotheses"]
     result["raw_candidate_count"] = len(raw_candidates)
-    result["raw_candidate_centers_full"] = [[float(c.center[0]+crop_x1), float(c.center[1]+crop_y1)]
-                                             for c in raw_candidates]
+    result["raw_candidate_centers_full"] = [
+        [float(c.center[0] + crop_x1), float(c.center[1] + crop_y1)] for c in raw_candidates
+    ]
 
     if scored_variants:
         best_variant = scored_variants[0]
-        fitted_candidates = best_variant["candidates"]
+        _fitted_candidates = best_variant["candidates"]
         centers = best_variant["centers"]
-        result["association_points_full"] = {name: list(point) for name, point in
-                                             best_variant["image_points"].items()}
+        result["association_points_full"] = {
+            name: list(point) for name, point in best_variant["image_points"].items()
+        }
         result["layout_variant"] = best_variant["variant_name"]
         result["layout_variant_count"] = len(selection["hypotheses"])
     else:
-        fitted_candidates = []
+        _fitted_candidates = []
         centers = []
         result["layout_variant"] = ""
         result["layout_variant_count"] = 0
@@ -306,15 +307,16 @@ def evaluate_one_image(
                 "pnp_inlier_count": int(pose["inlier_count"]),
                 "pnp_outlier_names": pose["outlier_names"],
                 "pnp_per_point_errors_px": {
-                    name: round(float(err), 6)
-                    for name, err in pose["per_point_errors_px"].items()
+                    name: round(float(err), 6) for name, err in pose["per_point_errors_px"].items()
                 },
             }
         )
-        result["image_points_full"] = {name: list(point) for name, point in
-                                        scored_variants[0]["image_points"].items()}
-        projected, _ = cv2.projectPoints(pose["object_points"], pose["rvec"], pose["tvec"],
-                                         camera_matrix, dist_coeffs)
+        result["image_points_full"] = {
+            name: list(point) for name, point in scored_variants[0]["image_points"].items()
+        }
+        projected, _ = cv2.projectPoints(
+            pose["object_points"], pose["rvec"], pose["tvec"], camera_matrix, dist_coeffs
+        )
         result["projected_points_full"] = dict(zip(pose["matched_names"], projected.reshape(-1, 2).tolist()))
     else:
         result["pnp_error"] = scored_variants[0]["pnp_error"] if scored_variants else "no_layout_variant"
@@ -360,14 +362,18 @@ def save_diagnostic_image(frame: np.ndarray, row: dict, path: Path) -> None:
     for name, point in row.get("image_points_full", {}).items():
         center = tuple(np.rint(point).astype(int))
         cv2.circle(canvas, center, 5, (0, 220, 0), 2)
-        cv2.putText(canvas, name, (center[0]+6, center[1]-6), cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 220, 0), 1)
+        cv2.putText(
+            canvas, name, (center[0] + 6, center[1] - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 220, 0), 1
+        )
         projected = row.get("projected_points_full", {}).get(name)
         if projected is not None:
             end = tuple(np.rint(projected).astype(int))
             cv2.line(canvas, center, end, (0, 0, 255), 2)
             cv2.drawMarker(canvas, end, (0, 0, 255), cv2.MARKER_CROSS, 10, 2)
-    label = f"{row['status']} | points={row.get('candidate_count', 0)} | mean={row.get('pnp_reproj_error_px')} px"
-    cv2.putText(canvas, label, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, .8, (255, 255, 255), 2)
+    label = (
+        f"{row['status']} | points={row.get('candidate_count', 0)} | mean={row.get('pnp_reproj_error_px')} px"
+    )
+    cv2.putText(canvas, label, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
     path.parent.mkdir(parents=True, exist_ok=True)
     ok, encoded = cv2.imencode(path.suffix, canvas)
     if not ok:
@@ -387,9 +393,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
             category_counts[category] = category_counts.get(category, 0) + 1
 
     reproj_values = [
-        float(row["pnp_reproj_error_px"])
-        for row in rows
-        if row.get("pnp_reproj_error_px") not in (None, "")
+        float(row["pnp_reproj_error_px"]) for row in rows if row.get("pnp_reproj_error_px") not in (None, "")
     ]
 
     return {
@@ -405,12 +409,19 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "solver_success_count": sum(bool(row.get("pnp_ok")) for row in rows),
         "pose_quality_ok_count": sum(bool(row.get("pose_quality_ok")) for row in rows),
         "full_nine_point_count": sum(row.get("candidate_count") == 9 for row in rows),
-        "mean_matched_point_count": round(float(np.mean([row.get("candidate_count", 0) for row in rows])), 6) if rows else None,
-        "legacy_status_counts": {status: sum(row.get("legacy_status", row.get("status")) == status for row in rows)
-                                 for status in ("ok", "warn", "fail")},
+        "mean_matched_point_count": round(float(np.mean([row.get("candidate_count", 0) for row in rows])), 6)
+        if rows
+        else None,
+        "legacy_status_counts": {
+            status: sum(row.get("legacy_status", row.get("status")) == status for row in rows)
+            for status in ("ok", "warn", "fail")
+        },
         "residual_population": "all returned poses, including rejected poses; all matched points",
-        "median_processing_ms": round(float(np.median([r["processing_ms"] for r in rows if "processing_ms" in r])), 3)
-        if any("processing_ms" in r for r in rows) else None,
+        "median_processing_ms": round(
+            float(np.median([r["processing_ms"] for r in rows if "processing_ms" in r])), 3
+        )
+        if any("processing_ms" in r for r in rows)
+        else None,
     }
 
 
@@ -423,15 +434,27 @@ def parse_args() -> argparse.Namespace:
         help="Image directory to evaluate recursively. Defaults to dataset/vision/images/historical for the fixed historical intrinsics.",
     )
     parser.add_argument("--max-images", type=int, default=50)
-    parser.add_argument("--model", type=Path, help="Explicit experiment weights; otherwise use config/vision_model.json")
+    parser.add_argument(
+        "--model", type=Path, help="Explicit experiment weights; otherwise use config/vision_model.json"
+    )
     layout = parser.add_mutually_exclusive_group()
-    layout.add_argument("--observed-layout-prior", type=Path, default=DEFAULT_PRIOR_PATH,
-                        help="Learned 2D correspondence prior; physical PnP geometry stays in the CSV")
-    layout.add_argument("--legacy-layout", action="store_true", help="Use the previous CAD-layout matcher for comparison")
+    layout.add_argument(
+        "--observed-layout-prior",
+        type=Path,
+        default=DEFAULT_PRIOR_PATH,
+        help="Learned 2D correspondence prior; physical PnP geometry stays in the CSV",
+    )
+    layout.add_argument(
+        "--legacy-layout", action="store_true", help="Use the previous CAD-layout matcher for comparison"
+    )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--verbose", action="store_true", help="Print contour/layout debug logs for every image.")
+    parser.add_argument(
+        "--verbose", action="store_true", help="Print contour/layout debug logs for every image."
+    )
     parser.add_argument("--strict-exit", action="store_true", help="Return non-zero when any image fails.")
-    parser.add_argument("--save-visualizations", action="store_true", help="Save observed/projected point overlays.")
+    parser.add_argument(
+        "--save-visualizations", action="store_true", help="Save observed/projected point overlays."
+    )
     return parser.parse_args()
 
 
@@ -490,29 +513,52 @@ def main() -> int:
     summary = summarize(rows)
     provenance = {
         "weights": str(args.model.resolve()),
-        "weights_sha256": hashlib.sha256(args.model.read_bytes()).hexdigest(),
-        "observed_layout_prior": str(args.observed_layout_prior.resolve()) if args.observed_layout_prior else None,
-        "observed_layout_prior_sha256": hashlib.sha256(args.observed_layout_prior.read_bytes()).hexdigest()
-        if args.observed_layout_prior else None,
-        "camera_config_sha256": hashlib.sha256(pnp2.CAMERA_CONFIG_PATH.read_bytes()).hexdigest(),
-        "model_points_sha256": hashlib.sha256(pnp2.MODEL_CSV_PATH.read_bytes()).hexdigest(),
+        "weights_sha256": sha256_file(args.model),
+        "observed_layout_prior": str(args.observed_layout_prior.resolve())
+        if args.observed_layout_prior
+        else None,
+        "observed_layout_prior_sha256": sha256_file(args.observed_layout_prior)
+        if args.observed_layout_prior
+        else None,
+        "camera_config_sha256": sha256_file(pnp2.CAMERA_CONFIG_PATH),
+        "model_points_sha256": sha256_file(pnp2.MODEL_CSV_PATH),
         "camera_is_placeholder": camera_is_placeholder,
         "independent_test_set": False,
         "evaluation_note": "Existing train/val development images; validation was used for model selection and inspected during development.",
-        "thresholds_px": {"legacy_warn_mean": PNP_WARN_REPROJ_PX, "quality_fail_mean": PNP_FAIL_REPROJ_PX,
-                           "inlier": pnp2.RANSAC_REPROJ_ERROR_PX},
-        "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
-                          [Path(__file__), ALGORITHM_DIR / "pnp2.py", ALGORITHM_DIR / "layout_prior.py",
-                           ALGORITHM_DIR / "pose_correspondence.py", ALGORITHM_DIR / "latest_candidate_contours.py",
-                           ALGORITHM_DIR / "center_fit.py", ALGORITHM_DIR / "enhance.py"]},
+        "thresholds_px": {
+            "legacy_warn_mean": PNP_WARN_REPROJ_PX,
+            "quality_fail_mean": PNP_FAIL_REPROJ_PX,
+            "inlier": pnp2.RANSAC_REPROJ_ERROR_PX,
+        },
+        "source_sha256": {
+            p.name: sha256_file(p)
+            for p in [
+                Path(__file__),
+                ALGORITHM_DIR / "pnp2.py",
+                ALGORITHM_DIR / "layout_prior.py",
+                ALGORITHM_DIR / "pose_correspondence.py",
+                ALGORITHM_DIR / "latest_candidate_contours.py",
+                ALGORITHM_DIR / "center_fit.py",
+                ALGORITHM_DIR / "enhance.py",
+            ]
+        },
     }
     if observed_prior is not None:
-        provenance["source_sha256"]["observed_layout.py"] = hashlib.sha256((ALGORITHM_DIR / "observed_layout.py").read_bytes()).hexdigest()
-    report = {"summary": summary, "by_split": {split: summarize([r for r in rows if r.get("split") == split])
-              for split in sorted({r.get("split", "unknown") for r in rows})}, "provenance": provenance, "rows": rows}
+        provenance["source_sha256"]["observed_layout.py"] = sha256_file(
+            (ALGORITHM_DIR / "observed_layout.py")
+        )
+    report = {
+        "summary": summary,
+        "by_split": {
+            split: summarize([r for r in rows if r.get("split") == split])
+            for split in sorted({r.get("split", "unknown") for r in rows})
+        },
+        "provenance": provenance,
+        "rows": rows,
+    }
     write_csv(run_dir / "summary.csv", rows)
-    atomic_write_json(run_dir / "details.json", report)
-    atomic_write_json(args.output_dir / "latest_details.json", report)
+    atomic_json(run_dir / "details.json", report)
+    atomic_json(args.output_dir / "latest_details.json", report)
 
     failed_rows = [row for row in rows if row.get("status") != "ok"]
     write_csv(run_dir / "failures.csv", failed_rows)

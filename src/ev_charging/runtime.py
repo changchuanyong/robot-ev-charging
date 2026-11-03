@@ -12,13 +12,14 @@ Redirecting both caches into ``.cache/`` also removes the network dependency:
 ``Arial.ttf`` is copied from the installed Windows fonts, so an offline machine
 trains without contacting ultralytics.com.
 """
+
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+from ev_charging.paths import PROJECT_ROOT
 
 CACHE_DIR = ".cache"
 FONT_SOURCES = {"Arial.ttf": ("arial.ttf", "Arial.ttf")}
@@ -32,8 +33,9 @@ def _seed_fonts(config_dir: Path) -> list[str]:
         target = config_dir / name
         if target.is_file():
             continue
-        source = next((fonts_dir / candidate for candidate in candidates
-                       if (fonts_dir / candidate).is_file()), None)
+        source = next(
+            (fonts_dir / candidate for candidate in candidates if (fonts_dir / candidate).is_file()), None
+        )
         if source is None:
             continue
         staged = config_dir / f".{name}.part"
@@ -56,7 +58,8 @@ def _require_writable(directory: Path) -> None:
     except OSError as exc:
         raise RuntimeError(
             f"缓存目录不可写: {directory}；训练进程只能写项目目录，请删除同名环境变量覆盖，"
-            f"或在项目目录内运行训练") from exc
+            f"或在项目目录内运行训练"
+        ) from exc
     probe.unlink(missing_ok=True)
 
 
@@ -134,6 +137,10 @@ def configure_caches(root: Path | None = None) -> dict[str, object]:
     # repository root.  Keep that scratch space inside the project instead.
     for name in ("TMPDIR", "TEMP", "TMP"):
         os.environ[name] = str(temporary)
-    return {"root": str(root), "ultralytics": str(ultralytics_dir),
-            "matplotlib": str(matplotlib_dir), "temporary": str(temporary),
-            "seeded_fonts": seeded}
+    return {
+        "root": str(root),
+        "ultralytics": str(ultralytics_dir),
+        "matplotlib": str(matplotlib_dir),
+        "temporary": str(temporary),
+        "seeded_fonts": seeded,
+    }

@@ -1,15 +1,16 @@
 """python -m ev_charging.vision.locate.run --config config/realsense_config.json [--image image.jpg --camera-config camera.json]."""
+
 from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import time
 import uuid
+from pathlib import Path
 
-from ev_charging.vision.contracts import FramePacket, empty_observation
 from ev_charging.file_io import atomic_json
-from ev_charging.vision.pipeline import PosePipeline, ROOT
+from ev_charging.vision.contracts import FramePacket, empty_observation
+from ev_charging.vision.pipeline import ROOT, PosePipeline
 
 
 def main(argv=None) -> int:
@@ -19,7 +20,9 @@ def main(argv=None) -> int:
     parser.add_argument("--camera-config", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--frames", type=int, default=0, help="0 means continuous camera processing")
-    parser.add_argument("--export-intrinsics", type=Path, help="Save actual color-stream intrinsics on camera startup")
+    parser.add_argument(
+        "--export-intrinsics", type=Path, help="Save actual color-stream intrinsics on camera startup"
+    )
     args = parser.parse_args(argv)
     if args.frames < 0:
         parser.error("--frames must be nonnegative")
@@ -34,6 +37,7 @@ def main(argv=None) -> int:
             if not args.camera_config:
                 raise ValueError("--image requires the image's --camera-config")
             import cv2
+
             image = cv2.imread(str(args.image))
             if image is None:
                 raise ValueError("offline_image_unreadable")
@@ -42,10 +46,20 @@ def main(argv=None) -> int:
             packet = FramePacket(image, "offline:" + uuid.uuid4().hex, now, now, "offline", False, camera)
             result = pipeline.process(packet)
             atomic_json(output, result)
-            print(json.dumps({"valid": result["valid"], "source": "offline", "reason": result["reason"],
-                              "output": str(output)}, ensure_ascii=False))
+            print(
+                json.dumps(
+                    {
+                        "valid": result["valid"],
+                        "source": "offline",
+                        "reason": result["reason"],
+                        "output": str(output),
+                    },
+                    ensure_ascii=False,
+                )
+            )
             return 0 if result["valid"] else 2
         from ev_charging.hardware.realsense import RealSenseCamera
+
         with RealSenseCamera(config) as camera:
             if args.export_intrinsics:
                 atomic_json(args.export_intrinsics, camera.camera)
@@ -54,8 +68,17 @@ def main(argv=None) -> int:
                 packet = camera.read()
                 result = pipeline.process(packet)
                 atomic_json(output, result)
-                print(json.dumps({"frame_id": result["frame_id"], "valid": result["valid"],
-                                  "reason": result["reason"]}, ensure_ascii=False), flush=True)
+                print(
+                    json.dumps(
+                        {
+                            "frame_id": result["frame_id"],
+                            "valid": result["valid"],
+                            "reason": result["reason"],
+                        },
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
                 count += 1
         atomic_json(output, empty_observation(None, target, "camera_stopped"))
         return 0

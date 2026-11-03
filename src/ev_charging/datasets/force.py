@@ -1,14 +1,15 @@
 """Reviewed trajectory datasets; labels require independent evidence and splits stay disjoint."""
+
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
 import numpy as np
 
 from ev_charging.control.synergy import ACTIONS
+from ev_charging.file_io import sha256_file
 
 FORCE_UNITS = ["N", "N", "N", "Nm", "Nm", "Nm"]
 PARTITION_IDENTITIES = ("printing_batch_id", "specimen_id", "session_id")
@@ -103,7 +104,7 @@ def make_windows(records, split, window_size, sample_period, max_gap, stride=1):
     for identifier, rows in trajectories.items():
         group = result[assignment[identifier]]
         for end in range(window_size, len(rows) + 1, stride):
-            window = rows[end - window_size:end]
+            window = rows[end - window_size : end]
             gaps = np.diff([r["timestamp"] for r in window])
             # Sampling frequency is part of the model contract, not just the window length.
             if np.any(gaps > max_gap) or np.any(np.abs(gaps - sample_period) > 0.25 * sample_period):
@@ -137,7 +138,11 @@ def classification_metrics(labels, probabilities, confidence=0.7):
     probabilities = np.asarray(probabilities, dtype=float)
     if probabilities.shape != (len(labels), len(ACTIONS)) or not len(labels):
         raise ValueError("invalid classification arrays")
-    if not np.isfinite(probabilities).all() or np.any(probabilities < 0) or not np.allclose(probabilities.sum(1), 1, atol=1e-5):
+    if (
+        not np.isfinite(probabilities).all()
+        or np.any(probabilities < 0)
+        or not np.allclose(probabilities.sum(1), 1, atol=1e-5)
+    ):
         raise ValueError("invalid class probabilities")
     if np.any((labels < 0) | (labels >= len(ACTIONS))) or not 0 <= confidence <= 1:
         raise ValueError("invalid labels or confidence")
@@ -152,16 +157,19 @@ def classification_metrics(labels, probabilities, confidence=0.7):
         f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
         per_class[name] = {"precision": precision, "recall": recall, "f1": f1, "support": int(true_count)}
     accepted = probabilities.max(axis=1) >= confidence
-    return {"count": len(labels), "accuracy": float(np.mean(predictions == labels)),
-            "macro_f1": float(np.mean([v["f1"] for v in per_class.values()])),
-            "per_class": per_class, "confusion_matrix": matrix.tolist(),
-            "classes": list(ACTIONS), "confidence": confidence,
-            "acceptance_rate": float(accepted.mean()),
-            "accepted_accuracy": float(np.mean(predictions[accepted] == labels[accepted])) if accepted.any() else None}
-
-
-def file_sha256(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    return {
+        "count": len(labels),
+        "accuracy": float(np.mean(predictions == labels)),
+        "macro_f1": float(np.mean([v["f1"] for v in per_class.values()])),
+        "per_class": per_class,
+        "confusion_matrix": matrix.tolist(),
+        "classes": list(ACTIONS),
+        "confidence": confidence,
+        "acceptance_rate": float(accepted.mean()),
+        "accepted_accuracy": float(np.mean(predictions[accepted] == labels[accepted]))
+        if accepted.any()
+        else None,
+    }
 
 
 def in_interval(elapsed, interval):
@@ -193,23 +201,41 @@ def review_manifest(paths, output_path):
         origin = float(cycles[0]["at"])
         baseline_s = float(manifest["config"]["finite_trial"]["baseline_s"])
         learning = manifest["config"].get("learning", {})
-        history_s = max(baseline_s, learning.get("window_size", 0) * learning.get("sample_period", 0.))
+        history_s = max(baseline_s, learning.get("window_size", 0) * learning.get("sample_period", 0.0))
         intervals = []
         for trial_id, trial in trial_results(cycles).items():
             end = float(trial["started_at"]) - origin
             if end <= 0:
                 continue
-            intervals.append({"start_s": max(0., end - history_s), "end_s": end,
-                              "label": "invalid", "basis": "pending independent review",
-                              "reviewed": False, "reviewer": None, "trial_id": trial_id,
-                              "suggested_action": trial.get("action"), "observed_outcome": trial.get("outcome")})
+            intervals.append(
+                {
+                    "start_s": max(0.0, end - history_s),
+                    "end_s": end,
+                    "label": "invalid",
+                    "basis": "pending independent review",
+                    "reviewed": False,
+                    "reviewer": None,
+                    "trial_id": trial_id,
+                    "suggested_action": trial.get("action"),
+                    "observed_outcome": trial.get("outcome"),
+                }
+            )
         experiment = manifest.get("experiment", {})
-        logs.append({"path": str(path), "sha256": file_sha256(path),
-                     "trajectory_id": manifest["task_id"], "batch_id": experiment.get("session_id"),
-                     **{field: experiment.get(field) for field in PARTITION_IDENTITIES},
-                     "intervals": intervals})
-    result = {"schema_version": 2, "logs": logs,
-              "note": "Review physical evidence before replacing invalid labels. Load decrease alone is insufficient. Intervals end before the tested action. Fault/ambiguous/invalid are excluded from training."}
+        logs.append(
+            {
+                "path": str(path),
+                "sha256": sha256_file(path),
+                "trajectory_id": manifest["task_id"],
+                "batch_id": experiment.get("session_id"),
+                **{field: experiment.get(field) for field in PARTITION_IDENTITIES},
+                "intervals": intervals,
+            }
+        )
+    result = {
+        "schema_version": 2,
+        "logs": logs,
+        "note": "Review physical evidence before replacing invalid labels. Load decrease alone is insufficient. Intervals end before the tested action. Fault/ambiguous/invalid are excluded from training.",
+    }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("x", encoding="utf-8") as stream:
         json.dump(result, stream, ensure_ascii=False, indent=2, allow_nan=False)
@@ -228,36 +254,55 @@ def validate_trial_label(interval, trials, cycles, origin, config):
         # Hold means that ordinary advancing was appropriate, never a sensor fault.
         selected = [r for r in cycles if in_interval(r["at"] - origin, interval)]
         depths = [r["decision"].get("details", {}).get("depth") for r in selected]
-        if (len(depths) < 2 or any(v is None or not np.isfinite(v) for v in depths)
-                or depths[-1] - depths[0] < minimum_advance
-                or any(r["decision"].get("state") != "INSERT" or r["decision"].get("stop") for r in selected)
-                or interval.get("loads_allowed") is not True):
+        if (
+            len(depths) < 2
+            or any(v is None or not np.isfinite(v) for v in depths)
+            or depths[-1] - depths[0] < minimum_advance
+            or any(r["decision"].get("state") != "INSERT" or r["decision"].get("stop") for r in selected)
+            or interval.get("loads_allowed") is not True
+        ):
             raise ValueError("Hold needs reviewed allowed-load forward progress, not an absence of action")
         for row in selected:
             details = row["decision"].get("details", {})
             wrench = np.asarray(details.get("wrench"), float)
-            if (wrench.shape != (6,) or not np.isfinite(wrench).all()
-                    or np.any(np.abs(wrench) >= np.asarray(config["limits"]["wrench"]) * config["scheduling"]["high"])
-                    or details.get("advance_scale", 0) <= 0):
+            if (
+                wrench.shape != (6,)
+                or not np.isfinite(wrench).all()
+                or np.any(
+                    np.abs(wrench) >= np.asarray(config["limits"]["wrench"]) * config["scheduling"]["high"]
+                )
+                or details.get("advance_scale", 0) <= 0
+            ):
                 raise ValueError("Hold requires logged allowed-load forward advancement")
         return
     trial = trials.get(interval.get("trial_id"))
-    if (not trial or trial.get("action") != label or trial.get("outcome") != "effective"
-            or trial.get("loads_allowed") is not True
-            or not np.isfinite(trial.get("measured_advance_m", np.nan))
-            or trial["measured_advance_m"] < minimum_advance):
-        raise ValueError("direction labels require a matching effective trial with actual permitted advancement")
+    if (
+        not trial
+        or trial.get("action") != label
+        or trial.get("outcome") != "effective"
+        or trial.get("loads_allowed") is not True
+        or not np.isfinite(trial.get("measured_advance_m", np.nan))
+        or trial["measured_advance_m"] < minimum_advance
+    ):
+        raise ValueError(
+            "direction labels require a matching effective trial with actual permitted advancement"
+        )
     if interval["end_s"] > float(trial["started_at"]) - origin + 1e-9:
         raise ValueError("direction training history must end before the action to avoid outcome leakage")
     learning = config.get("learning", {})
-    history_s = max(float(config["finite_trial"]["baseline_s"]),
-                    learning.get("window_size", 0) * learning.get("sample_period", 0.))
+    history_s = max(
+        float(config["finite_trial"]["baseline_s"]),
+        learning.get("window_size", 0) * learning.get("sample_period", 0.0),
+    )
     trial_start = float(trial["started_at"]) - origin
     if abs(interval["end_s"] - trial_start) > 1e-9 or interval["start_s"] < trial_start - history_s - 1e-9:
         raise ValueError("direction labels must cover the bounded history immediately before their trial")
     selected = [r for r in cycles if in_interval(r["at"] - origin, interval)]
-    if any((r["decision"].get("details", {}).get("finite_trial") or {}).get("phase") in
-           ("TRIAL", "OBSERVE", "CONFIRM") for r in selected):
+    if any(
+        (r["decision"].get("details", {}).get("finite_trial") or {}).get("phase")
+        in ("TRIAL", "OBSERVE", "CONFIRM")
+        for r in selected
+    ):
         raise ValueError("pre-action learning history overlaps an earlier trial or observation")
 
 
@@ -279,14 +324,17 @@ def export_dataset(annotation_path, output_path):
         if not identifier or not batch or identifier in identifiers:
             raise ValueError("unique trajectory IDs and nonempty batch IDs required")
         identifiers.add(identifier)
-        source_hash = file_sha256(path)
+        source_hash = sha256_file(path)
         if source_hash in source_hashes:
             raise ValueError("duplicate source log cannot become a second independent trajectory")
         source_hashes.add(source_hash)
         if schema == 2:
-            if source.get("sha256") != file_sha256(path):
+            if source.get("sha256") != sha256_file(path):
                 raise ValueError("source log hash changed since annotation")
-            if any(not isinstance(source.get(field), str) or not source[field].strip() for field in PARTITION_IDENTITIES):
+            if any(
+                not isinstance(source.get(field), str) or not source[field].strip()
+                for field in PARTITION_IDENTITIES
+            ):
                 raise ValueError("schema 2 needs printing_batch_id/specimen_id/session_id")
         intervals = sorted(source["intervals"], key=lambda item: item["start_s"])
         previous_end = -np.inf
@@ -294,7 +342,9 @@ def export_dataset(annotation_path, output_path):
             start, end = float(interval["start_s"]), float(interval["end_s"])
             if not np.isfinite([start, end]).all() or start < 0 or end <= start or start < previous_end:
                 raise ValueError("annotation intervals must be finite, positive-length and non-overlapping")
-            if interval["label"] not in (*ACTIONS, "ambiguous", "invalid", "fault") or not interval.get("basis"):
+            if interval["label"] not in (*ACTIONS, "ambiguous", "invalid", "fault") or not interval.get(
+                "basis"
+            ):
                 raise ValueError("every label needs an allowed class and independent evidence/basis")
             previous_end = end
         rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -303,11 +353,14 @@ def export_dataset(annotation_path, output_path):
             raise ValueError(f"invalid/versionless source log: {path}")
         cycles = [row for row in rows if row.get("kind") == "cycle"]
         if not cycles:
-            raise ValueError("use transformed control-cycle logs; raw sensor-only logs need task-frame calibration first")
+            raise ValueError(
+                "use transformed control-cycle logs; raw sensor-only logs need task-frame calibration first"
+            )
         manifest = manifests[0]
         hardware_probe = manifest.get("source") == "hardware" and (
             manifest.get("config", {}).get("supervised_probe") is not None
-            or manifest.get("method_identity") == "PROBE")
+            or manifest.get("method_identity") == "PROBE"
+        )
         if hardware_probe and any(interval["label"] in ACTIONS for interval in intervals):
             terminal = [row for row in rows if row.get("kind") == "result"]
             if not terminal or terminal[-1].get("stop_feedback_confirmed") is not True:
@@ -333,32 +386,59 @@ def export_dataset(annotation_path, output_path):
             elapsed = float(row["at"]) - origin
             matched = [item for item in intervals if in_interval(elapsed, item)]
             interval = matched[0] if matched else None
-            result.append({"trajectory_id": identifier, "batch_id": batch, "timestamp": float(row["at"]),
-                           "schema_version": schema,
-                           **({field: source[field] for field in PARTITION_IDENTITIES} if schema == 2 else {}),
-                           "wrench": wrench.tolist(), "label": interval["label"] if interval else "invalid",
-                           "label_basis": interval["basis"] if interval else "unreviewed",
-                           "frame": "task", "units": FORCE_UNITS,
-                           "synthetic": bool(manifests[0].get("synthetic", False)),
-                           "task_id": row["task_id"], "attempt_id": row["attempt_id"],
-                           "trial_id": interval.get("trial_id") if interval else None,
-                           "condition": manifests[0].get("experiment", {}).get("condition"),
-                           "pair_id": manifests[0].get("experiment", {}).get("pair_id"),
-                           "rules_version": manifests[0].get("rules_version", "legacy-unversioned"),
-                           "config_sha256": manifests[0]["config_sha256"],
-                           "source_seq": row["sample"]["seq"]})
+            result.append(
+                {
+                    "trajectory_id": identifier,
+                    "batch_id": batch,
+                    "timestamp": float(row["at"]),
+                    "schema_version": schema,
+                    **({field: source[field] for field in PARTITION_IDENTITIES} if schema == 2 else {}),
+                    "wrench": wrench.tolist(),
+                    "label": interval["label"] if interval else "invalid",
+                    "label_basis": interval["basis"] if interval else "unreviewed",
+                    "frame": "task",
+                    "units": FORCE_UNITS,
+                    "synthetic": bool(manifests[0].get("synthetic", False)),
+                    "task_id": row["task_id"],
+                    "attempt_id": row["attempt_id"],
+                    "trial_id": interval.get("trial_id") if interval else None,
+                    "condition": manifests[0].get("experiment", {}).get("condition"),
+                    "pair_id": manifests[0].get("experiment", {}).get("pair_id"),
+                    "rules_version": manifests[0].get("rules_version", "legacy-unversioned"),
+                    "config_sha256": manifests[0]["config_sha256"],
+                    "source_seq": row["sample"]["seq"],
+                }
+            )
             emitted += 1
         if not emitted:
             raise ValueError(f"no usable force samples in {path}")
-        sources.append({"path": str(path), "sha256": file_sha256(path), "trajectory_id": identifier,
-                        "batch_id": batch, "samples": emitted, "config_sha256": manifests[0]["config_sha256"]})
+        sources.append(
+            {
+                "path": str(path),
+                "sha256": sha256_file(path),
+                "trajectory_id": identifier,
+                "batch_id": batch,
+                "samples": emitted,
+                "config_sha256": manifests[0]["config_sha256"],
+            }
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("x", encoding="utf-8") as stream:
         for row in result:
             stream.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
     with provenance_path.open("x", encoding="utf-8") as stream:
-        json.dump({"schema_version": schema, "annotation_sha256": file_sha256(annotation_path), "sources": sources,
-                   "data_sha256": file_sha256(output_path), "samples": len(result)}, stream, ensure_ascii=False, indent=2)
+        json.dump(
+            {
+                "schema_version": schema,
+                "annotation_sha256": sha256_file(annotation_path),
+                "sources": sources,
+                "data_sha256": sha256_file(output_path),
+                "samples": len(result),
+            },
+            stream,
+            ensure_ascii=False,
+            indent=2,
+        )
     return {"output": str(output_path), "samples": len(result), "source_count": len(sources)}
 
 
@@ -369,8 +449,11 @@ def main(argv=None):
     mode.add_argument("--review-logs", type=Path, nargs="+")
     p.add_argument("--output", type=Path, required=True)
     args = p.parse_args(argv)
-    result = (review_manifest(args.review_logs, args.output) if args.review_logs else
-              export_dataset(args.annotations, args.output))
+    result = (
+        review_manifest(args.review_logs, args.output)
+        if args.review_logs
+        else export_dataset(args.annotations, args.output)
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

@@ -1,9 +1,9 @@
 """Fit/check RGB intrinsics using measured chessboards and disjoint held-out views."""
+
 from __future__ import annotations
 
 import argparse
 import copy
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -11,11 +11,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from ev_charging.vision.contracts import distort_normalized, intrinsics_signature, rectify_points, validate_camera
-
-
-def _sha(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+from ev_charging.file_io import sha256_file
+from ev_charging.vision.contracts import (
+    distort_normalized,
+    intrinsics_signature,
+    rectify_points,
+    validate_camera,
+)
 
 
 def board_points(board):
@@ -29,7 +31,7 @@ def board_points(board):
         if not isinstance(board.get(key), str) or not board[key].strip():
             raise ValueError(f"board_measurement_requires_{key}")
     points = np.zeros((board["columns"] * board["rows"], 3), np.float32)
-    points[:, :2] = np.mgrid[0:board["columns"], 0:board["rows"]].T.reshape(-1, 2) * size
+    points[:, :2] = np.mgrid[0 : board["columns"], 0 : board["rows"]].T.reshape(-1, 2) * size
     return points
 
 
@@ -47,10 +49,15 @@ def evaluate_board_view(objects, pixels, camera):
     projected = projected * [matrix[0, 0], matrix[1, 1]] + matrix[:2, 2]
     residual = projected - np.asarray(pixels).reshape(-1, 2)
     distances = np.linalg.norm(residual, axis=1)
-    return {"mean_px": float(np.mean(distances)), "rms_px": float(np.sqrt(np.mean(distances**2))),
-            "max_px": float(np.max(distances)), "residual_vectors_px": residual.tolist(),
-            "per_corner_distance_px": distances.tolist(), "rvec": rvec.reshape(3).tolist(),
-            "tvec_mm": tvec.reshape(3).tolist()}
+    return {
+        "mean_px": float(np.mean(distances)),
+        "rms_px": float(np.sqrt(np.mean(distances**2))),
+        "max_px": float(np.max(distances)),
+        "residual_vectors_px": residual.tolist(),
+        "per_corner_distance_px": distances.tolist(),
+        "rvec": rvec.reshape(3).tolist(),
+        "tvec_mm": tvec.reshape(3).tolist(),
+    }
 
 
 def calibrate_views(camera, board, fit_views, validation_views, version):
@@ -74,41 +81,72 @@ def calibrate_views(camera, board, fit_views, validation_views, version):
             raise ValueError("chessboard_corner_outside_image")
     image_points = [np.asarray(view["pixels"], np.float32).reshape(-1, 1, 2) for view in fit_views]
     rms, matrix, coefficients, _, _ = cv2.calibrateCamera(
-        [objects.copy() for _ in fit_views], image_points, (camera["image_width"], camera["image_height"]), None, None)
+        [objects.copy() for _ in fit_views],
+        image_points,
+        (camera["image_width"], camera["image_height"]),
+        None,
+        None,
+    )
     if not np.isfinite(rms):
         raise ValueError("calibration_failed")
     fitted = copy.deepcopy(camera)
-    fitted.update(camera_matrix=matrix.tolist(), dist_coeffs=coefficients.reshape(5).tolist(),
-                  distortion_model="brown_conrady", version=version, validated=False,
-                  source="measured_chessboard_fit", is_placeholder=False, is_approximate=False,
-                  validation_status="pending_independent_review")
+    fitted.update(
+        camera_matrix=matrix.tolist(),
+        dist_coeffs=coefficients.reshape(5).tolist(),
+        distortion_model="brown_conrady",
+        version=version,
+        validated=False,
+        source="measured_chessboard_fit",
+        is_placeholder=False,
+        is_approximate=False,
+        validation_status="pending_independent_review",
+    )
     fitted["source_sdk_intrinsics_sha256"] = intrinsics_signature(camera)
     fitted["intrinsics_sha256"] = intrinsics_signature(fitted)
     validate_camera(fitted, (camera["image_height"], camera["image_width"], 3))
     report_rows = []
     for split, views in (("fit", fit_views), ("heldout", validation_views)):
         for view in views:
-            report_rows.append({"image": view["image"], "image_sha256": view["image_sha256"], "split": split,
-                                "corners_raw_px": np.asarray(view["pixels"]).tolist(),
-                                "sdk": evaluate_board_view(objects, view["pixels"], camera),
-                                "fitted": evaluate_board_view(objects, view["pixels"], fitted)})
+            report_rows.append(
+                {
+                    "image": view["image"],
+                    "image_sha256": view["image_sha256"],
+                    "split": split,
+                    "corners_raw_px": np.asarray(view["pixels"]).tolist(),
+                    "sdk": evaluate_board_view(objects, view["pixels"], camera),
+                    "fitted": evaluate_board_view(objects, view["pixels"], fitted),
+                }
+            )
     summary = {}
     for split in ("fit", "heldout"):
         subset = [row for row in report_rows if row["split"] == split]
         summary[split] = {"view_count": len(subset)}
         for name in ("sdk", "fitted"):
             errors = np.array([error for row in subset for error in row[name]["per_corner_distance_px"]])
-            summary[split][name] = {"pooled_corner_mean_px": float(np.mean(errors)),
-                                   "pooled_corner_rms_px": float(np.sqrt(np.mean(errors**2))),
-                                   "max_corner_distance_px": float(np.max(errors))}
-    return fitted, {"schema_version": 1, "kind": "rgb_intrinsics_check_v1", "version": version,
-                    "source_camera_sha256": intrinsics_signature(camera), "fitted_camera_sha256": intrinsics_signature(fitted),
-                    "board": board, "fit_opencv_rms_px": float(rms), "summary": summary, "rows": report_rows,
-                    "validated": False, "physical_pose_accuracy_verified": False,
-                    "notes": ["Held-out images do not enter calibrateCamera; each view still needs its own estimated board pose.",
-                              "Board pose shares the evaluated camera model and is not independent absolute pose truth.",
-                              "Review held-out corner residuals, pose/edge coverage and board measurements before accepting this calibration.",
-                              "Recommended collection budget is 30 fit/check plus 10 independent-pose validation images per camera."]}
+            summary[split][name] = {
+                "pooled_corner_mean_px": float(np.mean(errors)),
+                "pooled_corner_rms_px": float(np.sqrt(np.mean(errors**2))),
+                "max_corner_distance_px": float(np.max(errors)),
+            }
+    return fitted, {
+        "schema_version": 1,
+        "kind": "rgb_intrinsics_check_v1",
+        "version": version,
+        "source_camera_sha256": intrinsics_signature(camera),
+        "fitted_camera_sha256": intrinsics_signature(fitted),
+        "board": board,
+        "fit_opencv_rms_px": float(rms),
+        "summary": summary,
+        "rows": report_rows,
+        "validated": False,
+        "physical_pose_accuracy_verified": False,
+        "notes": [
+            "Held-out images do not enter calibrateCamera; each view still needs its own estimated board pose.",
+            "Board pose shares the evaluated camera model and is not independent absolute pose truth.",
+            "Review held-out corner residuals, pose/edge coverage and board measurements before accepting this calibration.",
+            "Recommended collection budget is 30 fit/check plus 10 independent-pose validation images per camera.",
+        ],
+    }
 
 
 def load_views(spec_path):
@@ -122,15 +160,21 @@ def load_views(spec_path):
     if not isinstance(spec.get("capture_manifest"), str) or not spec["capture_manifest"].strip():
         raise ValueError("capture_manifest_path_required")
     for key in ("fit_images", "validation_images"):
-        if not isinstance(spec.get(key), list) or any(not isinstance(name, str) or not name for name in spec[key]):
+        if not isinstance(spec.get(key), list) or any(
+            not isinstance(name, str) or not name for name in spec[key]
+        ):
             raise ValueError(f"image_path_list_required:{key}")
     manifest_path = (spec_path.parent / spec["capture_manifest"]).resolve()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
-    if manifest.get("kind") != "realsense_rgb_capture" or manifest.get("status") not in {"completed", "failed", "interrupted"}:
+    if manifest.get("kind") != "realsense_rgb_capture" or manifest.get("status") not in {
+        "completed",
+        "failed",
+        "interrupted",
+    }:
         raise ValueError("finalized_RGB_capture_session_required")
     session = manifest_path.parent
     camera_path = session / "camera.json"
-    if manifest.get("camera_file") != "camera.json" or _sha(camera_path) != manifest["camera_sha256"]:
+    if manifest.get("camera_file") != "camera.json" or sha256_file(camera_path) != manifest["camera_sha256"]:
         raise ValueError("capture_camera_binding_changed")
     camera = json.loads(camera_path.read_text(encoding="utf-8-sig"))
     if camera.get("intrinsics_sha256") != intrinsics_signature(camera):
@@ -147,19 +191,26 @@ def load_views(spec_path):
             image_path = (session / name).resolve()
             if not image_path.is_relative_to(session) or name not in frames:
                 raise ValueError("image_not_bound_to_capture_session")
-            digest = _sha(image_path)
+            digest = sha256_file(image_path)
             if digest != frames[name]["image_sha256"]:
                 raise ValueError("capture_image_changed")
             image = cv2.imdecode(np.frombuffer(image_path.read_bytes(), np.uint8), cv2.IMREAD_COLOR)
             if image is None:
                 raise ValueError("unreadable_calibration_image")
             validate_camera(camera, image.shape)
-            ok, corners = cv2.findChessboardCornersSB(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
-                (board["columns"], board["rows"]), flags=cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY)
+            ok, corners = cv2.findChessboardCornersSB(
+                cv2.cvtColor(image, cv2.COLOR_BGR2GRAY),
+                (board["columns"], board["rows"]),
+                flags=cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY,
+            )
             if not ok:
-                rejected.append({"image": name, "group": group, "reason": "chessboard_not_found", "image_sha256": digest})
+                rejected.append(
+                    {"image": name, "group": group, "reason": "chessboard_not_found", "image_sha256": digest}
+                )
             else:
-                groups[group].append({"image": name, "image_sha256": digest, "pixels": corners.reshape(-1, 2).tolist()})
+                groups[group].append(
+                    {"image": name, "image_sha256": digest, "pixels": corners.reshape(-1, 2).tolist()}
+                )
     # Reject duplicate requests even when a duplicate image failed corner extraction.
     requested = [*spec["fit_images"], *spec["validation_images"]]
     if len(requested) != len(set(requested)):
@@ -167,23 +218,43 @@ def load_views(spec_path):
     requested_hashes = [frames[name]["image_sha256"] for name in requested]
     if len(requested_hashes) != len(set(requested_hashes)):
         raise ValueError("duplicate_calibration_image_content")
-    return camera, board, groups, rejected, {"spec_sha256": _sha(spec_path), "capture_manifest_sha256": _sha(manifest_path)}
+    return (
+        camera,
+        board,
+        groups,
+        rejected,
+        {"spec_sha256": sha256_file(spec_path), "capture_manifest_sha256": sha256_file(manifest_path)},
+    )
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--spec", type=Path, required=True, help="Board measurements, session manifest, fit/validation image lists")
+    parser.add_argument(
+        "--spec",
+        type=Path,
+        required=True,
+        help="Board measurements, session manifest, fit/validation image lists",
+    )
     parser.add_argument("--version", required=True)
-    parser.add_argument("--output-dir", type=Path, required=True, help="New directory; prior calibrations are preserved")
+    parser.add_argument(
+        "--output-dir", type=Path, required=True, help="New directory; prior calibrations are preserved"
+    )
     args = parser.parse_args(argv)
     camera, board, groups, rejected, provenance = load_views(args.spec)
-    fitted, report = calibrate_views(camera, board, groups["fit_images"], groups["validation_images"], args.version)
+    fitted, report = calibrate_views(
+        camera, board, groups["fit_images"], groups["validation_images"], args.version
+    )
     report.update(rejected_views=rejected, provenance=provenance)
     args.output_dir.mkdir(parents=True, exist_ok=False)
     for name, content in (("camera.fitted.json", fitted), ("intrinsics_report.json", report)):
         with (args.output_dir / name).open("x", encoding="utf-8") as stream:
             json.dump(content, stream, ensure_ascii=False, indent=2, allow_nan=False)
-    print(json.dumps({"output_dir": str(args.output_dir), "summary": report["summary"], "validated": False}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"output_dir": str(args.output_dir), "summary": report["summary"], "validated": False},
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 

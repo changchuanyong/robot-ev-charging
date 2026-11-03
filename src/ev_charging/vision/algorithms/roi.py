@@ -5,7 +5,6 @@ from typing import Optional, Tuple
 import numpy as np
 from ultralytics import YOLO
 
-
 TARGET_CLASS = 0
 CONF_THRES = 0.25
 MIN_PADDING = 20
@@ -28,11 +27,11 @@ def extract_best_roi(
     target_class: int,
     conf_thres: float,
 ) -> Tuple[
-    Optional[np.ndarray],                 # roi
-    Optional[Tuple[int, int, int, int]], # det_bbox
-    Optional[Tuple[int, int, int, int]], # crop_bbox
-    Optional[float],                     # score
-    Optional[int],                       # pad
+    Optional[np.ndarray],  # roi
+    Optional[Tuple[int, int, int, int]],  # det_bbox
+    Optional[Tuple[int, int, int, int]],  # crop_bbox
+    Optional[float],  # score
+    Optional[int],  # pad
 ]:
     """
     取单类别任务中置信度最高的检测框，并裁出 ROI。

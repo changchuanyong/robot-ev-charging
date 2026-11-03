@@ -3,6 +3,7 @@
 ``T_target_source`` maps source coordinates to target coordinates. Pose errors
 and offsets use a spatial (left-multiplied) rotation vector, not Euler addition.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -17,17 +18,23 @@ def _vector(value, size: int, name: str) -> np.ndarray:
 
 def _rotation(value) -> np.ndarray:
     rotation = np.asarray(value, dtype=float)
-    if (rotation.shape != (3, 3) or not np.all(np.isfinite(rotation))
-            or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-7, rtol=0)
-            or not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-7, rtol=0)):
+    if (
+        rotation.shape != (3, 3)
+        or not np.all(np.isfinite(rotation))
+        or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-7, rtol=0)
+        or not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-7, rtol=0)
+    ):
         raise ValueError("rotation must be a proper orthonormal 3x3 matrix")
     return rotation
 
 
 def validate_transform(value) -> np.ndarray:
     transform = np.asarray(value, dtype=float)
-    if (transform.shape != (4, 4) or not np.all(np.isfinite(transform))
-            or not np.allclose(transform[3], [0, 0, 0, 1], atol=1e-9, rtol=0)):
+    if (
+        transform.shape != (4, 4)
+        or not np.all(np.isfinite(transform))
+        or not np.allclose(transform[3], [0, 0, 0, 1], atol=1e-9, rtol=0)
+    ):
         raise ValueError("transform must be a finite homogeneous 4x4 matrix")
     _rotation(transform[:3, :3])
     return transform.copy()
@@ -63,9 +70,9 @@ def log_so3(rotation) -> np.ndarray:
     rotation = _rotation(rotation)
     cosine = np.clip((np.trace(rotation) - 1.0) / 2.0, -1.0, 1.0)
     theta = float(np.arccos(cosine))
-    vee = np.array([rotation[2, 1] - rotation[1, 2],
-                    rotation[0, 2] - rotation[2, 0],
-                    rotation[1, 0] - rotation[0, 1]])
+    vee = np.array(
+        [rotation[2, 1] - rotation[1, 2], rotation[0, 2] - rotation[2, 0], rotation[1, 0] - rotation[0, 1]]
+    )
     if theta < 1e-7:
         return 0.5 * vee
     if np.pi - theta < 1e-5:
@@ -126,8 +133,7 @@ def transform_wrench(wrench, T_target_source) -> np.ndarray:
 def pose_error(reference, actual) -> np.ndarray:
     """Reference minus actual, expressed in their shared parent frame."""
     reference, actual = validate_transform(reference), validate_transform(actual)
-    return np.r_[reference[:3, 3] - actual[:3, 3],
-                 log_so3(reference[:3, :3] @ actual[:3, :3].T)]
+    return np.r_[reference[:3, 3] - actual[:3, 3], log_so3(reference[:3, :3] @ actual[:3, :3].T)]
 
 
 def offset_pose(transform, delta6, R_base_task) -> np.ndarray:

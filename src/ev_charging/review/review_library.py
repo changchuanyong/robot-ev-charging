@@ -1,24 +1,28 @@
 """Local box review with explicit confirmation, persisted drafts and safe writeback."""
-from __future__ import annotations
 
+from __future__ import annotations
 
 import argparse
 import hashlib
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import mimetypes
-from pathlib import Path
 import secrets
 import threading
+from http.server import HTTPServer
+from pathlib import Path
 from urllib.parse import urlsplit
-import webbrowser
 
+from ev_charging.datasets.vision.training_library import (
+    DEFAULT_LIBRARY,
+    _inside,
+    _lock,
+    read_entries,
+    set_annotation,
+)
 from ev_charging.file_io import atomic_capture_json
-from ev_charging.datasets.vision.training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries, set_annotation
-
+from ev_charging.review.http import MAX_BODY, RequestBodyError, ReviewRequestHandler, serve_review
 
 TEMPLATE = Path(__file__).with_name("port_box_review.html")
-MAX_BODY = 128 * 1024
 
 
 def suggested_label(entry):
@@ -27,8 +31,11 @@ def suggested_label(entry):
 
 
 def session_entries(entries, session_id):
-    return [entry for entry in entries if any(source.get("session_id") == session_id
-                                             for source in entry["sources"])]
+    return [
+        entry
+        for entry in entries
+        if any(source.get("session_id") == session_id for source in entry["sources"])
+    ]
 
 
 def _drafts(root):
@@ -36,8 +43,11 @@ def _drafts(root):
     if not path.exists():
         return {"schema_version": 1, "drafts": {}}
     result = json.loads(path.read_text(encoding="utf-8-sig"))
-    if (not isinstance(result, dict) or result.get("schema_version") != 1
-            or not isinstance(result.get("drafts"), dict)):
+    if (
+        not isinstance(result, dict)
+        or result.get("schema_version") != 1
+        or not isinstance(result.get("drafts"), dict)
+    ):
         raise ValueError("invalid_review_drafts")
     return result
 
@@ -57,15 +67,24 @@ def _item(root, digest, drafts):
     draft = drafts.get(digest)
     if draft is not None and draft.get("record_version") != version:
         draft = None
-    return {"image_sha256": digest, "record_version": version,
-            "image_url": f"/image/{digest}", "width": entry["width"], "height": entry["height"],
-            "status": entry["status"], "human_reviewed": entry.get("human_reviewed", False),
-            "label_text": label or suggested_label(entry), "draft": draft,
-            "sources": entry["sources"], "label_candidates": entry.get("label_candidates", []),
-            "box_suggestions": entry.get("box_suggestions", []), "image_available": image.is_file()}
+    return {
+        "image_sha256": digest,
+        "record_version": version,
+        "image_url": f"/image/{digest}",
+        "width": entry["width"],
+        "height": entry["height"],
+        "status": entry["status"],
+        "human_reviewed": entry.get("human_reviewed", False),
+        "label_text": label or suggested_label(entry),
+        "draft": draft,
+        "sources": entry["sources"],
+        "label_candidates": entry.get("label_candidates", []),
+        "box_suggestions": entry.get("box_suggestions", []),
+        "image_available": image.is_file(),
+    }
 
 
-def create_server(library=DEFAULT_LIBRARY, session=None):
+def create_server(library: str | Path = DEFAULT_LIBRARY, session: str | Path | None = None) -> HTTPServer:
     """Construct a loopback-only server without starting a thread or browser."""
     root = Path(library).resolve()
     entries = read_entries(root)
@@ -82,27 +101,7 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
     token = secrets.token_urlsafe(32)
     scope = hashlib.sha256((str(root) + ":" + str(session_id)).encode()).hexdigest()
 
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, format, *args):
-            pass
-
-        def reply(self, status, payload, content_type="application/json; charset=utf-8"):
-            data = (json.dumps(payload, ensure_ascii=False).encode("utf-8")
-                    if not isinstance(payload, bytes) else payload)
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; "
-                             "style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
-                             "connect-src 'self'; base-uri 'none'; frame-ancestors 'none'")
-            self.end_headers()
-            self.wfile.write(data)
-
-        def valid_host(self):
-            return self.headers.get("Host") == self.server.server_address[0] + ":" + str(self.server.server_port)
-
+    class Handler(ReviewRequestHandler):
         def do_GET(self):
             if not self.valid_host():
                 self.reply(403, {"error": "请使用启动时显示的本机复核地址。"})
@@ -114,9 +113,13 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
                     items = [_item(root, digest, drafts) for digest in allowed]
                     config = {"api": True, "token": token, "scope_key": scope}
                     page = TEMPLATE.read_text(encoding="utf-8")
-                    for marker, value in (("/*__REVIEW_DATA__*/[]", items),
-                                          ("/*__REVIEW_CONFIG__*/{}", config)):
-                        page = page.replace(marker, json.dumps(value, ensure_ascii=False).replace("<", "\\u003c"))
+                    for marker, value in (
+                        ("/*__REVIEW_DATA__*/[]", items),
+                        ("/*__REVIEW_CONFIG__*/{}", config),
+                    ):
+                        page = page.replace(
+                            marker, json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
+                        )
                     self.reply(200, page.encode("utf-8"), "text/html; charset=utf-8")
                 elif route.path.startswith("/image/") and route.path[7:] in allowed:
                     digest = route.path[7:]
@@ -132,20 +135,11 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
                 self.reply(409, {"error": f"复核数据已变更或缺失，请检查图库：{exc}"})
 
         def do_POST(self):
-            origin = f"http://{self.server.server_address[0]}:{self.server.server_port}"
-            if (not self.valid_host() or self.headers.get("Origin") != origin
-                    or not secrets.compare_digest(self.headers.get("X-Review-Token", "").encode(), token.encode())):
+            if not self.valid_write_token(token):
                 self.reply(403, {"error": "复核页面已失效，请重新打开本机复核地址。"})
                 return
             try:
-                self.connection.settimeout(10)
-                size = int(self.headers.get("Content-Length", "0"))
-                if not 0 < size <= MAX_BODY or self.headers.get_content_type() != "application/json":
-                    self.reply(413, {"error": "提交内容过大或格式不正确。"})
-                    return
-                payload = json.loads(self.rfile.read(size).decode("utf-8"))
-                if not isinstance(payload, dict):
-                    raise ValueError("request_object_required")
+                payload = self.read_json(max_body=MAX_BODY, object_error="request_object_required")
                 route = urlsplit(self.path).path
                 if route == "/api/finish":
                     self.reply(200, {"saved": True})
@@ -171,10 +165,16 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
                     excluded = payload.get("excluded", False)
                     if type(excluded) is not bool or (not excluded and not label.strip()):
                         raise ValueError("nonempty_boxes_or_explicit_exclusion_required")
-                    set_annotation(root, digest, label, annotation_source="human_local_box_review",
-                                   human_reviewed=True, excluded=excluded,
-                                   reason="user_review_no_charging_connector" if excluded else None,
-                                   expected_record_sha256=version)
+                    set_annotation(
+                        root,
+                        digest,
+                        label,
+                        annotation_source="human_local_box_review",
+                        human_reviewed=True,
+                        excluded=excluded,
+                        reason="user_review_no_charging_connector" if excluded else None,
+                        expected_record_sha256=version,
+                    )
                     with _lock(root):
                         data = _drafts(root)
                         if data["drafts"].get(digest, {}).get("record_version") == version:
@@ -183,10 +183,14 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
                     self.reply(200, {"saved": True, "record": _item(root, digest, {})})
                 else:
                     self.reply(404, {"error": "未知复核操作。"})
+            except RequestBodyError:
+                self.reply(413, {"error": "提交内容过大或格式不正确。"})
             except (ValueError, OSError, KeyError, TypeError, RuntimeError) as exc:
-                message = ("该图已被其他操作更新，请刷新页面后重新复核。"
-                           if "annotation_record_changed" in str(exc)
-                           else f"保存失败，请检查标签后重试：{exc}")
+                message = (
+                    "该图已被其他操作更新，请刷新页面后重新复核。"
+                    if "annotation_record_changed" in str(exc)
+                    else f"保存失败，请检查标签后重试：{exc}"
+                )
                 self.reply(409, {"error": message})
 
     server = HTTPServer(("127.0.0.1", 0), Handler)
@@ -195,22 +199,18 @@ def create_server(library=DEFAULT_LIBRARY, session=None):
     return server
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="本机复核检测框，确认后直接写回图库；不启动相机或训练。")
     parser.add_argument("--library", type=Path, default=DEFAULT_LIBRARY)
     parser.add_argument("--session", type=Path, help="仅复核这次采集会话；默认显示全库待标注图片")
     parser.add_argument("--no-browser", action="store_true", help="只打印地址，不自动打开浏览器")
     args = parser.parse_args(argv)
     server = create_server(args.library, args.session)
-    print(f"本次复核 {server.review_count} 张：{server.review_url}\n确认后直接入库；关闭服务请按 Ctrl+C。", flush=True)
-    if not args.no_browser:
-        webbrowser.open(server.review_url)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
+    print(
+        f"本次复核 {server.review_count} 张：{server.review_url}\n确认后直接入库；关闭服务请按 Ctrl+C。",
+        flush=True,
+    )
+    serve_review(server, open_browser=not args.no_browser)
     return 0
 
 

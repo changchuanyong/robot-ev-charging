@@ -1,4 +1,5 @@
 """In-memory illumination enhancement and adaptive edge extraction."""
+
 from __future__ import annotations
 
 import os
@@ -6,7 +7,6 @@ from typing import Any
 
 import cv2
 import numpy as np
-
 
 # Keep the final image stable for Canny: normalize illumination, avoid excessive local contrast,
 # then sharpen only edge regions so flat metal surfaces do not turn into noise.
@@ -278,12 +278,7 @@ def adaptive_canny_pipeline(roi_bgr: np.ndarray):
     enhanced, smooth = preprocess(gray)
     low, high, grad_mag = compute_adaptive_thresholds(smooth)
 
-    canny_edges = cv2.Canny(
-        smooth,
-        threshold1=low,
-        threshold2=high,
-        L2gradient=True
-    )
+    canny_edges = cv2.Canny(smooth, threshold1=low, threshold2=high, L2gradient=True)
 
     method = EDGE_METHOD.lower()
     if method not in {"canny", "morph", "hybrid"}:

@@ -23,9 +23,13 @@
 
 ## 开发检查
 
+格式、命名、公共接口与精简原则见 [代码风格](code_style.md)。复核 HTTP 公共层位于 `review/http.py`；文件哈希与 JSON 持久化统一位于 `file_io.py`。
+
 在 `ev-charging` 环境、工程根目录运行：
 
 ```powershell
+python -m ruff check src tests
+python -m ruff format --check --output-format concise src tests
 python -B -m unittest discover -s tests -v
 python -B -m ev_charging.vision.check_project
 python -B -m ev_charging.control.simulate --scenario nominal

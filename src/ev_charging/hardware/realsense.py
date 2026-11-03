@@ -1,17 +1,17 @@
 """D435 color acquisition. Hardware access happens only inside the context manager."""
+
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
-from datetime import datetime
 import hashlib
 import json
-from pathlib import Path
 import time
 import uuid
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
+from ev_charging.paths import PROJECT_ROOT
 from ev_charging.vision.contracts import FrameClock, FramePacket, intrinsics_signature, validate_camera
 from ev_charging.vision.launch import ensure_camera_privilege
 
@@ -61,11 +61,19 @@ def validated_camera_override(sdk_camera: dict, config: dict) -> dict:
     report = json.loads(content)
     heldout = report.get("summary", {}).get("heldout", {})
     residual = heldout.get("fitted", {}).get("pooled_corner_rms_px")
-    if (report.get("kind") != "rgb_intrinsics_check_v1" or report.get("version") != fitted["version"]
-            or report.get("source_camera_sha256") != sdk_signature or report.get("fitted_camera_sha256") != signature
-            or type(heldout.get("view_count")) is not int or heldout["view_count"] < 3
-            or isinstance(residual, bool) or not isinstance(residual, (int, float))
-            or not np.isfinite(residual) or residual < 0 or residual > limit):
+    if (
+        report.get("kind") != "rgb_intrinsics_check_v1"
+        or report.get("version") != fitted["version"]
+        or report.get("source_camera_sha256") != sdk_signature
+        or report.get("fitted_camera_sha256") != signature
+        or type(heldout.get("view_count")) is not int
+        or heldout["view_count"] < 3
+        or isinstance(residual, bool)
+        or not isinstance(residual, (int, float))
+        or not np.isfinite(residual)
+        or residual < 0
+        or residual > limit
+    ):
         raise ValueError("intrinsics_override_heldout_validation_failed")
     return fitted
 
@@ -79,6 +87,7 @@ class RealSenseCamera:
 
     def __enter__(self):
         import pyrealsense2 as rs
+
         ensure_camera_privilege(sdk=rs)
         self.rs = rs
         serial = self.config.get("serial")
@@ -86,8 +95,13 @@ class RealSenseCamera:
             raise ValueError("configure_exact_D435_serial_before_acquisition")
         config = rs.config()
         config.enable_device(serial)
-        config.enable_stream(rs.stream.color, int(self.config["width"]), int(self.config["height"]),
-                             rs.format.bgr8, int(self.config["fps"]))
+        config.enable_stream(
+            rs.stream.color,
+            int(self.config["width"]),
+            int(self.config["height"]),
+            rs.format.bgr8,
+            int(self.config["fps"]),
+        )
         self.pipeline = rs.pipeline()
         try:
             profile = self.pipeline.start(config)
@@ -106,18 +120,30 @@ class RealSenseCamera:
             video = profile.get_stream(rs.stream.color).as_video_stream_profile()
             intrinsics = video.get_intrinsics()
             if (intrinsics.width, intrinsics.height, video.fps(), video.format()) != (
-                    int(self.config["width"]), int(self.config["height"]), int(self.config["fps"]), rs.format.bgr8):
+                int(self.config["width"]),
+                int(self.config["height"]),
+                int(self.config["fps"]),
+                rs.format.bgr8,
+            ):
                 raise ValueError("actual_D435_color_profile_differs_from_config")
             model = intrinsics.model.name
             self.camera = {
-                "stream": "color", "serial": actual_serial,
+                "stream": "color",
+                "serial": actual_serial,
                 "device_name": device_name,
-                "fps": video.fps(), "pixel_format": "bgr8",
-                "image_width": intrinsics.width, "image_height": intrinsics.height,
-                "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx],
-                                  [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
-                "dist_coeffs": list(intrinsics.coeffs), "distortion_model": model,
-                "is_placeholder": False, "is_approximate": False,
+                "fps": video.fps(),
+                "pixel_format": "bgr8",
+                "image_width": intrinsics.width,
+                "image_height": intrinsics.height,
+                "camera_matrix": [
+                    [intrinsics.fx, 0, intrinsics.ppx],
+                    [0, intrinsics.fy, intrinsics.ppy],
+                    [0, 0, 1],
+                ],
+                "dist_coeffs": list(intrinsics.coeffs),
+                "distortion_model": model,
+                "is_placeholder": False,
+                "is_approximate": False,
                 "validated": bool(self.config.get("intrinsics_validated", False)),
                 "version": self.config.get("calibration_version"),
                 "source": "device_color_stream",
@@ -127,8 +153,9 @@ class RealSenseCamera:
             if self.config.get("intrinsics_override_file") is not None:
                 self.camera = validated_camera_override(self.camera, self.config)
             elif self.camera["validated"] and (
-                    not self.camera["version"]
-                    or self.config.get("intrinsics_sha256") != self.camera["intrinsics_sha256"]):
+                not self.camera["version"]
+                or self.config.get("intrinsics_sha256") != self.camera["intrinsics_sha256"]
+            ):
                 raise ValueError("validated_intrinsics_require_matching_version_and_stream_fingerprint")
             self.startup_deadline = time.monotonic() + float(self.config.get("clock_startup_timeout_s", 5.0))
         except Exception:
@@ -151,15 +178,24 @@ class RealSenseCamera:
             domain = frame.get_frame_timestamp_domain().name
             # Global timestamp negotiation can take several initial frames.
             # The published observation remains invalid during this interval.
-            if domain == "hardware_clock" and received_mono < self.startup_deadline and self.clock.last_frame == -1:
+            if (
+                domain == "hardware_clock"
+                and received_mono < self.startup_deadline
+                and self.clock.last_frame == -1
+            ):
                 continue
             captured = self.clock.map(number, timestamp, domain, received_mono, received_wall)
             break
         return FramePacket(
             image=np.asanyarray(frame.get_data()).copy(),
-            frame_id=f"{self.session}:{number}", captured_at=captured,
-            received_at=received_mono, source="realsense", time_sync_valid=True,
-            camera=self.camera, camera_time_ms=timestamp, timestamp_domain=domain,
+            frame_id=f"{self.session}:{number}",
+            captured_at=captured,
+            received_at=received_mono,
+            source="realsense",
+            time_sync_valid=True,
+            camera=self.camera,
+            camera_time_ms=timestamp,
+            timestamp_domain=domain,
         )
 
     def close(self):

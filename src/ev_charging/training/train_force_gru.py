@@ -1,19 +1,27 @@
 """Train/evaluate force GRU models, create fixtures and record separate human acceptance."""
+
 from __future__ import annotations
 
 import argparse
 import copy
-from datetime import datetime
 import json
-from pathlib import Path
 import sys
 import time
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
-from ev_charging.datasets.force import FORCE_UNITS, classification_metrics, file_sha256, fit_normalizer, load_records, make_windows
 from ev_charging.control.learning import build_model, load_checkpoint
 from ev_charging.control.synergy import ACTIONS, action_vector
+from ev_charging.datasets.force import (
+    FORCE_UNITS,
+    classification_metrics,
+    fit_normalizer,
+    load_records,
+    make_windows,
+)
+from ev_charging.file_io import sha256_file
 
 
 def train(args):
@@ -37,8 +45,13 @@ def train(args):
     val_x = torch.tensor((groups["validation"]["x"] - mean) / scale, dtype=torch.float32, device=device)
     val_y = torch.tensor(groups["validation"]["y"], dtype=torch.long, device=device)
     generator = torch.Generator().manual_seed(args.seed)
-    loader = torch.utils.data.DataLoader(torch.utils.data.TensorDataset(x, y), batch_size=args.batch_size,
-                                         shuffle=True, generator=generator, num_workers=0)
+    loader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(x, y),
+        batch_size=args.batch_size,
+        shuffle=True,
+        generator=generator,
+        num_workers=0,
+    )
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     best_loss, best_state, history = float("inf"), None, []
@@ -57,9 +70,13 @@ def train(args):
             validation_loss = float(criterion(model(val_x), val_y))
         if not np.isfinite(validation_loss):
             raise RuntimeError("nonfinite training/validation loss")
-        history.append({"epoch": epoch + 1,
-                        "train_loss": sum(l * n for l, n in losses) / len(y),
-                        "validation_loss": validation_loss})
+        history.append(
+            {
+                "epoch": epoch + 1,
+                "train_loss": sum(batch_loss * count for batch_loss, count in losses) / len(y),
+                "validation_loss": validation_loss,
+            }
+        )
         if validation_loss < best_loss:
             best_loss = validation_loss
             best_state = {name: value.detach().cpu().clone() for name, value in model.state_dict().items()}
@@ -68,22 +85,43 @@ def train(args):
     with torch.no_grad():
         probabilities = torch.softmax(model(val_x), 1).cpu().numpy()
     synthetic = bool(args.synthetic or any(r.get("synthetic", False) for r in records))
-    checkpoint = {"schema_version": 1, "model_kind": "thesis_gru", "classes": list(ACTIONS),
-                  "window_size": args.window_size, "hidden_size": args.hidden_size,
-                  "sample_period": args.sample_period, "max_gap": args.max_gap,
-                  "frame": "task", "units": FORCE_UNITS, "normalizer": normalizer,
-                  "state_dict": best_state, "model_version": args.model_version,
-                  "trained": True, "synthetic": synthetic, "validated_for_hardware": False,
-                  "split_manifest": copy.deepcopy(split), "data_sha256": file_sha256(args.data),
-                  "seed": args.seed, "gru_equation": "reset_before; h=(1-z)*h_prev+z*candidate"}
-    report = {"model_version": args.model_version, "synthetic": synthetic,
-              "validated_for_hardware": False, "training_history": history,
-              "window_counts": {name: len(group["y"]) for name, group in groups.items()},
-              "trajectory_counts": {name: len(ids) for name, ids in split.items()},
-              "class_counts_train": {name: int(np.count_nonzero(groups["train"]["y"] == i)) for i, name in enumerate(ACTIONS)},
-              "validation": classification_metrics(groups["validation"]["y"], probabilities, args.confidence),
-              "test": "not evaluated during training", "split_manifest": split,
-              "normalizer": normalizer, "data_sha256": checkpoint["data_sha256"]}
+    checkpoint = {
+        "schema_version": 1,
+        "model_kind": "thesis_gru",
+        "classes": list(ACTIONS),
+        "window_size": args.window_size,
+        "hidden_size": args.hidden_size,
+        "sample_period": args.sample_period,
+        "max_gap": args.max_gap,
+        "frame": "task",
+        "units": FORCE_UNITS,
+        "normalizer": normalizer,
+        "state_dict": best_state,
+        "model_version": args.model_version,
+        "trained": True,
+        "synthetic": synthetic,
+        "validated_for_hardware": False,
+        "split_manifest": copy.deepcopy(split),
+        "data_sha256": sha256_file(args.data),
+        "seed": args.seed,
+        "gru_equation": "reset_before; h=(1-z)*h_prev+z*candidate",
+    }
+    report = {
+        "model_version": args.model_version,
+        "synthetic": synthetic,
+        "validated_for_hardware": False,
+        "training_history": history,
+        "window_counts": {name: len(group["y"]) for name, group in groups.items()},
+        "trajectory_counts": {name: len(ids) for name, ids in split.items()},
+        "class_counts_train": {
+            name: int(np.count_nonzero(groups["train"]["y"] == i)) for i, name in enumerate(ACTIONS)
+        },
+        "validation": classification_metrics(groups["validation"]["y"], probabilities, args.confidence),
+        "test": "not evaluated during training",
+        "split_manifest": split,
+        "normalizer": normalizer,
+        "data_sha256": checkpoint["data_sha256"],
+    }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
     torch.save(checkpoint, temporary)
@@ -93,16 +131,22 @@ def train(args):
     return report
 
 
-
 def evaluate(args):
     import torch
 
     checkpoint, model = load_checkpoint(args.model)
     split = json.loads(args.split.read_text(encoding="utf-8"))
-    if split != checkpoint["split_manifest"] or file_sha256(args.data) != checkpoint["data_sha256"]:
-        raise ValueError("dataset/split changed since training; use a separately versioned evaluation protocol")
-    groups = make_windows(load_records(args.data), split, checkpoint["window_size"],
-                          checkpoint["sample_period"], checkpoint["max_gap"])
+    if split != checkpoint["split_manifest"] or sha256_file(args.data) != checkpoint["data_sha256"]:
+        raise ValueError(
+            "dataset/split changed since training; use a separately versioned evaluation protocol"
+        )
+    groups = make_windows(
+        load_records(args.data),
+        split,
+        checkpoint["window_size"],
+        checkpoint["sample_period"],
+        checkpoint["max_gap"],
+    )
     group = groups[args.partition]
     mean = np.asarray(checkpoint["normalizer"]["mean"])
     scale = np.asarray(checkpoint["normalizer"]["scale"])
@@ -114,12 +158,19 @@ def evaluate(args):
             probabilities.append(torch.softmax(model(batch), 1).numpy())
     elapsed = time.perf_counter() - started
     result = classification_metrics(group["y"], np.concatenate(probabilities), args.confidence)
-    result.update({"partition": args.partition, "model_version": checkpoint["model_version"],
-                   "model_sha256": file_sha256(args.model), "data_sha256": checkpoint["data_sha256"],
-                   "synthetic": checkpoint["synthetic"], "inference_total_seconds": elapsed,
-                   "inference_seconds_per_window": elapsed / len(windows),
-                   "trajectory_count": len(set(group["trajectory_id"])),
-                   "hardware_performance": "not measured"})
+    result.update(
+        {
+            "partition": args.partition,
+            "model_version": checkpoint["model_version"],
+            "model_sha256": sha256_file(args.model),
+            "data_sha256": checkpoint["data_sha256"],
+            "synthetic": checkpoint["synthetic"],
+            "inference_total_seconds": elapsed,
+            "inference_seconds_per_window": elapsed / len(windows),
+            "trajectory_count": len(set(group["trajectory_id"])),
+            "hardware_performance": "not measured",
+        }
+    )
     if args.output:
         if args.output.exists():
             raise FileExistsError(f"use a new evaluation output: {args.output}")
@@ -138,38 +189,59 @@ def accept_model(model_path, record_path, output_path):
     if checkpoint["synthetic"]:
         raise ValueError("synthetic fixture weights can never receive hardware acceptance")
     record = json.loads(record_path.read_text(encoding="utf-8"))
-    required = ("reviewer", "accepted_at", "procedure", "calibration_version", "wrench_version", "robot_model")
-    if (record.get("schema_version") != 1 or record.get("approved") is not True
-            or record.get("source") != "hardware_acceptance"
-            or any(not isinstance(record.get(k), str) or not record[k].strip() for k in required)):
+    required = (
+        "reviewer",
+        "accepted_at",
+        "procedure",
+        "calibration_version",
+        "wrench_version",
+        "robot_model",
+    )
+    if (
+        record.get("schema_version") != 1
+        or record.get("approved") is not True
+        or record.get("source") != "hardware_acceptance"
+        or any(not isinstance(record.get(k), str) or not record[k].strip() for k in required)
+    ):
         raise ValueError("incomplete explicit human acceptance record")
     datetime.fromisoformat(record["accepted_at"].replace("Z", "+00:00"))
     if record["robot_model"] != "RM_75":
         raise ValueError("acceptance must describe the configured RM75 platform")
-    if record.get("model_sha256") != file_sha256(model_path) or record.get("model_version") != checkpoint["model_version"]:
+    if (
+        record.get("model_sha256") != sha256_file(model_path)
+        or record.get("model_version") != checkpoint["model_version"]
+    ):
         raise ValueError("acceptance record does not identify these frozen weights")
     if not record.get("evidence"):
         raise ValueError("acceptance requires independently recorded hardware evidence")
     for item in record["evidence"]:
         path = (record_path.parent / item["path"]).resolve()
-        if item.get("sha256") != file_sha256(path):
+        if item.get("sha256") != sha256_file(path):
             raise ValueError(f"acceptance evidence hash mismatch: {path}")
         rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         manifests = [r for r in rows if r.get("kind") == "manifest"]
-        if len(manifests) != 1 or manifests[0].get("source") != "hardware" or manifests[0].get("synthetic") is not False:
+        if (
+            len(manifests) != 1
+            or manifests[0].get("source") != "hardware"
+            or manifests[0].get("synthetic") is not False
+        ):
             raise ValueError("evidence must be a hardware log, not simulation or replay")
         if not any(r.get("kind") in ("cycle", "sample") and r.get("sample", {}).get("valid") for r in rows):
             raise ValueError("acceptance evidence contains no valid hardware samples")
     checkpoint["validated_for_hardware"] = True
     checkpoint["hardware_acceptance"] = record
-    checkpoint["acceptance_record_sha256"] = file_sha256(record_path)
+    checkpoint["acceptance_record_sha256"] = sha256_file(record_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_path.with_suffix(output_path.suffix + ".tmp")
     torch.save(checkpoint, temporary)
     temporary.replace(output_path)
-    return {"output": str(output_path), "model_sha256": file_sha256(output_path),
-            "model_version": checkpoint["model_version"], "reviewer": record["reviewer"],
-            "acceptance_record_sha256": checkpoint["acceptance_record_sha256"]}
+    return {
+        "output": str(output_path),
+        "model_sha256": sha256_file(output_path),
+        "model_version": checkpoint["model_version"],
+        "reviewer": record["reviewer"],
+        "acceptance_record_sha256": checkpoint["acceptance_record_sha256"],
+    }
 
 
 def create_demo(output_dir, *, sample_period=0.01, samples=60, seed=42):
@@ -194,10 +266,19 @@ def create_demo(output_dir, *, sample_period=0.01, samples=60, seed=42):
                 for step in range(samples):
                     value = prototype * (1 + 0.05 * np.sin(phase + step / 8)) + bias
                     value += rng.normal(0, [0.025, 0.025, 0.02, 0.002, 0.002, 0.002])
-                    records.append({"trajectory_id": identifier, "batch_id": f"synthetic-{group}-batch",
-                                    "timestamp": step * sample_period, "wrench": value.tolist(),
-                                    "label": action, "frame": "task", "units": FORCE_UNITS,
-                                    "synthetic": True, "label_basis": "synthetic class prototype; not a physical force model"})
+                    records.append(
+                        {
+                            "trajectory_id": identifier,
+                            "batch_id": f"synthetic-{group}-batch",
+                            "timestamp": step * sample_period,
+                            "wrench": value.tolist(),
+                            "label": action,
+                            "frame": "task",
+                            "units": FORCE_UNITS,
+                            "synthetic": True,
+                            "label_basis": "synthetic class prototype; not a physical force model",
+                        }
+                    )
     output_dir.mkdir(parents=True)
     with (output_dir / "force.jsonl").open("x", encoding="utf-8") as stream:
         for row in records:
@@ -206,10 +287,17 @@ def create_demo(output_dir, *, sample_period=0.01, samples=60, seed=42):
     (output_dir / "README.txt").write_text(
         "SYNTHETIC PIPELINE FIXTURE ONLY. No robot or force sensor data.\n"
         "These classes are arbitrary numerical prototypes, not connector contact mechanics.\n"
-        "Training accuracy on this dataset does not measure physical insertion performance.\n", encoding="utf-8")
-    return {"synthetic": True, "samples": len(records), "trajectories": {k: len(v) for k, v in split.items()},
-            "sample_period": sample_period, "data": str(output_dir / "force.jsonl"),
-            "split": str(output_dir / "split.json")}
+        "Training accuracy on this dataset does not measure physical insertion performance.\n",
+        encoding="utf-8",
+    )
+    return {
+        "synthetic": True,
+        "samples": len(records),
+        "trajectories": {k: len(v) for k, v in split.items()},
+        "sample_period": sample_period,
+        "data": str(output_dir / "force.jsonl"),
+        "split": str(output_dir / "split.json"),
+    }
 
 
 def parser():
@@ -231,7 +319,9 @@ def parser():
     p.add_argument("--confidence", type=float, default=0.7)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", default="cpu")
-    p.add_argument("--synthetic", action="store_true", help="mark synthetic fixture data; never a real experiment")
+    p.add_argument(
+        "--synthetic", action="store_true", help="mark synthetic fixture data; never a real experiment"
+    )
 
     p = commands.add_parser("evaluate", help="Evaluate a frozen validation or test trajectory split")
     p.add_argument("--model", type=Path, required=True)
@@ -241,7 +331,9 @@ def parser():
     p.add_argument("--confidence", type=float, default=0.7)
     p.add_argument("--batch-size", type=int, default=128)
     p.add_argument("--output", type=Path)
-    p = commands.add_parser("accept", help="Attach an independently completed human hardware-acceptance record")
+    p = commands.add_parser(
+        "accept", help="Attach an independently completed human hardware-acceptance record"
+    )
     p.add_argument("--model", type=Path, required=True)
     p.add_argument("--record", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
@@ -261,8 +353,12 @@ def main(argv=None):
     args = p.parse_args(arguments)
     if args.command == "train":
         result = train(args)
-        result = {"output": str(args.output), "validation": result["validation"],
-                  "synthetic": result["synthetic"], "validated_for_hardware": False}
+        result = {
+            "output": str(args.output),
+            "validation": result["validation"],
+            "synthetic": result["synthetic"],
+            "validated_for_hardware": False,
+        }
     elif args.command == "evaluate":
         if args.batch_size < 1:
             p.error("batch-size must be positive")
@@ -270,8 +366,9 @@ def main(argv=None):
     elif args.command == "accept":
         result = accept_model(args.model, args.record, args.output)
     else:
-        result = create_demo(args.output_dir, sample_period=args.sample_period,
-                             samples=args.samples, seed=args.seed)
+        result = create_demo(
+            args.output_dir, sample_period=args.sample_period, samples=args.samples, seed=args.seed
+        )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

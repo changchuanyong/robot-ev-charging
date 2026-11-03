@@ -1,21 +1,22 @@
 """Offline integrity and nominal-simulation checks; no camera or robot access."""
-from __future__ import annotations
 
-from ev_charging.paths import PACKAGE_ROOT, PROJECT_ROOT
+from __future__ import annotations
 
 import argparse
 import ast
-from collections import Counter
 import json
+from collections import Counter
 from pathlib import Path
+
+from ev_charging.paths import PACKAGE_ROOT, PROJECT_ROOT
 
 ROOT = PROJECT_ROOT
 
 
 def check_entry_configs(root):
     """Check the files consumed by default preview, collect and run entrypoints."""
-    from ev_charging.vision.model_config import resolve_model_config
     from ev_charging.capture.collect import load_capture_config, validate_config, validate_depth_config
+    from ev_charging.vision.model_config import resolve_model_config
 
     defaults = ("d415.json", "geometry_nominal.json", "realsense_config.json")
     configs, errors = {}, []
@@ -65,7 +66,12 @@ def check_entry_configs(root):
 
 
 def check_library(library):
-    from ev_charging.datasets.vision.training_library import calibration_status, depth_status, read_entries, validate_library
+    from ev_charging.datasets.vision.training_library import (
+        calibration_status,
+        depth_status,
+        read_entries,
+        validate_library,
+    )
 
     library = Path(library).resolve()
     if not library.is_dir() or not (library / "records").is_dir():
@@ -87,11 +93,16 @@ def check_library(library):
                 warnings.append(issue)
             else:
                 errors.append(issue)
-    from ev_charging.datasets.vision.dataset_split import read_split, group_for
+    from ev_charging.datasets.vision.dataset_split import group_for, read_split
+
     split = read_split(ROOT / "config/port_dataset_split.json")
-    pending_groups = sorted({group_for(entry, split) for entry in entries
-                             if entry["status"] != "excluded"
-                             and group_for(entry, split) not in split["groups"]})
+    pending_groups = sorted(
+        {
+            group_for(entry, split)
+            for entry in entries
+            if entry["status"] != "excluded" and group_for(entry, split) not in split["groups"]
+        }
+    )
     if pending_groups:
         training_ready = False
         warnings.append(f"pending_split: {pending_groups}")
@@ -102,24 +113,34 @@ def check_library(library):
     calibration = calibration_status(library)
     errors.extend(calibration["problems"])
     for kind in ("rgb", "depth"):
-        missing = {state: count for state, count in calibration[kind].items()
-                   if state in {"source_only", "missing", "unverifiable"} and count}
+        missing = {
+            state: count
+            for state, count in calibration[kind].items()
+            if state in {"source_only", "missing", "unverifiable"} and count
+        }
         if missing:
             warnings.append(f"{kind}_calibration_not_preserved: {missing}")
     if calibration["records_without_rgb_reference"]:
         warnings.append(f"records_without_rgb_reference: {calibration['records_without_rgb_reference']}")
-    return {
-        "path": str(library), "records": len(entries), "status_counts": counts,
-        "training_ready": training_ready, "pending_split_groups": pending_groups,
-        "depth_records": depth["with_depth"],
-        "calibration": {key: calibration[key] for key in
-                        ("rgb", "depth", "records_without_rgb_reference")},
-    }, errors, warnings
+    return (
+        {
+            "path": str(library),
+            "records": len(entries),
+            "status_counts": counts,
+            "training_ready": training_ready,
+            "pending_split_groups": pending_groups,
+            "depth_records": depth["with_depth"],
+            "calibration": {
+                key: calibration[key] for key in ("rgb", "depth", "records_without_rgb_reference")
+            },
+        },
+        errors,
+        warnings,
+    )
 
 
 def check_project(library=None):
-    report = {"scope": "offline_integrity_and_nominal_simulation",
-              "checks": {}, "errors": [], "warnings": []}
+    report = {"scope": "offline_integrity_and_nominal_simulation", "checks": {}, "errors": [], "warnings": []}
     checks, errors, warnings = report["checks"], report["errors"], report["warnings"]
     sources = list(PACKAGE_ROOT.rglob("*.py"))
     for path in sources:
@@ -139,7 +160,11 @@ def check_project(library=None):
     errors.extend(entry_errors)
     try:
         from ev_charging.vision.model_config import current_model_path
-        checks["model"] = {"weights": str(current_model_path(root=ROOT, verify=True)), "sha256_verified": True}
+
+        checks["model"] = {
+            "weights": str(current_model_path(root=ROOT, verify=True)),
+            "sha256_verified": True,
+        }
     except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         errors.append(f"model: {exc}")
     try:
@@ -151,6 +176,7 @@ def check_project(library=None):
         errors.append(f"library: {exc}")
     try:
         from ev_charging.control.simulate import run_simulation
+
         result, _ = run_simulation(scenario="nominal", output=None)
         checks["simulation"] = result
         if result["success"] is not True or result["stop_confirmed"] is not True:
@@ -162,7 +188,9 @@ def check_project(library=None):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="离线项目自检：源码、配置、模型、图库和标称仿真；不访问硬件。")
+    parser = argparse.ArgumentParser(
+        description="离线项目自检：源码、配置、模型、图库和标称仿真；不访问硬件。"
+    )
     parser.add_argument("--library", type=Path, help="待检查图库，默认 dataset/vision")
     args = parser.parse_args(argv)
     report = check_project(args.library)

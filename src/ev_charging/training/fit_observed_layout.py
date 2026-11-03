@@ -1,11 +1,11 @@
 """Fit image-space correspondence templates from reviewed training annotations."""
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
 from pathlib import Path
-
 
 from ev_charging.vision.algorithms.observed_layout import DEFAULT_PRIOR_PATH, fit_observed_layout
 
@@ -27,8 +27,17 @@ def main():
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(prior, handle, ensure_ascii=False, indent=2, allow_nan=False)
         handle.write("\n")
-    print(json.dumps({"templates": len(prior["templates"]), "fit_split": "train",
-                      "training_images": len(prior["training_images"]), "output": str(args.output)}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "templates": len(prior["templates"]),
+                "fit_split": "train",
+                "training_images": len(prior["training_images"]),
+                "output": str(args.output),
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":

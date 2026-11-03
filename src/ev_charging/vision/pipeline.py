@@ -1,25 +1,32 @@
 """One immutable frame through the existing vision algorithms, without latest-file races."""
-from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
+from __future__ import annotations
 
 import contextlib
 import csv
 import os
-from pathlib import Path
 import time
+from pathlib import Path
 
 import numpy as np
 
-from ev_charging.vision.contracts import FramePacket, distort_normalized, empty_observation, intrinsics_signature, rectify_points, validate_camera
+from ev_charging.paths import PROJECT_ROOT
+from ev_charging.vision.contracts import (
+    FramePacket,
+    distort_normalized,
+    empty_observation,
+    intrinsics_signature,
+    rectify_points,
+    validate_camera,
+)
 from ev_charging.vision.model_config import resolve_model_config
-
 
 ROOT = PROJECT_ROOT
 
 
-def calibrated_visual_budget(spec: dict | None, camera: dict, rms_px: float,
-                             depth_m: float) -> tuple[list | None, str | None]:
+def calibrated_visual_budget(
+    spec: dict | None, camera: dict, rms_px: float, depth_m: float
+) -> tuple[list | None, str | None]:
     """Retrieve an independently validated SI action budget within its calibration region.
 
     This is not a conversion of pixel residuals into position covariance. Missing
@@ -32,16 +39,27 @@ def calibrated_visual_budget(spec: dict | None, camera: dict, rms_px: float,
         values = np.asarray(spec["budget_m_rad"], dtype=float)
         depth_range = np.asarray(spec["depth_range_m"], dtype=float)
         max_rms = float(spec["max_reprojection_rms_px"])
-        matches = (spec["camera_intrinsics_sha256"] == intrinsics_signature(camera)
-                   and spec.get("axes") == ["x", "y", "Rx", "Ry"]
-                   and spec.get("rules_version") == "finite-trial-v2"
-                   and bool(spec["version"]) and bool(spec["source"]))
-        if (values.shape != (4,) or not np.isfinite(values).all() or np.any(values <= 0)
-                or depth_range.shape != (2,) or not np.isfinite(depth_range).all()
-                or depth_range[0] <= 0 or depth_range[0] >= depth_range[1]
-                or not np.isfinite(max_rms) or max_rms <= 0
-                or rms_px > max_rms or not depth_range[0] <= depth_m <= depth_range[1]
-                or not matches):
+        matches = (
+            spec["camera_intrinsics_sha256"] == intrinsics_signature(camera)
+            and spec.get("axes") == ["x", "y", "Rx", "Ry"]
+            and spec.get("rules_version") == "finite-trial-v2"
+            and bool(spec["version"])
+            and bool(spec["source"])
+        )
+        if (
+            values.shape != (4,)
+            or not np.isfinite(values).all()
+            or np.any(values <= 0)
+            or depth_range.shape != (2,)
+            or not np.isfinite(depth_range).all()
+            or depth_range[0] <= 0
+            or depth_range[0] >= depth_range[1]
+            or not np.isfinite(max_rms)
+            or max_rms <= 0
+            or rms_px > max_rms
+            or not depth_range[0] <= depth_m <= depth_range[1]
+            or not matches
+        ):
             return None, None
         return values.tolist(), str(spec["version"])
     except (KeyError, TypeError, ValueError):
@@ -53,13 +71,19 @@ def select_detection(boxes: list[dict], image_shape: tuple, target_window: list 
     height, width = image_shape[:2]
     if target_window is not None:
         window = np.asarray(target_window, dtype=float)
-        if (window.shape != (4,) or not np.isfinite(window).all() or np.any(window < 0)
-                or np.any(window > 1) or window[0] >= window[2] or window[1] >= window[3]):
+        if (
+            window.shape != (4,)
+            or not np.isfinite(window).all()
+            or np.any(window < 0)
+            or np.any(window > 1)
+            or window[0] >= window[2]
+            or window[1] >= window[3]
+        ):
             raise ValueError("target_window_requires_normalized_xyxy")
         candidates = []
         for box in boxes:
             x1, y1, x2, y2 = box["xyxy"]
-            cx, cy = (x1+x2)/(2*width), (y1+y2)/(2*height)
+            cx, cy = (x1 + x2) / (2 * width), (y1 + y2) / (2 * height)
             if window[0] <= cx <= window[2] and window[1] <= cy <= window[3]:
                 candidates.append(box)
     else:
@@ -89,13 +113,25 @@ class PosePipeline:
     def _load(self):
         if self._modules is not None:
             return
-        from ev_charging.vision.algorithms import center_fit, enhance, latest_candidate_contours, pnp2, pose_correspondence
+        from ev_charging.vision.algorithms import (
+            center_fit,
+            enhance,
+            latest_candidate_contours,
+            pnp2,
+            pose_correspondence,
+        )
 
-        modules = {"enhance": enhance, "latest_candidate_contours": latest_candidate_contours,
-                   "center_fit": center_fit, "pnp2": pnp2, "pose_correspondence": pose_correspondence}
+        modules = {
+            "enhance": enhance,
+            "latest_candidate_contours": latest_candidate_contours,
+            "center_fit": center_fit,
+            "pnp2": pnp2,
+            "pose_correspondence": pose_correspondence,
+        }
         detector = self._detector
         if detector is None:
             from ultralytics import YOLO
+
             self.config = resolve_model_config(self.config, verify=True)
             weights = Path(self.config["weights"])
             print(f"检测模型: {weights}", flush=True)
@@ -103,13 +139,15 @@ class PosePipeline:
         self.geometry_source = None
         if self.config.get("geometry_reference"):
             from ev_charging.vision.geometry_reference import load_geometry_reference
+
             model_path = Path(self.config["geometry_reference"])
             if not model_path.is_absolute():
                 model_path = ROOT / model_path
             reference = load_geometry_reference(model_path)
             self.model = reference["points_mm"]
-            self.geometry_source = {key: reference[key] for key in
-                                    ("version", "status", "validated", "source_sha256")}
+            self.geometry_source = {
+                key: reference[key] for key in ("version", "status", "validated", "source_sha256")
+            }
         else:
             model_path = Path(self.config["model_points"])
             if not model_path.is_absolute():
@@ -127,25 +165,31 @@ class PosePipeline:
             if not prior_path.is_absolute():
                 prior_path = ROOT / prior_path
             from ev_charging.vision.algorithms.observed_layout import load_prior
+
             self.observed_prior = load_prior(prior_path)
         self._modules, self._detector = modules, detector
 
     def _extract_points(self, image: np.ndarray, *, projection: tuple) -> tuple[dict, dict]:
         import cv2
+
         self._load()
         result = self._detector(image, conf=float(self.config["confidence"]), verbose=False)
         boxes = []
         if result:
             for box in result[0].boxes:
                 if int(box.cls.item()) == int(self.config["target_class"]):
-                    boxes.append({"xyxy": [float(x) for x in box.xyxy[0].tolist()],
-                                  "confidence": float(box.conf.item())})
+                    boxes.append(
+                        {
+                            "xyxy": [float(x) for x in box.xyxy[0].tolist()],
+                            "confidence": float(box.conf.item()),
+                        }
+                    )
         selected = select_detection(boxes, image.shape, self.config.get("target_window"))
         x1, y1, x2, y2 = selected["xyxy"]
-        padding = max(20, int(max(x2-x1, y2-y1) * 0.08))
+        padding = max(20, int(max(x2 - x1, y2 - y1) * 0.08))
         height, width = image.shape[:2]
-        x1, y1 = max(0, int(x1)-padding), max(0, int(y1)-padding)
-        x2, y2 = min(width, int(x2)+padding), min(height, int(y2)+padding)
+        x1, y1 = max(0, int(x1) - padding), max(0, int(y1) - padding)
+        x2, y2 = min(width, int(x2) + padding), min(height, int(y2) + padding)
         if x2 <= x1 or y2 <= y1:
             raise ValueError("invalid_detection_bbox")
         crop = image[y1:y2, x1:x2].copy()
@@ -158,21 +202,33 @@ class PosePipeline:
         diagnostics = {}
         with open(os.devnull, "w") as sink, contextlib.redirect_stdout(sink):
             candidates, _, _ = contours.filter_candidate_contours(
-                contours.prepare_edges(edges), enhanced_bgr, apply_layout=False,
-                diagnostics=diagnostics, gray_source=crop)
+                contours.prepare_edges(edges),
+                enhanced_bgr,
+                apply_layout=False,
+                diagnostics=diagnostics,
+                gray_source=crop,
+            )
         matrix, coefficients, distortion_model = projection
         selection = self._modules["pose_correspondence"].select_correspondences(
-            candidates, enhanced_bgr.shape, self.model, matrix, np.zeros(5), (x1, y1),
+            candidates,
+            enhanced_bgr.shape,
+            self.model,
+            matrix,
+            np.zeros(5),
+            (x1, y1),
             point_transform=lambda points: rectify_points(points, matrix, coefficients, distortion_model),
             max_mean_error_px=float(self.config["max_reprojection_rms_px"]),
             min_inlier_count=int(self.config["min_inliers"]),
             min_correspondence_count=max(6, int(self.config["min_inliers"])),
-            observed_prior=self.observed_prior)
+            observed_prior=self.observed_prior,
+        )
         if selection["best"] is None:
             raise ValueError("no_layout_variant")
         return selection["best"]["image_points"], {
-            "detection_score": selected["confidence"], "crop_xyxy": [x1, y1, x2, y2],
-            "contour_diagnostics": diagnostics, "correspondence_diagnostics": selection["diagnostics"],
+            "detection_score": selected["confidence"],
+            "crop_xyxy": [x1, y1, x2, y2],
+            "contour_diagnostics": diagnostics,
+            "correspondence_diagnostics": selection["diagnostics"],
         }
 
     def process(self, packet: FramePacket, now: float | None = None) -> dict:
@@ -194,7 +250,9 @@ class PosePipeline:
                 if current - packet.captured_at > float(self.config["max_frame_age_s"]):
                     raise ValueError("frame_expired_before_processing")
             matrix, coefficients, model = validate_camera(packet.camera, packet.image.shape)
-            raw_points, metadata = self._extract_points(packet.image, projection=(matrix, coefficients, model))
+            raw_points, metadata = self._extract_points(
+                packet.image, projection=(matrix, coefficients, model)
+            )
             labels = list(raw_points)
             if len(labels) < int(self.config["min_inliers"]):
                 raise ValueError("insufficient_hole_correspondences")
@@ -204,16 +262,21 @@ class PosePipeline:
             pnp = self._modules["pnp2"]
             result = pnp.solve_target_pose(image_points, self.model, matrix, np.zeros(5))
             import cv2
+
             rotation = cv2.Rodrigues(result["rvec"])[0]
             translation_mm = np.asarray(result["tvec"]).reshape(3)
             transform = np.eye(4)
             transform[:3, :3] = rotation
             transform[:3, 3] = translation_mm / 1000.0
             ordered_labels = result["matched_names"]
-            camera_points = (rotation @ np.asarray([self.model[x] for x in ordered_labels]).T).T + translation_mm
+            camera_points = (
+                rotation @ np.asarray([self.model[x] for x in ordered_labels]).T
+            ).T + translation_mm
             if np.any(camera_points[:, 2] <= 0) or not np.isfinite(camera_points).all():
                 raise ValueError("invalid_camera_depth")
-            projected = distort_normalized(camera_points[:, :2]/camera_points[:, 2, None], coefficients, model)
+            projected = distort_normalized(
+                camera_points[:, :2] / camera_points[:, 2, None], coefficients, model
+            )
             projected = projected * [matrix[0, 0], matrix[1, 1]] + matrix[:2, 2]
             errors = np.linalg.norm(projected - np.asarray([raw_points[x] for x in ordered_labels]), axis=1)
             if not np.isfinite(projected).all() or not np.isfinite(errors).all():
@@ -221,27 +284,44 @@ class PosePipeline:
             calibrated = bool(packet.camera.get("validated") and packet.camera.get("version"))
             quality = {
                 "reprojection_rms_px": float(np.sqrt(np.mean(errors**2))),
-                "reprojection_mean_px": float(np.mean(errors)), "max_error_px": float(np.max(errors)),
+                "reprojection_mean_px": float(np.mean(errors)),
+                "max_error_px": float(np.max(errors)),
                 "inlier_count": int(np.count_nonzero(errors <= pnp.RANSAC_REPROJ_ERROR_PX)),
                 "rectified_inlier_count": int(result["inlier_count"]),
                 "inlier_threshold_px": pnp.RANSAC_REPROJ_ERROR_PX,
                 "all_in_front": bool(result["all_in_front"]),
-                "camera_calibrated": calibrated, "residual_frame": "raw_color_pixels",
-                "method": result["method"], "per_point_error_px": dict(zip(ordered_labels, errors.tolist())),
+                "camera_calibrated": calibrated,
+                "residual_frame": "raw_color_pixels",
+                "method": result["method"],
+                "per_point_error_px": dict(zip(ordered_labels, errors.tolist())),
                 "intrinsic_source": packet.camera.get("source"),
                 "intrinsic_calibration_version": packet.camera.get("version"),
                 "geometry_reference": getattr(self, "geometry_source", None),
             }
             budget, budget_version = calibrated_visual_budget(
-                self.config.get("visual_budget"), packet.camera,
-                quality["reprojection_rms_px"], transform[2, 3],
+                self.config.get("visual_budget"),
+                packet.camera,
+                quality["reprojection_rms_px"],
+                transform[2, 3],
             )
-            quality.update({"visual_budget": budget, "budget_version": budget_version,
-                            "budget_source": self.config.get("visual_budget", {}).get("source")
-                            if budget is not None else None})
-            observation.update({"T_camera_target": transform.tolist(), "quality": quality,
-                                "image_points_full": {k: list(v) for k, v in raw_points.items()},
-                                "matched_labels": ordered_labels, "metadata": metadata})
+            quality.update(
+                {
+                    "visual_budget": budget,
+                    "budget_version": budget_version,
+                    "budget_source": self.config.get("visual_budget", {}).get("source")
+                    if budget is not None
+                    else None,
+                }
+            )
+            observation.update(
+                {
+                    "T_camera_target": transform.tolist(),
+                    "quality": quality,
+                    "image_points_full": {k: list(v) for k, v in raw_points.items()},
+                    "matched_labels": ordered_labels,
+                    "metadata": metadata,
+                }
+            )
             reasons = []
             if metadata.get("correspondence_diagnostics", {}).get("ambiguous", False):
                 reasons.append("ambiguous_correspondences")
@@ -249,8 +329,9 @@ class PosePipeline:
                 reasons.append("correspondence_quality_rejected")
             if not calibrated:
                 reasons.append("intrinsics_not_independently_validated")
-            if (self.config.get("geometry_reference") and
-                    not (self.geometry_source["status"] == "measured_print" and self.geometry_source["validated"])):
+            if self.config.get("geometry_reference") and not (
+                self.geometry_source["status"] == "measured_print" and self.geometry_source["validated"]
+            ):
                 reasons.append("print_geometry_not_measured_and_validated")
             if quality["inlier_count"] < int(self.config["min_inliers"]):
                 reasons.append("insufficient_inliers")
@@ -259,7 +340,9 @@ class PosePipeline:
             if quality["max_error_px"] > float(self.config["max_point_error_px"]):
                 reasons.append("point_error_exceeded")
             finished = time.monotonic() if now is None else now
-            if packet.source != "offline" and finished - packet.captured_at > float(self.config["max_frame_age_s"]):
+            if packet.source != "offline" and finished - packet.captured_at > float(
+                self.config["max_frame_age_s"]
+            ):
                 reasons.append("frame_expired_during_processing")
             observation["valid"] = not reasons
             observation["reason"] = ";".join(reasons) if reasons else "ok"

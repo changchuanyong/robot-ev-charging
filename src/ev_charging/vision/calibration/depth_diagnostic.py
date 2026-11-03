@@ -4,6 +4,7 @@ Points and their raw RGB pixels come from SDK projection and a depth-to-color
 rigid transform. An accepted fit is only a candidate plane within the detected
 box: a box cannot identify which printed step is the intended aperture plane.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -14,20 +15,28 @@ import numpy as np
 
 from ev_charging.vision.contracts import intrinsics_signature
 
-
 # Reproducible diagnostic heuristics, not calibrated insertion/safety limits.
 THRESHOLDS = {
-    "roi_inset_fraction": .1, "hole_radius_fraction": .025, "hole_radius_min_px": 6.,
-    "edge_absolute_m": .005, "edge_relative": .01, "min_surface_samples": 80,
-    "max_fit_samples": 4000, "ransac_iterations": 80, "plane_tolerance_m": .003,
-    "min_inlier_fraction": .85, "max_plane_rms_m": .002,
-    "min_second_axis_std_m": .003, "min_rgb_span_fraction": .35,
+    "roi_inset_fraction": 0.1,
+    "hole_radius_fraction": 0.025,
+    "hole_radius_min_px": 6.0,
+    "edge_absolute_m": 0.005,
+    "edge_relative": 0.01,
+    "min_surface_samples": 80,
+    "max_fit_samples": 4000,
+    "ransac_iterations": 80,
+    "plane_tolerance_m": 0.003,
+    "min_inlier_fraction": 0.85,
+    "max_plane_rms_m": 0.002,
+    "min_second_axis_std_m": 0.003,
+    "min_rgb_span_fraction": 0.35,
 }
 
 
 def _positive(value):
-    return (not isinstance(value, bool) and isinstance(value, (int, float))
-            and math.isfinite(value) and value > 0)
+    return (
+        not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value) and value > 0
+    )
 
 
 def _finite_json(value):
@@ -54,13 +63,15 @@ def _interior_depth_mask(raw, scale):
         right = [slice(None), slice(None)]
         left[axis], right[axis] = slice(None, -1), slice(1, None)
         left, right = tuple(left), tuple(right)
-        tolerance = np.maximum(THRESHOLDS["edge_absolute_m"],
-                               THRESHOLDS["edge_relative"] * np.minimum(z[left], z[right]))
-        jump = (~valid[left] | ~valid[right] | (np.abs(z[left] - z[right]) > tolerance))
+        tolerance = np.maximum(
+            THRESHOLDS["edge_absolute_m"], THRESHOLDS["edge_relative"] * np.minimum(z[left], z[right])
+        )
+        jump = ~valid[left] | ~valid[right] | (np.abs(z[left] - z[right]) > tolerance)
         safe[left] &= ~jump
         safe[right] &= ~jump
-    return cv2.erode(safe.astype(np.uint8), np.ones((3, 3), np.uint8),
-                     borderType=cv2.BORDER_CONSTANT, borderValue=0).astype(bool)
+    return cv2.erode(
+        safe.astype(np.uint8), np.ones((3, 3), np.uint8), borderType=cv2.BORDER_CONSTANT, borderValue=0
+    ).astype(bool)
 
 
 def _fit_plane(points, pixels, box):
@@ -99,16 +110,22 @@ def _fit_plane(points, pixels, box):
     if fraction < THRESHOLDS["min_inlier_fraction"] or rms > THRESHOLDS["max_plane_rms_m"]:
         return {"solved": False, "reason": "noisy_or_mixed_surface", "inlier_fraction": fraction}
     spans = np.ptp(pixels[inliers], axis=0) / (np.asarray(box[2:]) - box[:2])
-    if (singular[1] / math.sqrt(int(best.sum())) < THRESHOLDS["min_second_axis_std_m"]
-            or np.any(spans < THRESHOLDS["min_rgb_span_fraction"])):
+    if singular[1] / math.sqrt(int(best.sum())) < THRESHOLDS["min_second_axis_std_m"] or np.any(
+        spans < THRESHOLDS["min_rgb_span_fraction"]
+    ):
         return {"solved": False, "reason": "insufficient_plane_spatial_support"}
     return {
-        "solved": True, "kind": "detected_roi_candidate_plane",
-        "aperture_reference_verified": False, "normal_color_camera": normal.tolist(),
+        "solved": True,
+        "kind": "detected_roi_candidate_plane",
+        "aperture_reference_verified": False,
+        "normal_color_camera": normal.tolist(),
         "centroid_color_mm": (centroid * 1000).tolist(),
-        "offset_mm": float(-normal @ centroid * 1000), "rms_mm": rms * 1000,
-        "inlier_fraction": fraction, "sample_count": len(points),
-        "inlier_count": int(inliers.sum()), "surface_samples_before_downsampling": count,
+        "offset_mm": float(-normal @ centroid * 1000),
+        "rms_mm": rms * 1000,
+        "inlier_fraction": fraction,
+        "sample_count": len(points),
+        "inlier_count": int(inliers.sum()),
+        "surface_samples_before_downsampling": count,
         "normal_convention": "color_optical_frame_z_nonpositive",
     }
 
@@ -126,15 +143,19 @@ def _compare_pose(plane, pose, geometry):
             return None
         center = model.mean(axis=0)
         _, singular, vectors = np.linalg.svd(model - center, full_matrices=False)
-        if singular[1] < 1e-6 or np.max(np.abs((model - center) @ vectors[-1])) > .001:
+        if singular[1] < 1e-6 or np.max(np.abs((model - center) @ vectors[-1])) > 0.001:
             return None  # A stepped model does not define one aperture plane.
         rotation = cv2.Rodrigues(rotation_vector)[0]
         normal = np.asarray(plane["normal_color_camera"])
         angle = math.degrees(math.acos(float(np.clip(abs(normal @ (rotation @ vectors[-1])), 0, 1))))
         distance = abs(float(normal @ (rotation @ center + translation) + plane["offset_mm"]))
-        return {"normal_angle_deg": angle, "plane_distance_mm": distance,
-                "reference_verified": False, "geometry_status": geometry.get("status"),
-                "note": "candidate_ROI_surface_may_differ_from_modeled_aperture_plane"}
+        return {
+            "normal_angle_deg": angle,
+            "plane_distance_mm": distance,
+            "reference_verified": False,
+            "geometry_status": geometry.get("status"),
+            "note": "candidate_ROI_surface_may_differ_from_modeled_aperture_plane",
+        }
     except (KeyError, TypeError, ValueError, np.linalg.LinAlgError, cv2.error):
         return None
 
@@ -149,11 +170,21 @@ def analyze_depth(packet, color_frame, color_camera, frontend, pose, geometry):
     packet = packet or {}
     calibration, frame = packet.get("calibration") or {}, packet.get("frame") or {}
     result = {
-        "schema_version": 1, "kind": "depth_assisted_diagnostic", "method_version": "roi_plane_v1",
-        "authorizes_robot_motion": False, "status": "invalid", "reasons": list(packet.get("reasons", [])),
-        "frame": packet.get("frame"), "color_frame": dict(color_frame), "calibration": calibration,
-        "raw_pixels_sha256": None, "pair_skew_ms": None, "scene": {}, "roi": None,
-        "plane": {"solved": False, "reason": "invalid_depth"}, "pnp_consistency": None,
+        "schema_version": 1,
+        "kind": "depth_assisted_diagnostic",
+        "method_version": "roi_plane_v1",
+        "authorizes_robot_motion": False,
+        "status": "invalid",
+        "reasons": list(packet.get("reasons", [])),
+        "frame": packet.get("frame"),
+        "color_frame": dict(color_frame),
+        "calibration": calibration,
+        "raw_pixels_sha256": None,
+        "pair_skew_ms": None,
+        "scene": {},
+        "roi": None,
+        "plane": {"solved": False, "reason": "invalid_depth"},
+        "pnp_consistency": None,
         "thresholds": dict(THRESHOLDS),
     }
     reasons = result["reasons"]
@@ -170,8 +201,9 @@ def analyze_depth(packet, color_frame, color_camera, frontend, pose, geometry):
     if not _positive(depth_time):
         reasons.append("invalid_depth_timestamp")
     domains = {"hardware_clock", "system_time", "global_time"}
-    same_domain = (color_frame.get("timestamp_domain") in domains
-                   and frame.get("timestamp_domain") == color_frame.get("timestamp_domain"))
+    same_domain = color_frame.get("timestamp_domain") in domains and frame.get(
+        "timestamp_domain"
+    ) == color_frame.get("timestamp_domain")
     if not same_domain:
         reasons.append("depth_timestamp_domain_mismatch")
     max_skew = calibration.get("max_pair_skew_ms")
@@ -193,52 +225,83 @@ def analyze_depth(packet, color_frame, color_camera, frontend, pose, geometry):
     except (KeyError, TypeError, ValueError):
         reasons.append("invalid_color_intrinsics")
     count = int(np.count_nonzero(raw))
-    result["scene"] = {"valid_fraction": count / raw.size, "valid_pixels": count,
-                       "total_pixels": raw.size, "median_depth_mm":
-                       float(np.median(raw[raw > 0]) * scale * 1000) if count and _positive(scale) else None,
-                       "depth_frame": "depth_optical", "validity_definition": "nonzero_native_Z16_pixels"}
+    result["scene"] = {
+        "valid_fraction": count / raw.size,
+        "valid_pixels": count,
+        "total_pixels": raw.size,
+        "median_depth_mm": float(np.median(raw[raw > 0]) * scale * 1000)
+        if count and _positive(scale)
+        else None,
+        "depth_frame": "depth_optical",
+        "validity_definition": "nonzero_native_Z16_pixels",
+    }
     if count == 0:
         reasons.append("no_valid_depth")
     if reasons:
         result["reasons"] = list(dict.fromkeys(reasons))
         return _finite_json(result)
     points, pixels = packet.get("points_color_m"), packet.get("color_pixels")
-    if (not isinstance(points, np.ndarray) or points.shape != (*raw.shape, 3)
-            or not isinstance(pixels, np.ndarray) or pixels.shape != (*raw.shape, 2)):
+    if (
+        not isinstance(points, np.ndarray)
+        or points.shape != (*raw.shape, 3)
+        or not isinstance(pixels, np.ndarray)
+        or pixels.shape != (*raw.shape, 2)
+    ):
         reasons.append("missing_or_invalid_depth_projection")
         return _finite_json(result)
     width, height = color_camera["image_width"], color_camera["image_height"]
-    valid = ((raw > 0) & np.isfinite(points).all(axis=2) & (points[:, :, 2] > 0)
-             & np.isfinite(pixels).all(axis=2) & (pixels[:, :, 0] >= 0) & (pixels[:, :, 0] < width)
-             & (pixels[:, :, 1] >= 0) & (pixels[:, :, 1] < height))
+    valid = (
+        (raw > 0)
+        & np.isfinite(points).all(axis=2)
+        & (points[:, :, 2] > 0)
+        & np.isfinite(pixels).all(axis=2)
+        & (pixels[:, :, 0] >= 0)
+        & (pixels[:, :, 0] < width)
+        & (pixels[:, :, 1] >= 0)
+        & (pixels[:, :, 1] < height)
+    )
     result["scene"]["projected_valid_samples"] = int(valid.sum())
     try:
         box = np.asarray(frontend.get("selected_bbox_xyxy", []), dtype=float)
     except (TypeError, ValueError):
         box = np.array([])
     if box.shape != (4,) or not np.isfinite(box).all() or np.any(box[2:] <= box[:2]):
-        result.update(status="scene_only", reasons=["target_not_detected"],
-                      plane={"solved": False, "reason": "no_detected_target_ROI"})
+        result.update(
+            status="scene_only",
+            reasons=["target_not_detected"],
+            plane={"solved": False, "reason": "no_detected_target_ROI"},
+        )
         return _finite_json(result)
     box = np.clip(box, [0, 0, 0, 0], [width, height, width, height])
     inset = (box[2:] - box[:2]) * THRESHOLDS["roi_inset_fraction"]
     inner = np.r_[box[:2] + inset, box[2:] - inset]
-    region = (valid & (pixels[:, :, 0] >= inner[0]) & (pixels[:, :, 0] < inner[2])
-              & (pixels[:, :, 1] >= inner[1]) & (pixels[:, :, 1] < inner[3]))
+    region = (
+        valid
+        & (pixels[:, :, 0] >= inner[0])
+        & (pixels[:, :, 0] < inner[2])
+        & (pixels[:, :, 1] >= inner[1])
+        & (pixels[:, :, 1] < inner[3])
+    )
     surface = region & _interior_depth_mask(raw, scale)
-    radius = max(THRESHOLDS["hole_radius_min_px"], float(min(box[2:] - box[:2]))
-                 * THRESHOLDS["hole_radius_fraction"])
+    radius = max(
+        THRESHOLDS["hole_radius_min_px"], float(min(box[2:] - box[:2])) * THRESHOLDS["hole_radius_fraction"]
+    )
     for value in frontend.get("named_points_raw_px", {}).values():
         hole = np.asarray(value, dtype=float)
         if hole.shape == (2,) and np.isfinite(hole).all():
-            surface &= np.sum((pixels - hole) ** 2, axis=2) > radius ** 2
+            surface &= np.sum((pixels - hole) ** 2, axis=2) > radius**2
     projected = np.floor(pixels[region]).astype(np.int64)
-    area = max(0, math.ceil(inner[2]) - math.ceil(inner[0])) * max(0, math.ceil(inner[3]) - math.ceil(inner[1]))
-    coverage = len(np.unique(projected, axis=0)) / area if area else 0.
+    area = max(0, math.ceil(inner[2]) - math.ceil(inner[0])) * max(
+        0, math.ceil(inner[3]) - math.ceil(inner[1])
+    )
+    coverage = len(np.unique(projected, axis=0)) / area if area else 0.0
     result["roi"] = {
-        "bbox_xyxy": box.tolist(), "inset_bbox_xyxy": inner.tolist(),
-        "projected_valid_samples": int(region.sum()), "surface_samples": int(surface.sum()),
-        "measurement_coverage_fraction": min(1., coverage), "hole_exclusion_radius_px": radius,
+        "bbox_xyxy": box.tolist(),
+        "inset_bbox_xyxy": inner.tolist(),
+        "projected_valid_samples": int(region.sum()),
+        "surface_samples": int(surface.sum()),
+        "measurement_coverage_fraction": min(1.0, coverage),
+        "hole_exclusion_radius_px": radius,
         "median_color_z_mm": float(np.median(points[region, 2]) * 1000) if np.any(region) else None,
         "coverage_definition": "unique_RGB_pixels_with_projected_measurements_divided_by_inset_ROI_pixels",
     }
@@ -248,6 +311,8 @@ def analyze_depth(packet, color_frame, color_camera, frontend, pose, geometry):
         result["reasons"] = ["aperture_plane_identity_unverified"]
         result["pnp_consistency"] = _compare_pose(result["plane"], pose, geometry)
     else:
-        result["status"] = "roi_insufficient" if int(surface.sum()) < THRESHOLDS["min_surface_samples"] else "plane_rejected"
+        result["status"] = (
+            "roi_insufficient" if int(surface.sum()) < THRESHOLDS["min_surface_samples"] else "plane_rejected"
+        )
         result["reasons"] = [result["plane"]["reason"]]
     return _finite_json(result)

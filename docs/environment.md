@@ -19,6 +19,8 @@ python -m pip check
 
 `pyproject.toml` 描述包的直接依赖范围和入口；`environments/pip.lock.txt` 固定整套业务依赖及 CUDA wheel 的官方地址、SHA256。Conda 管理 Python、Tk、pip 等基础组件。
 
+开发工具 Ruff 独立固定为 0.17.3，声明在 `pyproject.toml` 的 `dev` 可选依赖中，不改变业务依赖锁。当前环境已安装；新环境执行 `python -m pip install --no-deps ruff==0.17.3`。检查命令见 [代码风格](code_style.md)。
+
 ## 精确重建 Windows 基础组件
 
 `environment.yml` 适合通常的环境创建；如需还原本次 Conda 基础组件的具体构建，可执行：

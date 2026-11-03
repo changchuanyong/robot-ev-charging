@@ -1,7 +1,6 @@
 """Check whether port training boxes cover the reviewed visible hole centers."""
-from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
+from __future__ import annotations
 
 import argparse
 import hashlib
@@ -12,10 +11,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from ev_charging.datasets.vision.photo_sources import library_label, resolve_photo
+from ev_charging.paths import PROJECT_ROOT
+from ev_charging.review.keypoint_annotations import normalized_image_key, validate_annotations
 
 ROOT_DIR = PROJECT_ROOT
-from ev_charging.review.keypoint_annotations import normalized_image_key, validate_annotations  # noqa: E402
-from ev_charging.datasets.vision.photo_sources import library_label, resolve_photo
 
 
 def detection_bbox(path: Path, width: int, height: int) -> list[float]:
@@ -49,14 +49,23 @@ def check_annotations(annotations: dict, root: Path) -> dict:
         original_path = (root / key).resolve()
         split = entry["split"]
         expected_image = root / "yolo_port" / "images" / split / original_path.name
-        migrated = key.startswith("dataset/vision/images/") or (root / "config/legacy_photo_index.json").exists()
+        migrated = (
+            key.startswith("dataset/vision/images/") or (root / "config/legacy_photo_index.json").exists()
+        )
         if not migrated and (original_path != expected_image or split not in {"train", "val"}):
             raise ValueError(f"Expected a known library or historical train/val image: {key}")
         label_path = root / "yolo_port" / "labels" / split / (original_path.stem + ".txt")
-        visible = {name: point["xy"] for name, point in entry["points"].items()
-                   if point["visibility"] == "visible"}
-        row = {"image": key, "label_file": label_path.relative_to(root).as_posix(),
-               "visible_point_count": len(visible), "bbox_xyxy": None, "outside_points": {}, "errors": []}
+        visible = {
+            name: point["xy"] for name, point in entry["points"].items() if point["visibility"] == "visible"
+        }
+        row = {
+            "image": key,
+            "label_file": label_path.relative_to(root).as_posix(),
+            "visible_point_count": len(visible),
+            "bbox_xyxy": None,
+            "outside_points": {},
+            "errors": [],
+        }
         try:
             image_path = resolve_photo(key, root=root)
             image_bytes = image_path.read_bytes()
@@ -70,17 +79,24 @@ def check_annotations(annotations: dict, root: Path) -> dict:
                 row["label_file"] = label_path.relative_to(root).as_posix()
             box = detection_bbox(label_path, entry["width"], entry["height"])
             row["bbox_xyxy"] = box
-            row["outside_points"] = {name: xy for name, xy in visible.items()
-                                     if not (box[0] <= xy[0] <= box[2] and box[1] <= xy[1] <= box[3])}
+            row["outside_points"] = {
+                name: xy
+                for name, xy in visible.items()
+                if not (box[0] <= xy[0] <= box[2] and box[1] <= xy[1] <= box[3])
+            }
         except (OSError, ValueError) as exc:
             row["errors"].append(str(exc))
         row["ok"] = not row["errors"] and not row["outside_points"]
         rows.append(row)
-    return {"independent_test_set": False, "reviewed_images": len(rows),
-            "skipped_draft_images": skipped, "failed_images": sum(not row["ok"] for row in rows),
-            "outside_point_count": sum(len(row["outside_points"]) for row in rows),
-            "note": "Visible-point containment checks label consistency; it does not certify a complete object box.",
-            "rows": rows}
+    return {
+        "independent_test_set": False,
+        "reviewed_images": len(rows),
+        "skipped_draft_images": skipped,
+        "failed_images": sum(not row["ok"] for row in rows),
+        "outside_point_count": sum(len(row["outside_points"]) for row in rows),
+        "note": "Visible-point containment checks label consistency; it does not certify a complete object box.",
+        "rows": rows,
+    }
 
 
 def main() -> None:
@@ -95,11 +111,16 @@ def main() -> None:
         protected = [args.annotations, Path(__file__)]
         protected.extend(args.root / row["image"] for row in report["rows"])
         protected.extend(args.root / row["label_file"] for row in report["rows"])
-        if any(args.output.resolve() == path.resolve()
-               or (args.output.exists() and path.exists() and args.output.samefile(path)) for path in protected):
+        if any(
+            args.output.resolve() == path.resolve()
+            or (args.output.exists() and path.exists() and args.output.samefile(path))
+            for path in protected
+        ):
             raise ValueError("Report output cannot overwrite an input or source")
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
+        args.output.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
+        )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if report["failed_images"]:
         raise SystemExit(1)

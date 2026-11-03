@@ -1,20 +1,20 @@
 """Bounded background capture, recoverable library intake and same-frame suggestions."""
+
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
 import hashlib
 import json
 import math
-from pathlib import Path
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from pathlib import Path
 
-from ev_charging.file_io import atomic_capture_json
 from ev_charging.datasets.vision.training_library import DEFAULT_LIBRARY, _lock, register_image
+from ev_charging.file_io import atomic_capture_json
+from ev_charging.paths import PROJECT_ROOT
 
 ROOT = PROJECT_ROOT
 
@@ -65,7 +65,14 @@ def _register_saved(session_path, saved, library_root):
     manifest, saved, preview = _saved_sample(session, saved)
     if manifest.get("metadata", {}).get("training_library_enabled") is False:
         raise ValueError("session_opted_out_of_training_library")
-    from ev_charging.datasets.vision.dataset_split import check_capture_split, ensure_capture_split, read_split, group_for, DEFAULT_SPLIT
+    from ev_charging.datasets.vision.dataset_split import (
+        DEFAULT_SPLIT,
+        check_capture_split,
+        ensure_capture_split,
+        group_for,
+        read_split,
+    )
+
     check_capture_split(library_root, manifest["batch_id"], manifest["split"], manifest.get("metadata", {}))
     existing = Path(library_root) / "records" / f"{saved['image_sha256']}.json"
     if existing.exists() and manifest["split"] in {"train", "val"}:
@@ -88,18 +95,32 @@ def _register_saved(session_path, saved, library_root):
     depth_argument = None
     if depth and depth.get("available"):
         depth_argument = {
-            **{key: depth.get(key) for key in ("file_sha256", "raw_pixels_sha256", "depth_scale_m",
-               "frame", "color_frame", "status", "reasons", "calibration_file", "calibration_sha256")},
+            **{
+                key: depth.get(key)
+                for key in (
+                    "file_sha256",
+                    "raw_pixels_sha256",
+                    "depth_scale_m",
+                    "frame",
+                    "color_frame",
+                    "status",
+                    "reasons",
+                    "calibration_file",
+                    "calibration_sha256",
+                )
+            },
             "path": _inside(session, depth["file"]),
-            "source": {"session": str(session), "file": depth["file"],
-                       "session_id": manifest["session_id"]},
+            "source": {"session": str(session), "file": depth["file"], "session_id": manifest["session_id"]},
         }
     suggestion = None
     if preview is not None:
-        diagnostic = json.loads(_verified(_inside(session, saved["diagnostic"]),
-                                         saved["diagnostic_sha256"]).decode("utf-8-sig"))
-        if (diagnostic.get("image_sha256") != saved["image_sha256"]
-                or diagnostic.get("frame", {}).get("frame_number") != saved["frame_number"]):
+        diagnostic = json.loads(
+            _verified(_inside(session, saved["diagnostic"]), saved["diagnostic_sha256"]).decode("utf-8-sig")
+        )
+        if (
+            diagnostic.get("image_sha256") != saved["image_sha256"]
+            or diagnostic.get("frame", {}).get("frame_number") != saved["frame_number"]
+        ):
             raise ValueError("box_suggestion_frame_mismatch")
         model_sha = (preview.get("assets", {}).get("weights") or {}).get("sha256")
         if model_sha:
@@ -110,24 +131,47 @@ def _register_saved(session_path, saved, library_root):
                 if len(xyxy) != 4 or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in xyxy):
                     raise ValueError("invalid_saved_detection_box")
                 x1, y1, x2, y2 = xyxy
-                x1, x2 = max(0., min(width, x1)), max(0., min(width, x2))
-                y1, y2 = max(0., min(height, y1)), max(0., min(height, y2))
+                x1, x2 = max(0.0, min(width, x1)), max(0.0, min(width, x2))
+                y1, y2 = max(0.0, min(height, y1)), max(0.0, min(height, y2))
                 if x2 <= x1 or y2 <= y1:
                     raise ValueError("empty_saved_detection_box")
-                values = ((x1+x2)/2/width, (y1+y2)/2/height, (x2-x1)/width, (y2-y1)/height)
+                values = (
+                    (x1 + x2) / 2 / width,
+                    (y1 + y2) / 2 / height,
+                    (x2 - x1) / width,
+                    (y2 - y1) / height,
+                )
                 rows.append("0 " + " ".join(format(v, ".10g") for v in values))
-            suggestion = {"source": "same_frame_detector", "model_sha256": model_sha,
-                          "image_sha256": saved["image_sha256"], "frame_number": saved["frame_number"],
-                          "label_text": "\n".join(dict.fromkeys(rows)) + ("\n" if rows else "")}
-    entry = register_image(image_path, library_root=library_root, date=saved["received_at_utc"][:10],
-        source={"kind": manifest["kind"], "session_manifest": str(session / "manifest.json"),
-                "image": saved["image"], "image_sha256": saved["image_sha256"],
-                "received_at_utc": saved["received_at_utc"], "session_id": manifest["session_id"],
-                "batch_id": manifest["batch_id"], "original_split": manifest["split"],
-                "metadata": manifest.get("metadata", {}), "camera_file": str(camera_path),
-                "camera_sha256": manifest["camera_sha256"], "camera_serial": camera["serial"],
-                "device_name": camera.get("device_name"), "device_model": camera.get("device_model")},
-        depth=depth_argument, suggestion=suggestion)
+            suggestion = {
+                "source": "same_frame_detector",
+                "model_sha256": model_sha,
+                "image_sha256": saved["image_sha256"],
+                "frame_number": saved["frame_number"],
+                "label_text": "\n".join(dict.fromkeys(rows)) + ("\n" if rows else ""),
+            }
+    entry = register_image(
+        image_path,
+        library_root=library_root,
+        date=saved["received_at_utc"][:10],
+        source={
+            "kind": manifest["kind"],
+            "session_manifest": str(session / "manifest.json"),
+            "image": saved["image"],
+            "image_sha256": saved["image_sha256"],
+            "received_at_utc": saved["received_at_utc"],
+            "session_id": manifest["session_id"],
+            "batch_id": manifest["batch_id"],
+            "original_split": manifest["split"],
+            "metadata": manifest.get("metadata", {}),
+            "camera_file": str(camera_path),
+            "camera_sha256": manifest["camera_sha256"],
+            "camera_serial": camera["serial"],
+            "device_name": camera.get("device_name"),
+            "device_model": camera.get("device_model"),
+        },
+        depth=depth_argument,
+        suggestion=suggestion,
+    )
     ensure_capture_split(library_root, manifest)
     return entry
 
@@ -147,22 +191,34 @@ def _retry_session(session_path, library_root, *, attempts, attempt_budget):
     state_path = session / "intake.json"
     if state_path.exists():
         state = _json(state_path)
-        if (state.get("schema_version") != 1 or state.get("session_id") != manifest["session_id"]
-                or Path(state["library"]).resolve() != library):
+        if (
+            state.get("schema_version") != 1
+            or state.get("session_id") != manifest["session_id"]
+            or Path(state["library"]).resolve() != library
+        ):
             raise ValueError("intake_identity_mismatch")
     else:
-        state = {"schema_version": 1, "session_id": manifest["session_id"],
-                 "library": str(library), "items": {}}
+        state = {
+            "schema_version": 1,
+            "session_id": manifest["session_id"],
+            "library": str(library),
+            "items": {},
+        }
     for saved in manifest["frames"]:
-        state["items"].setdefault(saved["image_sha256"],
-                                  {"image": saved["image"], "status": "pending", "attempts": 0})
+        state["items"].setdefault(
+            saved["image_sha256"], {"image": saved["image"], "status": "pending", "attempts": 0}
+        )
     atomic_capture_json(state_path, state)
     for saved in manifest["frames"]:
         item = state["items"][saved["image_sha256"]]
         if item["status"] == "imported":
             if (library / "records" / f"{saved['image_sha256']}.json").is_file():
                 continue
-        remaining = attempts if attempt_budget is None else min(attempts, max(0, 3-attempt_budget.get(saved["image_sha256"], 0)))
+        remaining = (
+            attempts
+            if attempt_budget is None
+            else min(attempts, max(0, 3 - attempt_budget.get(saved["image_sha256"], 0)))
+        )
         for attempt in range(remaining):
             item["attempts"] += 1
             if attempt_budget is not None:
@@ -176,14 +232,17 @@ def _retry_session(session_path, library_root, *, attempts, attempt_budget):
             if item["status"] == "imported":
                 break
             if attempt + 1 < remaining:
-                time.sleep(.05 * (attempt + 1))
-    return {"imported": sum(i["status"] == "imported" for i in state["items"].values()),
-            "pending_sync": sum(i["status"] != "imported" for i in state["items"].values()),
-            "errors": [i["error"] for i in state["items"].values() if i.get("error")]}
+                time.sleep(0.05 * (attempt + 1))
+    return {
+        "imported": sum(i["status"] == "imported" for i in state["items"].values()),
+        "pending_sync": sum(i["status"] != "imported" for i in state["items"].values()),
+        "errors": [i["error"] for i in state["items"].values() if i.get("error")],
+    }
 
 
 class CaptureIntake:
     """Single writer, at most two queued snapshots; hardware remains on its owner thread."""
+
     def __init__(self, session, library_root, *, preview=False):
         self.session, self.preview = session, preview
         self.library = Path(library_root).resolve() if library_root is not None else None
@@ -192,10 +251,22 @@ class CaptureIntake:
         self._seen = set()
         self._attempt_budget = {}
         self._closed = False
-        self._status = dict(queued=0, saved=0, imported=0, pending_sync=0, failed_saves=0,
-                            pending_annotation=0, pending_split=0, last_message="", save_ms=[],
-                            recovered_previous=0, previous_pending_sync=0, review_file=None,
-                            postprocess_error=None, sync_errors=[])
+        self._status = dict(
+            queued=0,
+            saved=0,
+            imported=0,
+            pending_sync=0,
+            failed_saves=0,
+            pending_annotation=0,
+            pending_split=0,
+            last_message="",
+            save_ms=[],
+            recovered_previous=0,
+            previous_pending_sync=0,
+            review_file=None,
+            postprocess_error=None,
+            sync_errors=[],
+        )
         self._pool.submit(self._recover_previous)
 
     def poll(self):
@@ -220,20 +291,24 @@ class CaptureIntake:
                     if Path(state["library"]).resolve() != self.library:
                         continue
                     manifest = _json(manifest_path)
-                    before = sum(state["items"].get(f["image_sha256"], {}).get("status") != "imported"
-                                 or not (self.library / "records" / f"{f['image_sha256']}.json").is_file()
-                                 for f in manifest.get("frames", []))
+                    before = sum(
+                        state["items"].get(f["image_sha256"], {}).get("status") != "imported"
+                        or not (self.library / "records" / f"{f['image_sha256']}.json").is_file()
+                        for f in manifest.get("frames", [])
+                    )
                 else:
                     manifest = _json(manifest_path)
                     metadata = manifest.get("metadata", {})
-                    if (metadata.get("training_library_enabled") is not True
-                            or not metadata.get("training_library_path")
-                            or Path(metadata["training_library_path"]).resolve() != self.library):
+                    if (
+                        metadata.get("training_library_enabled") is not True
+                        or not metadata.get("training_library_path")
+                        or Path(metadata["training_library_path"]).resolve() != self.library
+                    ):
                         continue
                     before = len(manifest.get("frames", []))
                 if before:
                     result = retry_session(path.parent, self.library, attempts=2)
-                    recovered += max(0, before-result["pending_sync"])
+                    recovered += max(0, before - result["pending_sync"])
                     pending += result["pending_sync"]
             except Exception as exc:
                 pending += 1
@@ -255,8 +330,14 @@ class CaptureIntake:
             self._seen.add(identity)
             self._status["queued"] += 1
             self._status["last_message"] = "已加入保存队列"
-        self._pool.submit(self._save, identity, image.copy(), deepcopy(metadata),
-                          overlay.copy() if overlay is not None else None, deepcopy(depth_sample))
+        self._pool.submit(
+            self._save,
+            identity,
+            image.copy(),
+            deepcopy(metadata),
+            overlay.copy() if overlay is not None else None,
+            deepcopy(depth_sample),
+        )
         return True
 
     def _save(self, identity, image, metadata, overlay, depth_sample):
@@ -266,8 +347,10 @@ class CaptureIntake:
             if self.preview:
                 saved = self.session.save(image, metadata, overlay, depth_sample=depth_sample)
             else:
-                frame = {key: metadata[key] for key in
-                         ("frame_number", "device_timestamp_ms", "timestamp_domain", "received_at_utc")}
+                frame = {
+                    key: metadata[key]
+                    for key in ("frame_number", "device_timestamp_ms", "timestamp_domain", "received_at_utc")
+                }
                 saved = self.session.save(image, **frame)
             if saved is not None:
                 with self._lock:
@@ -282,20 +365,24 @@ class CaptureIntake:
                     self._status["failed_saves"] += 1
                     self._seen.discard(identity)
                 else:
-                    self._status["pending_sync"] = max(1, self._status["saved"]-self._status["imported"])
-                self._status["last_message"] = f"{'保存失败' if saved is None else '原图已保存，待同步'}: {exc}"
+                    self._status["pending_sync"] = max(1, self._status["saved"] - self._status["imported"])
+                self._status["last_message"] = (
+                    f"{'保存失败' if saved is None else '原图已保存，待同步'}: {exc}"
+                )
         finally:
             with self._lock:
                 self._status["queued"] -= 1
-                self._status["save_ms"].append((time.monotonic()-started)*1000)
+                self._status["save_ms"].append((time.monotonic() - started) * 1000)
 
     def _refresh(self, *, attempts):
         if self.library is None:
             return
-        result = retry_session(self.session.path, self.library, attempts=attempts,
-                               attempt_budget=self._attempt_budget)
+        result = retry_session(
+            self.session.path, self.library, attempts=attempts, attempt_budget=self._attempt_budget
+        )
         manifest = _json(self.session.path / "manifest.json")
-        from ev_charging.datasets.vision.dataset_split import read_split, group_for, DEFAULT_SPLIT
+        from ev_charging.datasets.vision.dataset_split import DEFAULT_SPLIT, group_for, read_split
+
         split = read_split(DEFAULT_SPLIT)
         annotations = groups = 0
         for frame in manifest["frames"]:
@@ -304,8 +391,13 @@ class CaptureIntake:
                 entry = _json(record)
                 annotations += entry["status"] in {"pending", "conflict"}
                 groups += entry["status"] != "excluded" and group_for(entry, split) not in split["groups"]
-        self._update(imported=result["imported"], pending_sync=result["pending_sync"],
-                     pending_annotation=annotations, pending_split=groups, sync_errors=result.get("errors", []))
+        self._update(
+            imported=result["imported"],
+            pending_sync=result["pending_sync"],
+            pending_annotation=annotations,
+            pending_split=groups,
+            sync_errors=result.get("errors", []),
+        )
 
     def _finish(self):
         if self.library is None:
@@ -315,12 +407,15 @@ class CaptureIntake:
             manifest = _json(self.session.path / "manifest.json")
             if self.poll()["imported"]:
                 from ev_charging.datasets.vision.prepare_port_library import write_review
+
                 path = self.session.path / "review.html"
                 write_review(self.library, path, weights=None, session_id=manifest["session_id"])
                 self._update(review_file=str(path))
         except Exception as exc:
-            self._update(last_message=f"采集结束，后续处理待完成: {exc}",
-                         postprocess_error=f"{type(exc).__name__}: {exc}")
+            self._update(
+                last_message=f"采集结束，后续处理待完成: {exc}",
+                postprocess_error=f"{type(exc).__name__}: {exc}",
+            )
         try:
             with _lock(self.session.path / ".intake-retry"):
                 path = self.session.path / "intake.json"
@@ -345,8 +440,15 @@ def main(argv=None):
     parser.add_argument("--session", type=Path, help="指定会话；省略时检查 captures 和 d415_preview")
     parser.add_argument("--library", type=Path, default=DEFAULT_LIBRARY)
     args = parser.parse_args(argv)
-    sessions = [args.session] if args.session else [p.parent for folder in ("captures", "d415_preview")
-                for p in (ROOT / "artifacts" / folder).glob("*/manifest.json")]
+    sessions = (
+        [args.session]
+        if args.session
+        else [
+            p.parent
+            for folder in ("captures", "d415_preview")
+            for p in (ROOT / "artifacts" / folder).glob("*/manifest.json")
+        ]
+    )
     results = []
     for session in sessions:
         try:

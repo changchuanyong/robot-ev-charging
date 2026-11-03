@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
 import csv
 import json
 from pathlib import Path
-from typing import Dict, Tuple, List
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
 
+from ev_charging.paths import PROJECT_ROOT
 
 # =========================================================
 # 历史批量评估的模型与内参路径
@@ -21,6 +20,7 @@ RANSAC_REPROJ_ERROR_PX = 10.0
 RANSAC_CONFIDENCE = 0.99
 RANSAC_ITERATIONS = 500
 RANSAC_MIN_INLIER_RATIO = 0.70
+
 
 def load_json(path: Path):
     if not path.exists():
@@ -43,10 +43,7 @@ def load_camera_intrinsics(path: Path) -> Tuple[np.ndarray, np.ndarray, bool]:
 
     dist_coeffs = np.array(data["dist_coeffs"], dtype=np.float64).reshape(-1, 1)
     if dist_coeffs.size not in (4, 5, 8, 12, 14):
-        raise ValueError(
-            "dist_coeffs must contain 4, 5, 8, 12, or 14 values, "
-            f"got {dist_coeffs.size}"
-        )
+        raise ValueError(f"dist_coeffs must contain 4, 5, 8, 12, or 14 values, got {dist_coeffs.size}")
 
     return K, dist_coeffs, bool(data.get("is_placeholder", False))
 
@@ -81,8 +78,7 @@ def load_object_points_from_csv(csv_path: Path) -> Dict[str, Tuple[float, float,
 
         if reader.fieldnames is None:
             raise ValueError(
-                "charging_port_model.csv 缺少表头。"
-                "请至少包含 label,x_mm,y_mm,z_mm 或 name,x,y,z 这样的表头。"
+                "charging_port_model.csv 缺少表头。请至少包含 label,x_mm,y_mm,z_mm 或 name,x,y,z 这样的表头。"
             )
 
         header_map = normalize_header_map(reader.fieldnames)
@@ -126,7 +122,7 @@ def load_object_points_from_csv(csv_path: Path) -> Dict[str, Tuple[float, float,
 
 def build_correspondences(
     object_points_dict: Dict[str, Tuple[float, float, float]],
-    image_points_dict: Dict[str, Tuple[float, float]]
+    image_points_dict: Dict[str, Tuple[float, float]],
 ) -> Tuple[List[str], np.ndarray, np.ndarray]:
     names = [name for name in object_points_dict.keys() if name in image_points_dict]
 
@@ -171,17 +167,11 @@ def build_per_point_errors(
     K: np.ndarray,
     dist_coeffs: np.ndarray,
 ) -> dict[str, float]:
-    errors = compute_reprojection_errors(
-        object_points, image_points, rvec, tvec, K, dist_coeffs
-    )
+    errors = compute_reprojection_errors(object_points, image_points, rvec, tvec, K, dist_coeffs)
     return {name: float(err) for name, err in zip(names, errors)}
 
 
-def all_points_in_front(
-    object_points: np.ndarray,
-    rvec: np.ndarray,
-    tvec: np.ndarray
-) -> bool:
+def all_points_in_front(object_points: np.ndarray, rvec: np.ndarray, tvec: np.ndarray) -> bool:
     R, _ = cv2.Rodrigues(rvec)
     cam_pts = (R @ object_points.T + tvec.reshape(3, 1)).T
     return bool(np.isfinite(cam_pts).all() and np.all(cam_pts[:, 2] > 0))
@@ -194,7 +184,7 @@ def validate_pnp_inputs(object_points, image_points, K, dist_coeffs):
         raise ValueError("invalid PnP camera parameter shape")
     if not all(np.isfinite(value).all() for value in (object_points, image_points, K, dist_coeffs)):
         raise ValueError("nonfinite PnP input")
-    if K[0, 0] <= 0 or K[1, 1] <= 0 or not np.allclose(K[2], [0., 0., 1.]):
+    if K[0, 0] <= 0 or K[1, 1] <= 0 or not np.allclose(K[2], [0.0, 0.0, 1.0]):
         raise ValueError("invalid PnP camera matrix")
     for name, points in (("object", object_points), ("image", image_points)):
         if len(np.unique(points, axis=0)) != len(points):
@@ -204,8 +194,9 @@ def validate_pnp_inputs(object_points, image_points, K, dist_coeffs):
             raise ValueError(f"degenerate {name} correspondences: collinear points")
 
 
-def evaluate_pose_candidate(object_points, image_points, rvec, tvec, K, dist_coeffs,
-                            source, idx=0, fit_count=None):
+def evaluate_pose_candidate(
+    object_points, image_points, rvec, tvec, K, dist_coeffs, source, idx=0, fit_count=None
+):
     """Every solver uses the same full-point residuals and measured inlier threshold."""
     rvec, tvec = np.asarray(rvec, dtype=np.float64), np.asarray(tvec, dtype=np.float64)
     if rvec.size != 3 or tvec.size != 3 or not np.isfinite(rvec).all() or not np.isfinite(tvec).all():
@@ -224,14 +215,22 @@ def evaluate_pose_candidate(object_points, image_points, rvec, tvec, K, dist_coe
         return None
     inliers = np.flatnonzero(errors <= RANSAC_REPROJ_ERROR_PX)
     return {
-        "idx": idx, "source": source, "rvec": rvec, "tvec": tvec,
-        "reproj_error": float(np.mean(errors)), "reproj_rms_error": rms,
-        "max_reproj_error": float(np.max(errors)), "selection_error": rms,
-        "all_in_front": True, "inlier_indices": inliers.tolist(),
-        "inlier_count": int(len(inliers)), "inlier_ratio": float(len(inliers) / len(errors)),
+        "idx": idx,
+        "source": source,
+        "rvec": rvec,
+        "tvec": tvec,
+        "reproj_error": float(np.mean(errors)),
+        "reproj_rms_error": rms,
+        "max_reproj_error": float(np.max(errors)),
+        "selection_error": rms,
+        "all_in_front": True,
+        "inlier_indices": inliers.tolist(),
+        "inlier_count": int(len(inliers)),
+        "inlier_ratio": float(len(inliers) / len(errors)),
         "inlier_reproj_error": float(np.mean(errors[inliers])) if len(inliers) else None,
         "fit_count": len(object_points) if fit_count is None else int(fit_count),
-        "errors": errors, "refined": False,
+        "errors": errors,
+        "refined": False,
     }
 
 
@@ -242,13 +241,26 @@ def refine_pose_candidate(candidate, object_points, image_points, K, dist_coeffs
     indices = np.arange(len(object_points)) if fit_indices is None else fit_indices
     try:
         rvec, tvec = cv2.solvePnPRefineLM(
-            object_points[indices], image_points[indices], K, dist_coeffs,
-            candidate["rvec"].copy(), candidate["tvec"].copy(),
+            object_points[indices],
+            image_points[indices],
+            K,
+            dist_coeffs,
+            candidate["rvec"].copy(),
+            candidate["tvec"].copy(),
         )
     except cv2.error:
         return candidate
-    refined = evaluate_pose_candidate(object_points, image_points, rvec, tvec, K, dist_coeffs,
-                                      candidate["source"], candidate["idx"], len(indices))
+    refined = evaluate_pose_candidate(
+        object_points,
+        image_points,
+        rvec,
+        tvec,
+        K,
+        dist_coeffs,
+        candidate["source"],
+        candidate["idx"],
+        len(indices),
+    )
     metrics = ("reproj_error", "reproj_rms_error", "max_reproj_error")
     if refined is not None and all(refined[key] <= candidate[key] + 1e-9 for key in metrics):
         refined["refined"] = True
@@ -286,8 +298,9 @@ def solve_pnp_ransac_candidate(
     if len(inlier_idx) < min_inliers:
         return None
 
-    candidate = evaluate_pose_candidate(object_points, image_points, rvec, tvec, K, dist_coeffs,
-                                        "RANSAC_ITERATIVE", fit_count=len(inlier_idx))
+    candidate = evaluate_pose_candidate(
+        object_points, image_points, rvec, tvec, K, dist_coeffs, "RANSAC_ITERATIVE", fit_count=len(inlier_idx)
+    )
     candidate = refine_pose_candidate(candidate, object_points, image_points, K, dist_coeffs, inlier_idx)
     if candidate is None or candidate["inlier_count"] < min_inliers:
         return None
@@ -301,8 +314,7 @@ def solve_target_pose(
     dist_coeffs: np.ndarray,
 ):
     names, object_points, image_points = build_correspondences(
-        object_points_dict=object_points_dict,
-        image_points_dict=image_points_dict
+        object_points_dict=object_points_dict, image_points_dict=image_points_dict
     )
 
     K = np.asarray(K, dtype=np.float64)
@@ -321,8 +333,9 @@ def solve_target_pose(
             ok, rvecs, tvecs = False, [], []
         if ok and rvecs is not None and tvecs is not None:
             for i, (rvec, tvec) in enumerate(zip(rvecs, tvecs)):
-                candidate = evaluate_pose_candidate(object_points, image_points, rvec, tvec,
-                                                    K, dist_coeffs, "IPPE", i)
+                candidate = evaluate_pose_candidate(
+                    object_points, image_points, rvec, tvec, K, dist_coeffs, "IPPE", i
+                )
                 candidate = refine_pose_candidate(candidate, object_points, image_points, K, dist_coeffs)
                 if candidate is not None:
                     candidates.append(candidate)
@@ -331,12 +344,14 @@ def solve_target_pose(
         if not candidates:
             try:
                 ok, rvec, tvec = cv2.solvePnP(
-                    object_points, image_points, K, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
+                    object_points, image_points, K, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE
+                )
             except cv2.error:
                 ok = False
             if ok:
-                candidate = evaluate_pose_candidate(object_points, image_points, rvec, tvec,
-                                                    K, dist_coeffs, "ITERATIVE_PLANAR")
+                candidate = evaluate_pose_candidate(
+                    object_points, image_points, rvec, tvec, K, dist_coeffs, "ITERATIVE_PLANAR"
+                )
                 candidate = refine_pose_candidate(candidate, object_points, image_points, K, dist_coeffs)
                 if candidate is not None:
                     candidates.append(candidate)
@@ -348,8 +363,9 @@ def solve_target_pose(
         except cv2.error:
             ok = False
         if ok:
-            candidate = evaluate_pose_candidate(object_points, image_points, rvec, tvec,
-                                                K, dist_coeffs, "EPNP")
+            candidate = evaluate_pose_candidate(
+                object_points, image_points, rvec, tvec, K, dist_coeffs, "EPNP"
+            )
             candidate = refine_pose_candidate(candidate, object_points, image_points, K, dist_coeffs)
             if candidate is not None:
                 candidates.append(candidate)

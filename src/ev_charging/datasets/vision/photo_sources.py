@@ -1,12 +1,12 @@
 """Resolve preserved photo identities after the legacy directory is removed."""
-from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
+from __future__ import annotations
 
 import hashlib
 import json
 from pathlib import Path
 
+from ev_charging.paths import PROJECT_ROOT
 
 ROOT = PROJECT_ROOT
 
@@ -47,6 +47,9 @@ def library_label(image_sha256, *, root=ROOT, library=None):
     if record["image_sha256"] != image_sha256 or record["status"] != "ready" or not record.get("label"):
         raise ValueError("library_annotation_not_ready")
     path = (library / record["label"]).resolve()
-    if not path.is_relative_to(library) or hashlib.sha256(path.read_bytes()).hexdigest() != record["label_sha256"]:
+    if (
+        not path.is_relative_to(library)
+        or hashlib.sha256(path.read_bytes()).hexdigest() != record["label_sha256"]
+    ):
         raise ValueError("library_label_hash_mismatch")
     return path

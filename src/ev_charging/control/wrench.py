@@ -5,6 +5,7 @@ filtered; independent hard protection must use it. The second channel is for
 the historical learning window. Absolute data age belongs to the supervisor;
 this processor rejects invalid samples and excessive update intervals.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -36,8 +37,12 @@ class WrenchProcessor:
         self.bias = _vector(config["bias"], 6, "sensor bias")
         self.filter_tau = float(config["filter_tau"])
         self.max_gap = float(config["max_gap"])
-        if (not np.isfinite(self.filter_tau) or self.filter_tau < 0
-                or not np.isfinite(self.max_gap) or self.max_gap <= 0):
+        if (
+            not np.isfinite(self.filter_tau)
+            or self.filter_tau < 0
+            or not np.isfinite(self.max_gap)
+            or self.max_gap <= 0
+        ):
             raise ValueError("filter_tau must be nonnegative and max_gap positive")
         self.gravity = None
         if not self.external_compensated:

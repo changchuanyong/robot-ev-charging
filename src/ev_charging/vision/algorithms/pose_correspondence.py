@@ -1,4 +1,5 @@
 """Assign real measured centers to the model under rotation and perspective."""
+
 from __future__ import annotations
 
 import contextlib
@@ -8,9 +9,14 @@ import io
 import cv2
 import numpy as np
 
-from ev_charging.vision.algorithms.center_fit import export_fitted_centers, fit_ellipse_on_kept_candidates
-from ev_charging.vision.algorithms.layout_prior import LAYOUT_TO_MODEL_LABEL, MAIN_PAIR_RELATIVE_SCORE_MIN, find_main_big_hole_pair_hypotheses, normalized_model_points
 from ev_charging.vision.algorithms import pnp2
+from ev_charging.vision.algorithms.center_fit import export_fitted_centers, fit_ellipse_on_kept_candidates
+from ev_charging.vision.algorithms.layout_prior import (
+    LAYOUT_TO_MODEL_LABEL,
+    MAIN_PAIR_RELATIVE_SCORE_MIN,
+    find_main_big_hole_pair_hypotheses,
+    normalized_model_points,
+)
 
 
 def _measurement_center(candidate):
@@ -29,12 +35,15 @@ def _orientation_evidence(kept):
             sizes[candidate.layout_name] = float(aperture)
     if not {"bottom_mid", "top_mid"} <= sizes.keys():
         return {"ok": False, "reason": "PE_and_CC2_aperture_boundaries_required", "pe_to_signal_ratio": None}
-    signal_sizes = [size for name, size in sizes.items()
-                    if name not in {"main_left", "main_right", "bottom_mid"}]
+    signal_sizes = [
+        size for name, size in sizes.items() if name not in {"main_left", "main_right", "bottom_mid"}
+    ]
     ratio = sizes["bottom_mid"] / max(signal_sizes)
-    return {"ok": bool(ratio >= 1.25),
-            "reason": "ok" if ratio >= 1.25 else "PE_signal_size_not_distinct",
-            "pe_to_signal_ratio": ratio}
+    return {
+        "ok": bool(ratio >= 1.25),
+        "reason": "ok" if ratio >= 1.25 else "PE_signal_size_not_distinct",
+        "pe_to_signal_ratio": ratio,
+    }
 
 
 def _minimum_assignment(cost):
@@ -121,10 +130,19 @@ def _refine(model, points, assignment, predicted, anchors, scale, scores, diamet
     return assignment, predicted
 
 
-def select_correspondences(candidates, roi_shape, object_points, K, dist,
-                           offset_xy=(0, 0), point_transform=None,
-                           max_mean_error_px=20.0, min_inlier_count=4,
-                           min_correspondence_count=6, observed_prior=None):
+def select_correspondences(
+    candidates,
+    roi_shape,
+    object_points,
+    K,
+    dist,
+    offset_xy=(0, 0),
+    point_transform=None,
+    max_mean_error_px=20.0,
+    min_inlier_count=4,
+    min_correspondence_count=6,
+    observed_prior=None,
+):
     """Return best/diagnostics using only valid fitted input contours.
 
     ``best.image_points`` stays in raw full-image pixels. An optional transform
@@ -132,25 +150,47 @@ def select_correspondences(candidates, roi_shape, object_points, K, dist,
     Hypothesis scores use residuals for every correspondence, including outliers.
     """
     if observed_prior is not None:
-        return _select_observed(candidates, roi_shape, object_points, K, dist,
-                                offset_xy, point_transform, max_mean_error_px,
-                                min_inlier_count, min_correspondence_count, observed_prior)
+        return _select_observed(
+            candidates,
+            roi_shape,
+            object_points,
+            K,
+            dist,
+            offset_xy,
+            point_transform,
+            max_mean_error_px,
+            min_inlier_count,
+            min_correspondence_count,
+            observed_prior,
+        )
     candidates = copy.deepcopy(candidates)
     with contextlib.redirect_stdout(io.StringIO()):
         candidates = fit_ellipse_on_kept_candidates(candidates)
-    fitted = [c for c in candidates if getattr(c, "fit_valid", c.fit_method == "ellipse")
-              and c.fitted_center is not None and np.isfinite(c.fitted_center).all()]
+    fitted = [
+        c
+        for c in candidates
+        if getattr(c, "fit_valid", c.fit_method == "ellipse")
+        and c.fitted_center is not None
+        and np.isfinite(c.fitted_center).all()
+    ]
     # A contour and its nested ring must not become two different model holes.
     unique = []
     for candidate in sorted(fitted, key=lambda c: c.score, reverse=True):
         group_id = getattr(candidate, "hole_group_id", -1)
-        if not any((group_id >= 0 and group_id == getattr(old, "hole_group_id", -1))
-                   or np.linalg.norm(np.subtract(_measurement_center(candidate), _measurement_center(old))) < 8
-                   for old in unique):
+        if not any(
+            (group_id >= 0 and group_id == getattr(old, "hole_group_id", -1))
+            or np.linalg.norm(np.subtract(_measurement_center(candidate), _measurement_center(old))) < 8
+            for old in unique
+        ):
             unique.append(candidate)
     fitted = unique
-    diagnostics = {"input_candidate_count": len(candidates), "valid_center_count": len(fitted),
-                   "hypothesis_count": 0, "ambiguous": False, "score_margin": None}
+    diagnostics = {
+        "input_candidate_count": len(candidates),
+        "valid_center_count": len(fitted),
+        "hypothesis_count": 0,
+        "ambiguous": False,
+        "score_margin": None,
+    }
     if len(fitted) < 2:
         return {"best": None, "hypotheses": [], "diagnostics": diagnostics}
     normalized = normalized_model_points(object_points)
@@ -175,12 +215,17 @@ def select_correspondences(candidates, roi_shape, object_points, K, dist,
             perpendicular = np.array([-axis[1], axis[0]])
             for stretch in (0.65, 1.0, 1.35):
                 for shear in (-0.25, 0.0, 0.25):
-                    predicted = origin + model[:, :1] * axis + model[:, 1:] * (stretch * perpendicular + shear * axis)
+                    predicted = (
+                        origin + model[:, :1] * axis + model[:, 1:] * (stretch * perpendicular + shear * axis)
+                    )
                     assignment = _assign(predicted, points, anchors, scale, scores, diameters)
-                    assignment, predicted = _refine(model, points, assignment, predicted, anchors, scale, scores, diameters)
+                    assignment, predicted = _refine(
+                        model, points, assignment, predicted, anchors, scale, scores, diameters
+                    )
                     signature = tuple(sorted(assignment.items()))
-                    residual = sum(float(np.linalg.norm(points[j] - predicted[i]) / scale) ** 2
-                                   for i, j in signature)
+                    residual = sum(
+                        float(np.linalg.norm(points[j] - predicted[i]) / scale) ** 2 for i, j in signature
+                    )
                     geometry_cost = residual + 0.035 * (9 - len(assignment)) + 0.03 * (1 - pair_score)
                     old = proposals.get(signature)
                     if old is None or geometry_cost < old[0]:
@@ -190,8 +235,10 @@ def select_correspondences(candidates, roi_shape, object_points, K, dist,
     ordered = sorted(proposals.items(), key=lambda item: item[1][0])
     shortlist = dict(ordered[:4])
     for count in range(9, 3, -1):
-        group = sorted((item for item in ordered if len(item[0]) == count),
-                       key=lambda item: item[1][3] / count + 0.03 * (1 - item[1][4]))
+        group = sorted(
+            (item for item in ordered if len(item[0]) == count),
+            key=lambda item: item[1][3] / count + 0.03 * (1 - item[1][4]),
+        )
         shortlist.update(group[:2])
     for signature, proposal in ordered:
         if len(shortlist) >= 16:
@@ -236,63 +283,127 @@ def select_correspondences(candidates, roi_shape, object_points, K, dist,
         # structure prior has no verified target support and cannot be accepted.
         structural_support_ok = all(candidate.inside_prior for candidate in kept)
         orientation_evidence = _orientation_evidence(kept)
-        geometric_quality_ok = bool(pose and structural_support_ok and count >= min_correspondence_count
-                                    and reproj <= max_mean_error_px
-                                    and pose["inlier_count"] >= min_inlier_count)
+        geometric_quality_ok = bool(
+            pose
+            and structural_support_ok
+            and count >= min_correspondence_count
+            and reproj <= max_mean_error_px
+            and pose["inlier_count"] >= min_inlier_count
+        )
         quality_ok = geometric_quality_ok and orientation_evidence["ok"]
         # A large false anchor span must not make the same pixel error cheaper.
         score = (20 * count - 2 * reproj - 0.5 * maximum) if pose else -1000 + count
         centers = export_fitted_centers(kept)
         for item, candidate in zip(centers, kept):
             item["measurement_center"] = list(_measurement_center(candidate))
-            item["measurement_source"] = "adaptive_dark" if candidate.aperture_center is not None else candidate.contour_source
+            item["measurement_source"] = (
+                "adaptive_dark" if candidate.aperture_center is not None else candidate.contour_source
+            )
         indices = dict(signature)
-        results.append({"variant_name": f"projective_pair_{rank + 1}", "score": score,
-                        "candidates": kept, "centers": centers,
-                        "layout_names": {c.layout_name for c in kept},
-                        "missing_layouts": sorted(set(names) - {c.layout_name for c in kept}),
-                        "pose": pose, "pnp_error": error, "candidate_count": count,
-                        "reproj": reproj, "inliers": pose["inlier_count"] if pose else 0,
-                        "image_points": image_points, "coverage": count / 9,
-                        "all_point_errors_px": errors, "geometry_cost": geometry_cost,
-                        "anchor_pair_score": pair_score, "selection_quality_ok": quality_ok,
-                        "structural_support_ok": structural_support_ok,
-                        "orientation_evidence": orientation_evidence,
-                        "geometric_quality_ok": geometric_quality_ok,
-                        "anchor_indices": (indices[4], indices[5])})
+        results.append(
+            {
+                "variant_name": f"projective_pair_{rank + 1}",
+                "score": score,
+                "candidates": kept,
+                "centers": centers,
+                "layout_names": {c.layout_name for c in kept},
+                "missing_layouts": sorted(set(names) - {c.layout_name for c in kept}),
+                "pose": pose,
+                "pnp_error": error,
+                "candidate_count": count,
+                "reproj": reproj,
+                "inliers": pose["inlier_count"] if pose else 0,
+                "image_points": image_points,
+                "coverage": count / 9,
+                "all_point_errors_px": errors,
+                "geometry_cost": geometry_cost,
+                "anchor_pair_score": pair_score,
+                "selection_quality_ok": quality_ok,
+                "structural_support_ok": structural_support_ok,
+                "orientation_evidence": orientation_evidence,
+                "geometric_quality_ok": geometric_quality_ok,
+                "anchor_indices": (indices[4], indices[5]),
+            }
+        )
     results.sort(key=lambda result: (result["selection_quality_ok"], result["score"]), reverse=True)
     best = results[0] if results else None
-    comparable = [result for result in results if best and result["selection_quality_ok"] == best["selection_quality_ok"]]
+    comparable = [
+        result
+        for result in results
+        if best and result["selection_quality_ok"] == best["selection_quality_ok"]
+    ]
     if len(comparable) > 1:
         margin = comparable[0]["score"] - comparable[1]["score"]
         diagnostics.update(score_margin=float(margin), ambiguous=bool(margin < 2.0))
     if best:
-        reverse = [result for result in results if result["geometric_quality_ok"]
-                   and result["anchor_indices"] == best["anchor_indices"][::-1]]
-        conflict = bool(reverse and (not best["orientation_evidence"]["ok"]
-                                    or any(result["orientation_evidence"]["ok"] for result in reverse)))
+        reverse = [
+            result
+            for result in results
+            if result["geometric_quality_ok"] and result["anchor_indices"] == best["anchor_indices"][::-1]
+        ]
+        conflict = bool(
+            reverse
+            and (
+                not best["orientation_evidence"]["ok"]
+                or any(result["orientation_evidence"]["ok"] for result in reverse)
+            )
+        )
         if conflict:
-            diagnostics.update(ambiguous=True, ambiguity_reason="opposite_directions_without_distinct_aperture_evidence")
+            diagnostics.update(
+                ambiguous=True, ambiguity_reason="opposite_directions_without_distinct_aperture_evidence"
+            )
     diagnostics["selection_quality_ok"] = bool(best and best["selection_quality_ok"])
     diagnostics["structural_support_ok"] = bool(best and best["structural_support_ok"])
-    diagnostics["orientation_evidence"] = best["orientation_evidence"] if best else {"ok": False, "reason": "no_hypothesis"}
-    diagnostics["quality_eligible_hypothesis_count"] = sum(result["selection_quality_ok"] for result in results)
+    diagnostics["orientation_evidence"] = (
+        best["orientation_evidence"] if best else {"ok": False, "reason": "no_hypothesis"}
+    )
+    diagnostics["quality_eligible_hypothesis_count"] = sum(
+        result["selection_quality_ok"] for result in results
+    )
     diagnostics["evaluated_hypothesis_count"] = len(results)
-    hypotheses = [{key: value for key, value in result.items()
-                   if key in ("variant_name", "score", "candidate_count", "coverage", "geometry_cost",
-                              "reproj", "inliers", "pnp_error", "all_point_errors_px", "image_points",
-                              "anchor_pair_score", "selection_quality_ok", "structural_support_ok",
-                              "orientation_evidence")}
-                  for result in results]
+    hypotheses = [
+        {
+            key: value
+            for key, value in result.items()
+            if key
+            in (
+                "variant_name",
+                "score",
+                "candidate_count",
+                "coverage",
+                "geometry_cost",
+                "reproj",
+                "inliers",
+                "pnp_error",
+                "all_point_errors_px",
+                "image_points",
+                "anchor_pair_score",
+                "selection_quality_ok",
+                "structural_support_ok",
+                "orientation_evidence",
+            )
+        }
+        for result in results
+    ]
     for hypothesis in hypotheses:
         if not np.isfinite(hypothesis["reproj"]):
             hypothesis["reproj"] = None
     return {"best": best, "hypotheses": hypotheses, "diagnostics": diagnostics}
 
 
-def _select_observed(candidates, roi_shape, object_points, K, dist, offset_xy,
-                     point_transform, max_mean_error_px, min_inlier_count,
-                     min_correspondence_count, prior):
+def _select_observed(
+    candidates,
+    roi_shape,
+    object_points,
+    K,
+    dist,
+    offset_xy,
+    point_transform,
+    max_mean_error_px,
+    min_inlier_count,
+    min_correspondence_count,
+    prior,
+):
     """Fix observed identities before PnP; pose residuals cannot relabel holes."""
     from ev_charging.vision.algorithms.observed_layout import select_observed_correspondences
 
@@ -315,8 +426,9 @@ def _select_observed(candidates, roi_shape, object_points, K, dist, offset_xy,
                 raise ValueError("invalid_point_transform")
             solve_points = dict(zip(labels, transformed))
         pose = pnp2.solve_target_pose(solve_points, object_points, K, dist)
-        if (set(pose["matched_names"]) != set(image_points)
-                or set(pose["per_point_errors_px"]) != set(image_points)):
+        if set(pose["matched_names"]) != set(image_points) or set(pose["per_point_errors_px"]) != set(
+            image_points
+        ):
             raise ValueError("incomplete_observed_pose_correspondences")
         if not pose["all_in_front"] or not np.isfinite(list(pose["per_point_errors_px"].values())).all():
             raise ValueError("invalid_observed_pose")
@@ -324,30 +436,60 @@ def _select_observed(candidates, roi_shape, object_points, K, dist, offset_xy,
         error, pose = str(exc), None
     errors = pose["per_point_errors_px"] if pose else {}
     reproj = float(np.mean(list(errors.values()))) if errors else float("inf")
-    geometry_ok = bool(pose and len(image_points) >= min_correspondence_count
-                       and reproj <= max_mean_error_px and pose["inlier_count"] >= min_inlier_count)
-    quality_ok = bool(diagnostics.get("selection_quality_ok") and geometry_ok
-                      and not diagnostics.get("ambiguous", False))
+    geometry_ok = bool(
+        pose
+        and len(image_points) >= min_correspondence_count
+        and reproj <= max_mean_error_px
+        and pose["inlier_count"] >= min_inlier_count
+    )
+    quality_ok = bool(
+        diagnostics.get("selection_quality_ok") and geometry_ok and not diagnostics.get("ambiguous", False)
+    )
     diagnostics["association_quality_ok"] = bool(diagnostics.get("selection_quality_ok"))
     diagnostics["selection_quality_ok"] = quality_ok
     diagnostics["evaluated_hypothesis_count"] = diagnostics.get("hypothesis_count", 1)
     centers = export_fitted_centers(kept)
     for item, candidate in zip(centers, kept):
         item["measurement_center"] = list(_measurement_center(candidate))
-        item["measurement_source"] = "adaptive_dark" if candidate.aperture_center is not None else candidate.contour_source
+        item["measurement_source"] = (
+            "adaptive_dark" if candidate.aperture_center is not None else candidate.contour_source
+        )
     layouts = {candidate.layout_name for candidate in kept}
-    best = {"variant_name": "observed_layout", "score": float(diagnostics.get("score", 0)),
-            "candidates": kept, "centers": centers, "layout_names": layouts,
-            "missing_layouts": sorted(set(LAYOUT_TO_MODEL_LABEL) - layouts),
-            "pose": pose, "pnp_error": error, "candidate_count": len(image_points),
-            "reproj": reproj, "inliers": pose["inlier_count"] if pose else 0,
-            "image_points": image_points, "coverage": len(image_points) / 9,
-            "all_point_errors_px": errors, "selection_quality_ok": quality_ok,
-            "geometric_quality_ok": geometry_ok,
-            "structural_support_ok": diagnostics.get("structural_support_ok", False),
-            "orientation_evidence": diagnostics.get("orientation_evidence", {})}
-    hypothesis = {key: best[key] for key in ("variant_name", "score", "candidate_count", "coverage",
-                  "inliers", "pnp_error", "all_point_errors_px", "image_points", "selection_quality_ok",
-                  "structural_support_ok", "orientation_evidence")}
+    best = {
+        "variant_name": "observed_layout",
+        "score": float(diagnostics.get("score", 0)),
+        "candidates": kept,
+        "centers": centers,
+        "layout_names": layouts,
+        "missing_layouts": sorted(set(LAYOUT_TO_MODEL_LABEL) - layouts),
+        "pose": pose,
+        "pnp_error": error,
+        "candidate_count": len(image_points),
+        "reproj": reproj,
+        "inliers": pose["inlier_count"] if pose else 0,
+        "image_points": image_points,
+        "coverage": len(image_points) / 9,
+        "all_point_errors_px": errors,
+        "selection_quality_ok": quality_ok,
+        "geometric_quality_ok": geometry_ok,
+        "structural_support_ok": diagnostics.get("structural_support_ok", False),
+        "orientation_evidence": diagnostics.get("orientation_evidence", {}),
+    }
+    hypothesis = {
+        key: best[key]
+        for key in (
+            "variant_name",
+            "score",
+            "candidate_count",
+            "coverage",
+            "inliers",
+            "pnp_error",
+            "all_point_errors_px",
+            "image_points",
+            "selection_quality_ok",
+            "structural_support_ok",
+            "orientation_evidence",
+        )
+    }
     hypothesis["reproj"] = reproj if np.isfinite(reproj) else None
     return {"best": best, "hypotheses": [hypothesis], "diagnostics": diagnostics}

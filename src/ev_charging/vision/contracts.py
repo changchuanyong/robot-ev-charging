@@ -1,15 +1,25 @@
 """Control-facing observations. Times are host monotonic seconds; lengths are metres."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+import time
+from dataclasses import dataclass
 
 import numpy as np
 
 
 def intrinsics_signature(camera: dict) -> str:
-    fields = ("stream", "serial", "image_width", "image_height", "camera_matrix", "dist_coeffs", "distortion_model")
+    fields = (
+        "stream",
+        "serial",
+        "image_width",
+        "image_height",
+        "camera_matrix",
+        "dist_coeffs",
+        "distortion_model",
+    )
     encoded = json.dumps({key: camera[key] for key in fields}, sort_keys=True, allow_nan=False).encode()
     return hashlib.sha256(encoded).hexdigest()
 
@@ -29,20 +39,25 @@ class FramePacket:
 
 def empty_observation(packet: FramePacket | None, target_id: str, reason: str) -> dict:
     return {
-        "schema_version": 1, "valid": False, "reason": reason,
+        "schema_version": 1,
+        "valid": False,
+        "reason": reason,
         "source": packet.source if packet else "unavailable",
         "frame_id": packet.frame_id if packet else None,
         "target_id": target_id,
         "captured_at": packet.captured_at if packet else None,
         "received_at": packet.received_at if packet else None,
-        "processed_at": time.monotonic(), "clock": "host_monotonic",
+        "processed_at": time.monotonic(),
+        "clock": "host_monotonic",
         "time_sync_valid": bool(packet and packet.time_sync_valid),
         "camera_time_ms": packet.camera_time_ms if packet else None,
         "timestamp_domain": packet.timestamp_domain if packet else None,
-        "camera_frame": "camera_color_optical", "translation_unit": "m",
+        "camera_frame": "camera_color_optical",
+        "translation_unit": "m",
         "calibration_version": packet.camera.get("version") if packet else None,
         "camera_serial": packet.camera.get("serial") if packet else None,
-        "T_camera_target": None, "quality": {},
+        "T_camera_target": None,
+        "quality": {},
     }
 
 
@@ -55,10 +70,15 @@ def validate_camera(camera: dict, image_shape: tuple) -> tuple[np.ndarray, np.nd
         raise ValueError("camera_resolution_mismatch")
     matrix = np.asarray(camera.get("camera_matrix"), dtype=float)
     coefficients = np.asarray(camera.get("dist_coeffs"), dtype=float)
-    if (matrix.shape != (3, 3) or not np.isfinite(matrix).all()
-            or matrix[0, 0] <= 0 or matrix[1, 1] <= 0
-            or not np.allclose(matrix[2], [0, 0, 1])
-            or abs(matrix[0, 1]) > 1e-12 or abs(matrix[1, 0]) > 1e-12):
+    if (
+        matrix.shape != (3, 3)
+        or not np.isfinite(matrix).all()
+        or matrix[0, 0] <= 0
+        or matrix[1, 1] <= 0
+        or not np.allclose(matrix[2], [0, 0, 1])
+        or abs(matrix[0, 1]) > 1e-12
+        or abs(matrix[1, 0]) > 1e-12
+    ):
         raise ValueError("invalid_camera_matrix")
     if coefficients.shape != (5,) or not np.isfinite(coefficients).all():
         raise ValueError("five_finite_distortion_coefficients_required")
@@ -81,20 +101,25 @@ def distort_normalized(points: np.ndarray, coefficients: np.ndarray, model: str)
         return points.copy()
     x, y = points[:, 0], points[:, 1]
     k1, k2, p1, p2, k3 = coefficients
-    r2 = x*x + y*y
-    radial = 1 + k1*r2 + k2*r2*r2 + k3*r2*r2*r2
+    r2 = x * x + y * y
+    radial = 1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
     if model in {"modified_brown_conrady", "inverse_brown_conrady"}:
         a, b = x * radial, y * radial
     elif model == "brown_conrady":
         a, b = x, y
     else:
         raise ValueError("unsupported_distortion_model")
-    return np.column_stack((x*radial + 2*p1*a*b + p2*(r2 + 2*a*a),
-                            y*radial + 2*p2*a*b + p1*(r2 + 2*b*b)))
+    return np.column_stack(
+        (
+            x * radial + 2 * p1 * a * b + p2 * (r2 + 2 * a * a),
+            y * radial + 2 * p2 * a * b + p1 * (r2 + 2 * b * b),
+        )
+    )
 
 
-def rectify_points(points: np.ndarray, matrix: np.ndarray,
-                   coefficients: np.ndarray, model: str) -> np.ndarray:
+def rectify_points(
+    points: np.ndarray, matrix: np.ndarray, coefficients: np.ndarray, model: str
+) -> np.ndarray:
     """Numerically invert forward projection, retaining K and using zero distortion for PnP."""
     points = np.asarray(points, dtype=float)
     if points.ndim != 2 or points.shape[1] != 2 or not np.isfinite(points).all():
@@ -130,6 +155,7 @@ class FrameClock:
     Hardware-clock timestamps without a measured mapping are rejected. Clock
     steps and buffered old frames are rejected rather than stamped as new.
     """
+
     def __init__(self, max_age_s: float, max_clock_step_s: float = 0.01):
         if not np.isfinite(max_age_s) or max_age_s <= 0:
             raise ValueError("max_age_s_must_be_positive")
@@ -139,13 +165,16 @@ class FrameClock:
         self.last_camera_time = None
         self.wall_offset = None
 
-    def map(self, frame_number: int, camera_ms: float, domain: str,
-            received_mono: float, received_wall: float) -> float:
+    def map(
+        self, frame_number: int, camera_ms: float, domain: str, received_mono: float, received_wall: float
+    ) -> float:
         if domain not in {"global_time", "system_time"}:
             raise ValueError("camera_clock_not_synchronized")
         if not np.isfinite([camera_ms, received_mono, received_wall]).all():
             raise ValueError("nonfinite_camera_timestamp")
-        if frame_number <= self.last_frame or (self.last_camera_time is not None and camera_ms <= self.last_camera_time):
+        if frame_number <= self.last_frame or (
+            self.last_camera_time is not None and camera_ms <= self.last_camera_time
+        ):
             raise ValueError("repeated_or_reordered_camera_frame")
         offset = received_wall - received_mono
         if self.wall_offset is not None and abs(offset - self.wall_offset) > self.max_clock_step_s:

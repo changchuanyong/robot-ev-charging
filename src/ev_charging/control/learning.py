@@ -1,14 +1,15 @@
 """Small GRU with frozen training metadata and conservative online action acceptance."""
+
 from __future__ import annotations
 
+import time
 from collections import deque
 from pathlib import Path
-import time
 
 import numpy as np
 
-from ev_charging.datasets.force import FORCE_UNITS
 from ev_charging.control.synergy import ACTIONS
+from ev_charging.datasets.force import FORCE_UNITS
 
 
 def build_model(hidden_size):
@@ -52,14 +53,33 @@ def load_checkpoint(path):
     import torch
 
     checkpoint = torch.load(Path(path), map_location="cpu", weights_only=True)
-    required = {"schema_version", "model_kind", "classes", "window_size", "hidden_size",
-                "sample_period", "max_gap", "frame", "units", "normalizer", "state_dict",
-                "model_version", "trained", "synthetic", "split_manifest", "data_sha256"}
+    required = {
+        "schema_version",
+        "model_kind",
+        "classes",
+        "window_size",
+        "hidden_size",
+        "sample_period",
+        "max_gap",
+        "frame",
+        "units",
+        "normalizer",
+        "state_dict",
+        "model_version",
+        "trained",
+        "synthetic",
+        "split_manifest",
+        "data_sha256",
+    }
     if not isinstance(checkpoint, dict) or not required.issubset(checkpoint):
         raise ValueError("incomplete force model metadata")
     if checkpoint["schema_version"] != 1 or checkpoint["model_kind"] != "thesis_gru":
         raise ValueError("unsupported force model schema")
-    if checkpoint["classes"] != list(ACTIONS) or checkpoint["frame"] != "task" or checkpoint["units"] != FORCE_UNITS:
+    if (
+        checkpoint["classes"] != list(ACTIONS)
+        or checkpoint["frame"] != "task"
+        or checkpoint["units"] != FORCE_UNITS
+    ):
         raise ValueError("force model class/frame/unit mismatch")
     if checkpoint["trained"] is not True or not checkpoint["model_version"]:
         raise ValueError("untrained or unversioned force model")
@@ -67,14 +87,24 @@ def load_checkpoint(path):
         raise ValueError("force model provenance missing")
     if checkpoint.get("validated_for_hardware") is True:
         approval = checkpoint.get("hardware_acceptance", {})
-        if (checkpoint["synthetic"] or approval.get("approved") is not True
-                or approval.get("source") != "hardware_acceptance"
-                or not approval.get("reviewer") or not approval.get("evidence")
-                or not checkpoint.get("acceptance_record_sha256")):
+        if (
+            checkpoint["synthetic"]
+            or approval.get("approved") is not True
+            or approval.get("source") != "hardware_acceptance"
+            or not approval.get("reviewer")
+            or not approval.get("evidence")
+            or not checkpoint.get("acceptance_record_sha256")
+        ):
             raise ValueError("hardware validation flag lacks its independent acceptance record")
     normalizer = checkpoint["normalizer"]
     mean, scale = np.asarray(normalizer["mean"], float), np.asarray(normalizer["scale"], float)
-    if mean.shape != (6,) or scale.shape != (6,) or not np.isfinite(mean).all() or not np.isfinite(scale).all() or np.any(scale <= 0):
+    if (
+        mean.shape != (6,)
+        or scale.shape != (6,)
+        or not np.isfinite(mean).all()
+        or not np.isfinite(scale).all()
+        or np.any(scale <= 0)
+    ):
         raise ValueError("invalid force model normalizer")
     if checkpoint["window_size"] < 2 or not 0 < checkpoint["sample_period"] <= checkpoint["max_gap"]:
         raise ValueError("invalid force model timing")
@@ -86,6 +116,7 @@ def load_checkpoint(path):
 
 class ForcePolicy:
     """A missing model yields Hold; it is never replaced with random predictions."""
+
     def __init__(self, config, model_path=None):
         self.config = dict(config)
         self.window_size = int(config.get("window_size", 20))
@@ -96,9 +127,16 @@ class ForcePolicy:
         self.consistent_windows = int(config.get("consistent_windows", 3))
         self.min_hold_s = float(config.get("min_hold_s", 0.05))
         self.max_hold_s = float(config.get("max_hold_s", 2.0))
-        if (self.window_size < 2 or self.sample_period <= 0 or self.max_gap < self.sample_period
-                or self.max_age <= 0 or not 0 <= self.confidence <= 1
-                or self.consistent_windows < 1 or self.min_hold_s < 0 or self.max_hold_s <= 0):
+        if (
+            self.window_size < 2
+            or self.sample_period <= 0
+            or self.max_gap < self.sample_period
+            or self.max_age <= 0
+            or not 0 <= self.confidence <= 1
+            or self.consistent_windows < 1
+            or self.min_hold_s < 0
+            or self.max_hold_s <= 0
+        ):
             raise ValueError("invalid force policy configuration")
         self.model_ready = False
         self.model = None
@@ -119,7 +157,10 @@ class ForcePolicy:
                         raise ValueError(f"force model {key} mismatch")
                 if config.get("model_version") and config["model_version"] != checkpoint["model_version"]:
                     raise ValueError("force model version mismatch")
-                if config.get("require_hardware_validation", False) and checkpoint.get("validated_for_hardware") is not True:
+                if (
+                    config.get("require_hardware_validation", False)
+                    and checkpoint.get("validated_for_hardware") is not True
+                ):
                     raise ValueError("force model lacks independent hardware acceptance")
                 self.checkpoint, self.model = checkpoint, model
                 self.mean = np.asarray(checkpoint["normalizer"]["mean"], dtype=float)
@@ -219,8 +260,12 @@ class ForcePolicy:
             self._candidate_count = 0
             return self._hold(timestamp, "stale_prediction")
         probabilities = np.asarray(probabilities, dtype=float)
-        if (probabilities.shape != (len(ACTIONS),) or not np.isfinite(probabilities).all()
-                or np.any(probabilities < 0) or not np.isclose(probabilities.sum(), 1, atol=1e-5)):
+        if (
+            probabilities.shape != (len(ACTIONS),)
+            or not np.isfinite(probabilities).all()
+            or np.any(probabilities < 0)
+            or not np.isclose(probabilities.sum(), 1, atol=1e-5)
+        ):
             return self._hold(timestamp, "invalid_probabilities")
         allowed = tuple(a for a in allowed if a in ACTIONS)
         if not allowed:
@@ -240,7 +285,11 @@ class ForcePolicy:
         if self.action != "Hold" and candidate != self.action:
             self._candidate_count = 0
             return self._hold(timestamp, "direction_change_via_hold")
-        if self.action == "Hold" and self._action_since is not None and timestamp - self._action_since < self.min_hold_s:
+        if (
+            self.action == "Hold"
+            and self._action_since is not None
+            and timestamp - self._action_since < self.min_hold_s
+        ):
             return self._hold(timestamp, "minimum_hold_time")
         if self.action != candidate:
             self._action_since = timestamp

@@ -1,26 +1,27 @@
 """Prepare an offline, original-pixel nine-hole annotation review page."""
-from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT, source_path as package_source
+from __future__ import annotations
 
 import argparse
 import base64
 import copy
-from datetime import datetime
 import hashlib
 import json
 import math
+from datetime import datetime
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from ev_charging.review.keypoint_annotations import LABELS, normalized_image_key, sha256_file, validate_annotations
-
+from ev_charging.datasets.vision.photo_sources import resolve_photo
+from ev_charging.file_io import sha256_file
+from ev_charging.paths import PROJECT_ROOT
+from ev_charging.paths import source_path as package_source
+from ev_charging.review.keypoint_annotations import LABELS, normalized_image_key, validate_annotations
+from ev_charging.vision.contracts import intrinsics_signature, validate_camera
 
 ROOT_DIR = PROJECT_ROOT
-from ev_charging.datasets.vision.photo_sources import resolve_photo
-from ev_charging.vision.contracts import intrinsics_signature, validate_camera
 TEMPLATE_PATH = Path(__file__).with_name("keypoint_review.html")
 EDITABLE_FIELDS = {"points", "review_status", "reviewer", "reviewed_at", "notes"}
 
@@ -33,7 +34,10 @@ def repo_path(root: Path, value: str) -> Path:
 
 
 def build_annotations(selection: dict, batch: dict, root: Path, batch_report_path: Path) -> dict:
-    if selection.get("purpose") != "development_diagnostic" or selection.get("independent_test_set") is not False:
+    if (
+        selection.get("purpose") != "development_diagnostic"
+        or selection.get("independent_test_set") is not False
+    ):
         raise ValueError("Selection must explicitly identify development diagnostic data")
     selected = selection.get("images", [])
     if not selected:
@@ -93,22 +97,26 @@ def build_annotations(selection: dict, batch: dict, root: Path, batch_report_pat
         height, width = frame.shape[:2]
         if (width, height) != (camera.get("image_width"), camera.get("image_height")):
             raise ValueError(f"Image size does not match camera intrinsics: {name}")
-        result["images"].append({
-            "image": name,
-            "image_sha256": digest,
-            "width": width,
-            "height": height,
-            "split": row.get("split", "unknown"),
-            "selection_reasons": list(item.get("selection_reasons", [])),
-            "review_status": "draft",
-            "reviewer": "",
-            "reviewed_at": None,
-            "notes": "",
-            "roi_bbox_xyxy": copy.deepcopy(row.get("roi_bbox_xyxy", [])),
-            "auto_points": copy.deepcopy(row.get("image_points_full", {})),
-            "points": {label: {"xy": None, "visibility": "unlabeled", "source": "unlabeled", "note": ""}
-                       for label in LABELS},
-        })
+        result["images"].append(
+            {
+                "image": name,
+                "image_sha256": digest,
+                "width": width,
+                "height": height,
+                "split": row.get("split", "unknown"),
+                "selection_reasons": list(item.get("selection_reasons", [])),
+                "review_status": "draft",
+                "reviewer": "",
+                "reviewed_at": None,
+                "notes": "",
+                "roi_bbox_xyxy": copy.deepcopy(row.get("roi_bbox_xyxy", [])),
+                "auto_points": copy.deepcopy(row.get("image_points_full", {})),
+                "points": {
+                    label: {"xy": None, "visibility": "unlabeled", "source": "unlabeled", "note": ""}
+                    for label in LABELS
+                },
+            }
+        )
     validate_annotations(result)
     return result
 
@@ -129,8 +137,13 @@ def require_same_manifest(annotations: dict, expected: dict) -> None:
             raise ValueError(f"Annotation image metadata differs: {original['image']}")
 
 
-def render_review(annotations: dict, root: Path, template_path: Path = TEMPLATE_PATH, *,
-                  review_images: list[str] | None = None) -> str:
+def render_review(
+    annotations: dict,
+    root: Path,
+    template_path: Path = TEMPLATE_PATH,
+    *,
+    review_images: list[str] | None = None,
+) -> str:
     validate_annotations(annotations)
     indices = list(range(len(annotations["images"])))
     if review_images is not None:
@@ -139,8 +152,9 @@ def render_review(annotations: dict, root: Path, template_path: Path = TEMPLATE_
         names = [normalized_image_key(name) for name in review_images]
         if len(names) != len(set(names)):
             raise ValueError("Duplicate review_images selection")
-        by_name = {normalized_image_key(row["image"]): index
-                   for index, row in enumerate(annotations["images"])}
+        by_name = {
+            normalized_image_key(row["image"]): index for index, row in enumerate(annotations["images"])
+        }
         if any(name not in by_name for name in names):
             raise ValueError("review_images must belong to the annotation seed")
         indices = [by_name[name] for name in names]
@@ -153,10 +167,18 @@ def render_review(annotations: dict, root: Path, template_path: Path = TEMPLATE_
             raise ValueError(f"Image changed: {row['image']}")
         if index in selected:
             mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
-            images.append({"image": row["image"], "src": f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"})
+            images.append(
+                {
+                    "image": row["image"],
+                    "src": f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}",
+                }
+            )
     annotation_json = json.dumps(annotations, ensure_ascii=False, sort_keys=True, allow_nan=False)
-    payload = {"annotations": annotations, "images": images,
-               "seed_sha256": hashlib.sha256(annotation_json.encode("utf-8")).hexdigest()}
+    payload = {
+        "annotations": annotations,
+        "images": images,
+        "seed_sha256": hashlib.sha256(annotation_json.encode("utf-8")).hexdigest(),
+    }
     if review_images is not None:
         payload["review_indices"] = indices
     serialized = json.dumps(payload, ensure_ascii=False, allow_nan=False).replace("<", "\\u003c")
@@ -166,8 +188,13 @@ def render_review(annotations: dict, root: Path, template_path: Path = TEMPLATE_
     return template.replace("__KEYPOINT_PAYLOAD__", serialized)
 
 
-def prepare(selection_path: Path, batch_report_path: Path, output_dir: Path,
-            root: Path = ROOT_DIR, annotations_path: Path | None = None) -> tuple[Path, Path]:
+def prepare(
+    selection_path: Path,
+    batch_report_path: Path,
+    output_dir: Path,
+    root: Path = ROOT_DIR,
+    annotations_path: Path | None = None,
+) -> tuple[Path, Path]:
     selection = json.loads(selection_path.read_text(encoding="utf-8"))
     batch = json.loads(batch_report_path.read_text(encoding="utf-8"))
     expected = build_annotations(selection, batch, root, batch_report_path)
@@ -209,8 +236,11 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
     session = manifest_path.parent
     content = manifest_path.read_bytes()
     manifest = json.loads(content)
-    if (not isinstance(manifest, dict) or manifest.get("schema_version") != 1
-            or manifest.get("kind") != "realsense_rgb_capture"):
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != 1
+        or manifest.get("kind") != "realsense_rgb_capture"
+    ):
         raise ValueError("Expected realsense_rgb_capture manifest schema_version 1")
     if manifest.get("status") not in ("completed", "failed", "interrupted"):
         raise ValueError("Capture must be finalized; recording sessions cannot be reviewed")
@@ -237,8 +267,10 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
             raise ValueError(f"Missing capture camera {field}")
     if camera.get("stream") != "color":
         raise ValueError("Capture requires color camera intrinsics")
-    if any(isinstance(camera.get(field), bool) or not isinstance(camera.get(field), int)
-           or camera[field] <= 0 for field in ("image_width", "image_height")):
+    if any(
+        isinstance(camera.get(field), bool) or not isinstance(camera.get(field), int) or camera[field] <= 0
+        for field in ("image_width", "image_height")
+    ):
         raise ValueError("Invalid capture camera dimensions")
     validate_camera(camera, (camera["image_height"], camera["image_width"], 3))
     if camera.get("intrinsics_sha256") != intrinsics_signature(camera):
@@ -247,7 +279,9 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
     if not isinstance(frames, list) or not frames:
         raise ValueError("Capture has no frames to review")
     result = {
-        "schema_version": 2, "purpose": "development_diagnostic", "independent_test_set": False,
+        "schema_version": 2,
+        "purpose": "development_diagnostic",
+        "independent_test_set": False,
         "labels": list(LABELS),
         "feature_definition": "visible inner aperture center; physical reference unverified",
         "provenance": {
@@ -256,7 +290,8 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
             "manifest_sha256": hashlib.sha256(content).hexdigest(),
             "camera_config_path": camera_path.relative_to(root).as_posix(),
             "camera_config_sha256": camera_hash,
-            "session_id": manifest["session_id"], "batch_id": manifest["batch_id"],
+            "session_id": manifest["session_id"],
+            "batch_id": manifest["batch_id"],
             "camera_serial": camera["serial"],
         },
         "images": [],
@@ -282,21 +317,38 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
         number, timestamp = frame.get("frame_number"), frame.get("device_timestamp_ms")
         if isinstance(number, bool) or not isinstance(number, int) or number < 0:
             raise ValueError(f"Invalid capture frame_number: {name}")
-        if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)) or not math.isfinite(timestamp):
+        if (
+            isinstance(timestamp, bool)
+            or not isinstance(timestamp, (int, float))
+            or not math.isfinite(timestamp)
+        ):
             raise ValueError(f"Invalid device timestamp: {name}")
         if not isinstance(frame.get("timestamp_domain"), str) or not frame["timestamp_domain"].strip():
             raise ValueError(f"Invalid timestamp domain: {name}")
         _timestamp(frame.get("received_at_utc"), f"{name}/received_at_utc")
-        result["images"].append({
-            "image": path.relative_to(root).as_posix(), "image_sha256": digest,
-            "width": width, "height": height, "split": manifest["split"],
-            "session_id": manifest["session_id"], "batch_id": manifest["batch_id"],
-            "camera_serial": camera["serial"], "selection_reasons": [],
-            "review_status": "draft", "reviewer": "", "reviewed_at": None,
-            "notes": "", "roi_bbox_xyxy": [], "auto_points": {},
-            "points": {label: {"xy": None, "visibility": "unlabeled", "source": "unlabeled", "note": ""}
-                       for label in LABELS},
-        })
+        result["images"].append(
+            {
+                "image": path.relative_to(root).as_posix(),
+                "image_sha256": digest,
+                "width": width,
+                "height": height,
+                "split": manifest["split"],
+                "session_id": manifest["session_id"],
+                "batch_id": manifest["batch_id"],
+                "camera_serial": camera["serial"],
+                "selection_reasons": [],
+                "review_status": "draft",
+                "reviewer": "",
+                "reviewed_at": None,
+                "notes": "",
+                "roi_bbox_xyxy": [],
+                "auto_points": {},
+                "points": {
+                    label: {"xy": None, "visibility": "unlabeled", "source": "unlabeled", "note": ""}
+                    for label in LABELS
+                },
+            }
+        )
     if "metadata" in manifest:
         result["provenance"]["capture_metadata"] = manifest["metadata"]
         for entry in result["images"]:
@@ -305,8 +357,12 @@ def build_capture_annotations(manifest_path: Path, root: Path = ROOT_DIR) -> dic
     return result
 
 
-def prepare_capture(manifest_path: Path, output_dir: Path | None = None, root: Path = ROOT_DIR,
-            annotations_path: Path | None = None) -> tuple[Path, Path]:
+def prepare_capture(
+    manifest_path: Path,
+    output_dir: Path | None = None,
+    root: Path = ROOT_DIR,
+    annotations_path: Path | None = None,
+) -> tuple[Path, Path]:
     expected = build_capture_annotations(manifest_path, root)
     output_dir = (output_dir or manifest_path.resolve().parent / "review").resolve()
     if not output_dir.is_relative_to(root.resolve()):
@@ -320,9 +376,12 @@ def prepare_capture(manifest_path: Path, output_dir: Path | None = None, root: P
     else:
         annotations = expected
     page = output_dir / "review.html"
-    protected = {manifest_path.resolve(), source.resolve(),
-                 repo_path(root, expected["provenance"]["camera_config_path"]),
-                 *(repo_path(root, row["image"]) for row in expected["images"])}
+    protected = {
+        manifest_path.resolve(),
+        source.resolve(),
+        repo_path(root, expected["provenance"]["camera_config_path"]),
+        *(repo_path(root, row["image"]) for row in expected["images"]),
+    }
     if not page.resolve().is_relative_to(root.resolve()) or page.resolve() in protected:
         raise ValueError("Review page must not replace capture or annotation inputs")
     # All bound inputs are checked before any output is created; an existing
@@ -342,14 +401,29 @@ def prepare_capture(manifest_path: Path, output_dir: Path | None = None, root: P
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--selection", type=Path, help="Historical image selection; defaults to config/vision_annotation_pilot.json")
-    source.add_argument("--manifest", type=Path, help="Finalized capture manifest; uses this session's camera intrinsics")
-    parser.add_argument("--batch-report", type=Path, help="Historical batch report; cannot be combined with --manifest")
-    parser.add_argument("--output-dir", type=Path, help="Defaults to the capture session's review/ or artifacts/keypoint_review_pilot")
-    parser.add_argument("--annotations", type=Path, help="Existing annotation JSON to embed; never overwritten")
+    source.add_argument(
+        "--selection",
+        type=Path,
+        help="Historical image selection; defaults to config/vision_annotation_pilot.json",
+    )
+    source.add_argument(
+        "--manifest", type=Path, help="Finalized capture manifest; uses this session's camera intrinsics"
+    )
+    parser.add_argument(
+        "--batch-report", type=Path, help="Historical batch report; cannot be combined with --manifest"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Defaults to the capture session's review/ or artifacts/keypoint_review_pilot",
+    )
+    parser.add_argument(
+        "--annotations", type=Path, help="Existing annotation JSON to embed; never overwritten"
+    )
     args = parser.parse_args(argv)
     if not any((args.selection, args.manifest, args.batch_report, args.output_dir, args.annotations)):
         from ev_charging.review.review_keypoints import main as review_library_keypoints
+
         return review_library_keypoints([])
     if args.manifest is not None:
         if args.batch_report is not None:
@@ -357,13 +431,17 @@ def main(argv=None) -> None:
         source, page = prepare_capture(args.manifest, args.output_dir, annotations_path=args.annotations)
         print(json.dumps({"annotations": str(source), "review_page": str(page)}, ensure_ascii=False))
         return
-    source, page = prepare(args.selection or ROOT_DIR / "config/vision_annotation_pilot.json",
-                           args.batch_report or ROOT_DIR / "artifacts/batch_eval_optimized/latest_details.json",
-                           args.output_dir or ROOT_DIR / "artifacts/keypoint_review_pilot",
-                           annotations_path=args.annotations)
+    source, page = prepare(
+        args.selection or ROOT_DIR / "config/vision_annotation_pilot.json",
+        args.batch_report or ROOT_DIR / "artifacts/batch_eval_optimized/latest_details.json",
+        args.output_dir or ROOT_DIR / "artifacts/keypoint_review_pilot",
+        annotations_path=args.annotations,
+    )
     print(f"Annotations: {source.resolve()}")
     print(f"Review page: {page.resolve()}")
-    print("Offline review only. Export reviewed_annotations.json after human review; AI drafts are not ground truth.")
+    print(
+        "Offline review only. Export reviewed_annotations.json after human review; AI drafts are not ground truth."
+    )
 
 
 if __name__ == "__main__":

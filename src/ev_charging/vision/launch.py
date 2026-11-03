@@ -11,23 +11,26 @@ lives only for that process. See README.md for the background.
 Activate the Conda environment first (``conda activate ev-charging``); the
 elevated child uses the same Python executable.
 """
+
 from __future__ import annotations
 
-import os
 import ctypes
-from ctypes import wintypes
+import os
 import runpy
 import subprocess
 import sys
+from ctypes import wintypes
 from types import ModuleType
 
 LAUNCHER = "ev_charging.vision.launch"
 SW_SHOWNORMAL = 1
 MODULES = ("ev_charging.capture.preview", "ev_charging.capture.collect", "ev_charging.vision.locate.run")
-USAGE = ("用法: python -m ev_charging.vision.launch <相机模块> [参数...]\n"
-         "支持: " + ", ".join(MODULES) + "\n"
-         "例如: python -m ev_charging.vision.launch ev_charging.capture.preview --depth\n"
-         "--help 与 ev_charging.vision.locate.run --image 离线处理不申请管理员权限。")
+USAGE = (
+    "用法: python -m ev_charging.vision.launch <相机模块> [参数...]\n"
+    "支持: " + ", ".join(MODULES) + "\n"
+    "例如: python -m ev_charging.vision.launch ev_charging.capture.preview --depth\n"
+    "--help 与 ev_charging.vision.locate.run --image 离线处理不申请管理员权限。"
+)
 
 
 TOKEN_ADJUST_PRIVILEGES = 0x0020
@@ -36,9 +39,11 @@ SE_PRIVILEGE_ENABLED = 0x0002
 ERROR_NOT_ALL_ASSIGNED = 1300
 PRIVILEGE = "SeSecurityPrivilege"
 
-HINT = (r"请用 python -m ev_charging.vision.launch <相机模块> [原参数] 重新启动"
-        r"（相机模块为 ev_charging.capture.preview、ev_charging.capture.collect 或 ev_charging.vision.locate.run），"
-        r"或先打开管理员终端；两者都不修改系统安全策略。")
+HINT = (
+    r"请用 python -m ev_charging.vision.launch <相机模块> [原参数] 重新启动"
+    r"（相机模块为 ev_charging.capture.preview、ev_charging.capture.collect 或 ev_charging.vision.locate.run），"
+    r"或先打开管理员终端；两者都不修改系统安全策略。"
+)
 
 _enabled = False
 _api = None
@@ -53,8 +58,7 @@ class LUIDAndAttributes(ctypes.Structure):
 
 
 class TokenPrivileges(ctypes.Structure):
-    _fields_ = [("PrivilegeCount", wintypes.DWORD),
-                ("Privileges", LUIDAndAttributes * 1)]
+    _fields_ = [("PrivilegeCount", wintypes.DWORD), ("Privileges", LUIDAndAttributes * 1)]
 
 
 class WindowsPrivilegeApi:
@@ -67,24 +71,34 @@ class WindowsPrivilegeApi:
         self.kernel.GetCurrentProcess.restype = wintypes.HANDLE
         self.kernel.CloseHandle.argtypes = [wintypes.HANDLE]
         self.kernel.CloseHandle.restype = wintypes.BOOL
-        self.advapi.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD,
-                                                 ctypes.POINTER(wintypes.HANDLE)]
+        self.advapi.OpenProcessToken.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.HANDLE),
+        ]
         self.advapi.OpenProcessToken.restype = wintypes.BOOL
-        self.advapi.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR,
-                                                      ctypes.POINTER(LUID)]
+        self.advapi.LookupPrivilegeValueW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.LPCWSTR,
+            ctypes.POINTER(LUID),
+        ]
         self.advapi.LookupPrivilegeValueW.restype = wintypes.BOOL
-        self.advapi.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL,
-                                                      ctypes.POINTER(TokenPrivileges),
-                                                      wintypes.DWORD, ctypes.c_void_p,
-                                                      ctypes.c_void_p]
+        self.advapi.AdjustTokenPrivileges.argtypes = [
+            wintypes.HANDLE,
+            wintypes.BOOL,
+            ctypes.POINTER(TokenPrivileges),
+            wintypes.DWORD,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+        ]
         self.advapi.AdjustTokenPrivileges.restype = wintypes.BOOL
 
     def enable(self, name: str = PRIVILEGE) -> int:
         """Return 0 when the privilege is enabled, otherwise the Win32 error code."""
         token = wintypes.HANDLE()
-        if not self.advapi.OpenProcessToken(self.kernel.GetCurrentProcess(),
-                                            TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
-                                            ctypes.byref(token)):
+        if not self.advapi.OpenProcessToken(
+            self.kernel.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, ctypes.byref(token)
+        ):
             return ctypes.get_last_error() or 1
         try:
             luid = LUID()
@@ -95,8 +109,7 @@ class WindowsPrivilegeApi:
             privileges.Privileges[0].Luid = luid
             privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
             ctypes.set_last_error(0)
-            ok = self.advapi.AdjustTokenPrivileges(token, False, ctypes.byref(privileges),
-                                                   0, None, None)
+            ok = self.advapi.AdjustTokenPrivileges(token, False, ctypes.byref(privileges), 0, None, None)
             error = ctypes.get_last_error()
             if not ok:
                 return error or 1
@@ -168,6 +181,7 @@ def is_elevated() -> bool:
     if sys.platform != "win32":
         return False
     import ctypes
+
     try:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except OSError:
@@ -177,11 +191,11 @@ def is_elevated() -> bool:
 def _relaunch(argv) -> int:
     import ctypes
 
-    result = ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, _parameters(argv),
-                                                 os.getcwd(), SW_SHOWNORMAL)
+    result = ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", sys.executable, _parameters(argv), os.getcwd(), SW_SHOWNORMAL
+    )
     if result <= 32:
-        print(f"管理员相机进程未启动（ShellExecute 错误码 {result}）；请检查 UAC 授权。",
-              file=sys.stderr)
+        print(f"管理员相机进程未启动（ShellExecute 错误码 {result}）；请检查 UAC 授权。", file=sys.stderr)
         return 1
     print("已请求在管理员窗口启动；相机是否启动成功请查看新窗口。")
     return 0
@@ -200,8 +214,9 @@ def main(argv=None) -> int:
         print(f"不支持的相机模块: {module}\n{USAGE}", file=sys.stderr)
         return 2
     offline = any(arg in ("-h", "--help") for arg in passthrough) or (
-        module == "ev_charging.vision.locate.run" and any(
-            arg == "--image" or arg.startswith("--image=") for arg in passthrough))
+        module == "ev_charging.vision.locate.run"
+        and any(arg == "--image" or arg.startswith("--image=") for arg in passthrough)
+    )
     if not offline and sys.platform == "win32" and not is_elevated():
         return _relaunch(args)
 

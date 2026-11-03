@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
 import csv
 import math
-from pathlib import Path
 
 import cv2
 import numpy as np
 
+from ev_charging.paths import PROJECT_ROOT
 from ev_charging.vision.algorithms.center_fit import CandidateContour, LayoutModel
-
 
 ENABLE_LAYOUT_PRIOR = True
 
@@ -49,21 +46,25 @@ LAYOUT_AREA_PRIOR = {
 
 _LAYOUT_ZONE_DEFAULTS = [
     # name,         u,      v,      tol_u, tol_v, group,   accept_dist
-    ("top_left",    -0.30, -0.56,   0.38,  0.32, "top",    1.75),
-    ("top_mid",      0.00, -0.54,   0.32,  0.30, "top",    1.62),
-    ("top_right",    0.30, -0.56,   0.38,  0.32, "top",    1.75),
-
-    ("center",       0.00, -0.20,   0.18,  0.18, "mid",    1.15),
-
-    ("bottom_left", -0.28,  0.44,   0.24,  0.22, "bottom", 1.22),
-    ("bottom_mid",   0.00,  0.62,   0.22,  0.22, "bottom", 1.25),
-    ("bottom_right", 0.28,  0.44,   0.24,  0.22, "bottom", 1.22),
+    ("top_left", -0.30, -0.56, 0.38, 0.32, "top", 1.75),
+    ("top_mid", 0.00, -0.54, 0.32, 0.30, "top", 1.62),
+    ("top_right", 0.30, -0.56, 0.38, 0.32, "top", 1.75),
+    ("center", 0.00, -0.20, 0.18, 0.18, "mid", 1.15),
+    ("bottom_left", -0.28, 0.44, 0.24, 0.22, "bottom", 1.22),
+    ("bottom_mid", 0.00, 0.62, 0.22, 0.22, "bottom", 1.25),
+    ("bottom_right", 0.28, 0.44, 0.24, 0.22, "bottom", 1.22),
 ]
 
 LAYOUT_TO_MODEL_LABEL = {
-    "top_left": "S_neg", "top_mid": "CC2", "top_right": "S_pos",
-    "center": "CC1", "main_left": "DC_neg", "main_right": "DC_pos",
-    "bottom_left": "A_neg", "bottom_mid": "PE", "bottom_right": "A_pos",
+    "top_left": "S_neg",
+    "top_mid": "CC2",
+    "top_right": "S_pos",
+    "center": "CC1",
+    "main_left": "DC_neg",
+    "main_right": "DC_pos",
+    "bottom_left": "A_neg",
+    "bottom_mid": "PE",
+    "bottom_right": "A_pos",
 }
 
 
@@ -86,15 +87,19 @@ def normalized_model_points(object_points: dict) -> dict[str, np.ndarray]:
 
 def layout_zones_from_model(object_points: dict) -> list:
     points = normalized_model_points(object_points)
-    return [(name, float(points[name][0]), float(points[name][1]), *rest)
-            for name, _u, _v, *rest in _LAYOUT_ZONE_DEFAULTS]
+    return [
+        (name, float(points[name][0]), float(points[name][1]), *rest)
+        for name, _u, _v, *rest in _LAYOUT_ZONE_DEFAULTS
+    ]
 
 
 def _default_layout_zones() -> list:
     path = PROJECT_ROOT / "config" / "charging_port_model.csv"
     with path.open(encoding="utf-8-sig", newline="") as stream:
-        model = {row["label"]: tuple(float(row[key]) for key in ("x_mm", "y_mm", "z_mm"))
-                 for row in csv.DictReader(stream)}
+        model = {
+            row["label"]: tuple(float(row[key]) for key in ("x_mm", "y_mm", "z_mm"))
+            for row in csv.DictReader(stream)
+        }
     return layout_zones_from_model(model)
 
 
@@ -155,8 +160,11 @@ def score_main_big_hole_pair(
             minor, major = sorted(candidate.ellipse_axes)
         else:
             minor, major = sorted(candidate.bbox[2:])
-        if not (0.12 <= major / dist <= 0.90 and minor / dist >= 0.035
-                and math.sqrt(minor * major) >= MAIN_HOLE_MIN_DIAMETER_ROI_RATIO * min_dim):
+        if not (
+            0.12 <= major / dist <= 0.90
+            and minor / dist >= 0.035
+            and math.sqrt(minor * major) >= MAIN_HOLE_MIN_DIAMETER_ROI_RATIO * min_dim
+        ):
             return None
         effective_areas.append(math.pi * minor * major / 4)
     area_sim = min(effective_areas) / (max(effective_areas) + 1e-6)
@@ -167,11 +175,11 @@ def score_main_big_hole_pair(
     center_prior = 1.0 - min(1.0, (c1.prior_value + c2.prior_value) / 2.0)
 
     return (
-        0.45 * area_sum_norm +
-        0.20 * area_sim +
-        0.20 * (c1.score + c2.score) / 2.0 +
-        0.10 * min(1.0, dist / (0.5 * min_dim)) +
-        0.05 * center_prior
+        0.45 * area_sum_norm
+        + 0.20 * area_sim
+        + 0.20 * (c1.score + c2.score) / 2.0
+        + 0.10 * min(1.0, dist / (0.5 * min_dim))
+        + 0.05 * center_prior
     )
 
 
@@ -194,7 +202,9 @@ def find_main_big_hole_pair_hypotheses(
     return pair_scores[:MAX_MAIN_PAIR_HYPOTHESES]
 
 
-def find_main_big_hole_pair(candidates: list[CandidateContour], roi_shape: tuple[int, int]) -> tuple[int, int] | None:
+def find_main_big_hole_pair(
+    candidates: list[CandidateContour], roi_shape: tuple[int, int]
+) -> tuple[int, int] | None:
     hypotheses = find_main_big_hole_pair_hypotheses(candidates, roi_shape)
     if not hypotheses:
         return None
@@ -494,8 +504,7 @@ def build_nearest_layout_assignment(
 
 
 def apply_standard_layout_prior(
-    candidates: list[CandidateContour],
-    roi_shape: tuple[int, int]
+    candidates: list[CandidateContour], roi_shape: tuple[int, int]
 ) -> tuple[list[CandidateContour], LayoutModel | None]:
     if not ENABLE_LAYOUT_PRIOR:
         return candidates, None
@@ -510,15 +519,18 @@ def apply_standard_layout_prior(
         print("No valid main-hole pair found. Skip layout prior filtering.")
         return candidates, None
 
-    best_result: tuple[
-        float,
-        float,
-        int,
-        CandidateContour,
-        CandidateContour,
-        LayoutModel,
-        dict[str, tuple[CandidateContour, float, float, float, float, str, float]],
-    ] | None = None
+    best_result: (
+        tuple[
+            float,
+            float,
+            int,
+            CandidateContour,
+            CandidateContour,
+            LayoutModel,
+            dict[str, tuple[CandidateContour, float, float, float, float, str, float]],
+        ]
+        | None
+    ) = None
 
     print(f"main_pair_hypotheses={len(pair_hypotheses)}")
 

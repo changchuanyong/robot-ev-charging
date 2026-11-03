@@ -5,18 +5,25 @@ https://develop.realman-robotics.com/robot/apipython/classes/udpConfig/
 https://develop.realman-robotics.com/robot/apipython/classes/movePlan/
 https://develop.realman-robotics.com/robot/apipython/classes/motionControl/
 """
+
 from __future__ import annotations
 
 import copy
 import importlib
-from importlib.metadata import version
 import ipaddress
 import threading
 import time
+from importlib.metadata import version
 
 import numpy as np
 
-from ev_charging.control.geometry import invert, log_so3, pose_from_xyz_rpy, validate_transform, xyz_rpy_from_pose
+from ev_charging.control.geometry import (
+    invert,
+    log_so3,
+    pose_from_xyz_rpy,
+    validate_transform,
+    xyz_rpy_from_pose,
+)
 from ev_charging.control.types import RobotSample
 
 
@@ -46,6 +53,7 @@ class RealManRobot:
     reception time, so downstream age gates use a conservative sample age.
     This software watchdog cannot replace a controller/hardware emergency stop.
     """
+
     def __init__(self, config, *, sdk=None, clock=time.monotonic):
         self.config = copy.deepcopy(config)
         self._sdk = sdk
@@ -76,20 +84,44 @@ class RealManRobot:
 
     def _validate_config(self):
         c = self.config
-        required = ("host", "port", "controller_version", "expected_sdk_version", "expected_software",
-                    "expected_arm_model", "expected_force_type", "tcp_name", "work_frame_name",
-                    "T_flange_tool", "udp", "command_period", "follow", "trajectory_mode",
-                    "max_sample_age", "command_gap_timeout", "max_translation_step", "max_rotation_step",
-                    "transport_latency_bound_s")
+        required = (
+            "host",
+            "port",
+            "controller_version",
+            "expected_sdk_version",
+            "expected_software",
+            "expected_arm_model",
+            "expected_force_type",
+            "tcp_name",
+            "work_frame_name",
+            "T_flange_tool",
+            "udp",
+            "command_period",
+            "follow",
+            "trajectory_mode",
+            "max_sample_age",
+            "command_gap_timeout",
+            "max_translation_step",
+            "max_rotation_step",
+            "transport_latency_bound_s",
+        )
         if any(c.get(key) is None for key in required):
-            raise ValueError("hardware config incomplete: " + ", ".join(k for k in required if c.get(k) is None))
+            raise ValueError(
+                "hardware config incomplete: " + ", ".join(k for k in required if c.get(k) is None)
+            )
         ipaddress.IPv4Address(c["host"])
         ipaddress.IPv4Address(c["udp"]["ip"])
         if c["controller_version"] not in (3, 4) or c["trajectory_mode"] != 0:
-            raise ValueError("adapter requires explicitly identified gen3/gen4 controller and trajectory_mode=0")
+            raise ValueError(
+                "adapter requires explicitly identified gen3/gen4 controller and trajectory_mode=0"
+            )
         if c["expected_arm_model"] != "RM_75" or c["expected_force_type"] not in ("6F", "6FB", "6FB-V"):
             raise ValueError("expected RM_75 with a six-axis force sensor")
-        if not c["expected_sdk_version"] or not isinstance(c["expected_software"], dict) or not c["expected_software"]:
+        if (
+            not c["expected_sdk_version"]
+            or not isinstance(c["expected_software"], dict)
+            or not c["expected_software"]
+        ):
             raise ValueError("freeze the measured SDK and firmware identity before motion")
         if not c["tcp_name"] or not c["work_frame_name"]:
             raise ValueError("explicit TCP and work-frame names required")
@@ -99,8 +131,14 @@ class RealManRobot:
         for port in (c["port"], c["udp"]["port"]):
             if type(port) is not int or not 1 <= port <= 65535:
                 raise ValueError("invalid TCP/UDP port")
-        for key in ("command_period", "max_sample_age", "command_gap_timeout", "max_translation_step",
-                    "max_rotation_step", "transport_latency_bound_s"):
+        for key in (
+            "command_period",
+            "max_sample_age",
+            "command_gap_timeout",
+            "max_translation_step",
+            "max_rotation_step",
+            "transport_latency_bound_s",
+        ):
             if not np.isfinite(c[key]) or c[key] <= 0:
                 raise ValueError(f"{key} must be positive and finite")
         if c["max_sample_age"] <= c["transport_latency_bound_s"]:
@@ -117,7 +155,13 @@ class RealManRobot:
                 raise ValueError(f"unknown SDK UDP custom field {key}")
             setattr(custom, key, value)
         return self._sdk.rm_realtime_push_config_t(
-            values["cycle"], values["enable"], values["port"], values["force_coordinate"], values["ip"], custom)
+            values["cycle"],
+            values["enable"],
+            values["port"],
+            values["force_coordinate"],
+            values["ip"],
+            custom,
+        )
 
     def connect(self):
         self._validate_config()
@@ -144,12 +188,18 @@ class RealManRobot:
             self._connected = True
             info = _checked(self._robot.rm_get_robot_info(), "robot identity")
             software = _checked(self._robot.rm_get_arm_software_info(), "robot software")
-            if info.get("arm_dof") != 7 or info.get("arm_model") != self.config["expected_arm_model"] or info.get("force_type") != self.config["expected_force_type"]:
+            if (
+                info.get("arm_dof") != 7
+                or info.get("arm_model") != self.config["expected_arm_model"]
+                or info.get("force_type") != self.config["expected_force_type"]
+            ):
                 raise RuntimeError(f"unexpected robot identity: {info}")
             generation = info.get("robot_controller_version")
             if generation is None:
                 if self.config.get("controller_version_confirmed") is not True:
-                    raise RuntimeError("SDK did not identify controller generation; explicit verified configuration required")
+                    raise RuntimeError(
+                        "SDK did not identify controller generation; explicit verified configuration required"
+                    )
             elif generation != self.config["controller_version"]:
                 raise RuntimeError("controller generation mismatch")
             for key, expected in self.config["expected_software"].items():
@@ -157,25 +207,43 @@ class RealManRobot:
                     raise RuntimeError(f"firmware mismatch: {key}")
             tool = _checked(self._robot.rm_get_current_tool_frame(), "current tool")
             work = _checked(self._robot.rm_get_current_work_frame(), "current work frame")
-            if tool.get("name") != self.config["tcp_name"] or work.get("name") != self.config["work_frame_name"]:
+            if (
+                tool.get("name") != self.config["tcp_name"]
+                or work.get("name") != self.config["work_frame_name"]
+            ):
                 raise RuntimeError("active tool/work frame does not match configuration")
-            if not np.allclose(_pose_from_packet(tool["pose"]), self.config["T_flange_tool"], atol=2e-6, rtol=0):
+            if not np.allclose(
+                _pose_from_packet(tool["pose"]), self.config["T_flange_tool"], atol=2e-6, rtol=0
+            ):
                 raise RuntimeError("configured tool installation differs from controller TCP")
             self.T_base_work = _pose_from_packet(work["pose"])
-            self.identity = {"robot": info, "software": software, "tool": tool, "work": work,
-                             "sdk_version": self.config["expected_sdk_version"]}
+            self.identity = {
+                "robot": info,
+                "software": software,
+                "tool": tool,
+                "work": work,
+                "sdk_version": self.config["expected_sdk_version"],
+            }
             self._old_udp = _checked(self._robot.rm_get_realtime_push(), "read previous UDP config")
             # Verify that it can be reconstructed BEFORE changing device configuration.
             self._udp_object(self._old_udp)
             self._callback_handle = self._sdk.rm_realtime_arm_state_callback_ptr(self._on_packet)
             self._robot.rm_realtime_arm_state_call_back(self._callback_handle)
             udp = self.config["udp"]
-            new_udp = {"cycle": udp["cycle"], "enable": True, "port": udp["port"],
-                       "force_coordinate": 0, "ip": udp["ip"], "custom_config": {"joint_speed": 1}}
+            new_udp = {
+                "cycle": udp["cycle"],
+                "enable": True,
+                "port": udp["port"],
+                "force_coordinate": 0,
+                "ip": udp["ip"],
+                "custom_config": {"joint_speed": 1},
+            }
             self._udp_changed = True
             _checked(self._robot.rm_set_realtime_push(self._udp_object(new_udp)), "configure UDP feedback")
             actual_udp = _checked(self._robot.rm_get_realtime_push(), "verify UDP configuration")
-            if any(actual_udp.get(k) != new_udp[k] for k in ("cycle", "enable", "port", "force_coordinate", "ip")):
+            if any(
+                actual_udp.get(k) != new_udp[k] for k in ("cycle", "enable", "port", "force_coordinate", "ip")
+            ):
                 raise RuntimeError("UDP feedback configuration was not applied")
             if actual_udp.get("custom_config", {}).get("joint_speed") != 1:
                 raise RuntimeError("joint-speed feedback must be enabled for stop verification")
@@ -207,11 +275,15 @@ class RealManRobot:
         if packet is None:
             raise RuntimeError("no RM75 UDP feedback received")
         timestamp = received - self.config["transport_latency_bound_s"]
-        metadata = {"received_at": received, "timestamp_source": "host_receive_minus_validated_transport_bound",
-                    "transport_latency_bound_s": self.config["transport_latency_bound_s"],
-                    "external_compensated": True, "force_channel": "udp_external",
-                    "wrench_version": self.config.get("wrench_version", "unconfigured"),
-                    "identity": self.identity}
+        metadata = {
+            "received_at": received,
+            "timestamp_source": "host_receive_minus_validated_transport_bound",
+            "transport_latency_bound_s": self.config["transport_latency_bound_s"],
+            "external_compensated": True,
+            "force_channel": "udp_external",
+            "wrench_version": self.config.get("wrench_version", "unconfigured"),
+            "identity": self.identity,
+        }
         try:
             if self.fault:
                 raise ValueError(self.fault)
@@ -220,7 +292,11 @@ class RealManRobot:
             if int(packet["err"]["err_len"]) != 0:
                 raise ValueError(f"robot error: {packet['err']}")
             joint = packet["joint_status"]
-            if len(joint["joint_en_flag"]) != 7 or not all(joint["joint_en_flag"]) or any(joint["joint_err_code"]):
+            if (
+                len(joint["joint_en_flag"]) != 7
+                or not all(joint["joint_en_flag"])
+                or any(joint["joint_err_code"])
+            ):
                 raise ValueError("joint disabled or joint error")
             joints = np.asarray(joint["joint_position"], float)
             force = packet["force_sensor"]
@@ -228,7 +304,12 @@ class RealManRobot:
             raw = np.asarray(force["force"], float)
             if force["coordinate"] != 0:
                 raise ValueError("force feedback is not in the sensor frame")
-            if joints.shape != (7,) or wrench.shape != (6,) or raw.shape != (6,) or not np.isfinite(np.r_[joints, wrench, raw]).all():
+            if (
+                joints.shape != (7,)
+                or wrench.shape != (6,)
+                or raw.shape != (6,)
+                or not np.isfinite(np.r_[joints, wrench, raw]).all()
+            ):
                 raise ValueError("invalid force or joint dimensions/values")
             if not 0 <= self._clock() - timestamp <= self.config["max_sample_age"]:
                 raise ValueError("stale UDP feedback")
@@ -240,11 +321,26 @@ class RealManRobot:
                     raise ValueError("invalid joint speed feedback")
                 metadata["joint_speeds_rad_s"] = np.deg2rad(speeds).tolist()
             metadata["arm_current_status"] = packet.get("arm_current_status")
-            return RobotSample(seq, timestamp, pose, wrench, tuple(np.deg2rad(joints)),
-                               wrench_frame="sensor", metadata=metadata)
+            return RobotSample(
+                seq,
+                timestamp,
+                pose,
+                wrench,
+                tuple(np.deg2rad(joints)),
+                wrench_frame="sensor",
+                metadata=metadata,
+            )
         except (ValueError, KeyError, TypeError) as exc:
-            return RobotSample(seq, timestamp, np.eye(4), np.full(6, np.nan), valid=False,
-                               reason=str(exc), wrench_frame="sensor", metadata=metadata)
+            return RobotSample(
+                seq,
+                timestamp,
+                np.eye(4),
+                np.full(6, np.nan),
+                valid=False,
+                reason=str(exc),
+                wrench_frame="sensor",
+                metadata=metadata,
+            )
 
     def command(self, T_base_tool, dt):
         T = validate_transform(T_base_tool)
@@ -255,7 +351,10 @@ class RealManRobot:
             if not np.isfinite(dt) or not 0 < dt <= self.config["command_gap_timeout"]:
                 self.stop()
                 raise RuntimeError("command time step exceeded its accepted limit")
-            if self._last_command_time is not None and now - self._last_command_time > self.config["command_gap_timeout"]:
+            if (
+                self._last_command_time is not None
+                and now - self._last_command_time > self.config["command_gap_timeout"]
+            ):
                 self.stop()
                 raise RuntimeError("command stream missed its deadline")
             sample = self.read()
@@ -274,7 +373,10 @@ class RealManRobot:
             self.stop_feedback_confirmed = False
             self._last_command_time = now
             try:
-                _checked(self._robot.rm_movep_canfd(pose, self.config["follow"], trajectory_mode=0, radio=0), "pose pass-through")
+                _checked(
+                    self._robot.rm_movep_canfd(pose, self.config["follow"], trajectory_mode=0, radio=0),
+                    "pose pass-through",
+                )
             except BaseException:
                 self.stop()
                 raise
@@ -286,8 +388,15 @@ class RealManRobot:
                 now = self._clock()
                 with self._data_lock:
                     received = self._packet_time
-                stale = received is None or now - received + self.config["transport_latency_bound_s"] > self.config["max_sample_age"]
-                missed = self._last_command_time is None or now - self._last_command_time > self.config["command_gap_timeout"]
+                stale = (
+                    received is None
+                    or now - received + self.config["transport_latency_bound_s"]
+                    > self.config["max_sample_age"]
+                )
+                missed = (
+                    self._last_command_time is None
+                    or now - self._last_command_time > self.config["command_gap_timeout"]
+                )
                 if stale or missed:
                     self.fault = "feedback_watchdog" if stale else "command_watchdog"
                     try:
@@ -313,8 +422,12 @@ class RealManRobot:
         the latched stream. Missing/stale/invalid feedback returns False.
         """
         keys = ("joint_speed_rad_s", "linear_speed_m_s", "angular_speed_rad_s", "hold_s")
-        if (not np.isfinite(timeout) or timeout <= 0 or any(k not in tol for k in keys)
-                or any(not np.isfinite(tol[k]) or tol[k] <= 0 for k in keys)):
+        if (
+            not np.isfinite(timeout)
+            or timeout <= 0
+            or any(k not in tol for k in keys)
+            or any(not np.isfinite(tol[k]) or tol[k] <= 0 for k in keys)
+        ):
             raise ValueError("explicit positive stop verification timeout and tolerances required")
         self.stop_feedback_confirmed = False
         if not self._stopped or not self.stop_command_ack:
@@ -368,7 +481,10 @@ class RealManRobot:
                         errors.append(str(exc))
                 if self._udp_changed and self._old_udp is not None:
                     try:
-                        _checked(self._robot.rm_set_realtime_push(self._udp_object(self._old_udp)), "restore UDP configuration")
+                        _checked(
+                            self._robot.rm_set_realtime_push(self._udp_object(self._old_udp)),
+                            "restore UDP configuration",
+                        )
                     except Exception as exc:
                         errors.append(str(exc))
                 try:

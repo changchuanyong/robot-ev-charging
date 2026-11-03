@@ -1,18 +1,27 @@
-"""Atomic JSON writes shared by capture, review and training."""
+"""File fingerprints and atomic JSON writes shared across the project."""
+
+import hashlib
 import json
 import os
-from pathlib import Path
 import time
 import uuid
+from collections.abc import Sequence
+from pathlib import Path
+from typing import TextIO
 
 
-def _dump_json(stream, data) -> None:
+def sha256_file(path: str | Path) -> str:
+    """Hash the file's original bytes without decoding or newline conversion."""
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _dump_json(stream: TextIO, data: object) -> None:
     json.dump(data, stream, ensure_ascii=False, indent=2, allow_nan=False)
     stream.flush()
     os.fsync(stream.fileno())
 
 
-def atomic_json(path: Path, data: dict) -> None:
+def atomic_json(path: str | Path, data: object) -> None:
     """Replace the complete message, including invalid observations, atomically."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,12 +35,17 @@ def atomic_json(path: Path, data: dict) -> None:
             temporary.unlink()
 
 
-_RETRY_DELAYS_S = (.025, .05, .1, .2, .4)
+_RETRY_DELAYS_S = (0.025, 0.05, 0.1, 0.2, 0.4)
 _RETRYABLE_WINERRORS = {5, 32, 33}
 
 
-def atomic_capture_json(path: Path, data: dict, *, retry_delays=_RETRY_DELAYS_S,
-                        in_place_fallback: bool = False) -> None:
+def atomic_capture_json(
+    path: str | Path,
+    data: object,
+    *,
+    retry_delays: Sequence[float] = _RETRY_DELAYS_S,
+    in_place_fallback: bool = False,
+) -> None:
     """Retry temporary Windows sharing conflicts for capture files, outside control loops.
 
     A reader that does not share delete (antivirus, a watcher, an editor) blocks
@@ -61,10 +75,10 @@ def atomic_capture_json(path: Path, data: dict, *, retry_delays=_RETRY_DELAYS_S,
 
 # Long-lived audit files are rewritten for minutes; a scanner or watcher may
 # hold them far longer than a control loop can wait.
-PATIENT_RETRY_DELAYS_S = (.05, .1, .2, .4, .8, 1.6, 3.2, 6.4)  # ~12.8 s
+PATIENT_RETRY_DELAYS_S = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4)  # ~12.8 s
 
 
-def atomic_persist_json(path: Path, data: dict, *, in_place_fallback: bool = False) -> None:
+def atomic_persist_json(path: str | Path, data: object, *, in_place_fallback: bool = False) -> None:
     """Atomically replace a long-lived audit file, waiting out file scanners.
 
     Used by training reports, manifests and the model registry, which are
@@ -72,7 +86,4 @@ def atomic_persist_json(path: Path, data: dict, *, in_place_fallback: bool = Fal
     ``in_place_fallback`` trades atomicity for durability of the run; only use it
     for files that are rewritten again soon.
     """
-    atomic_capture_json(path, data, retry_delays=PATIENT_RETRY_DELAYS_S,
-                        in_place_fallback=in_place_fallback)
-
-
+    atomic_capture_json(path, data, retry_delays=PATIENT_RETRY_DELAYS_S, in_place_fallback=in_place_fallback)

@@ -1,34 +1,38 @@
 """Collect original D415/D435 color images with per-session provenance."""
+
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
 import argparse
+import json
+import math
+import subprocess
+import sys
+import time
 from collections import deque
 from copy import deepcopy
 from datetime import datetime, timezone
-import json
-import math
 from pathlib import Path
 from queue import Empty, Full, Queue
-import subprocess
-import sys
 from threading import Condition, Event, RLock, Thread
-import time
 
 import cv2
 import numpy as np
 
+from ev_charging.paths import PROJECT_ROOT
 from ev_charging.vision.contracts import intrinsics_signature, validate_camera
 from ev_charging.vision.launch import ensure_camera_privilege
-
 
 ROOT = PROJECT_ROOT
 WINDOW = "RealSense RGB data collection"
 
 
-OPTION_NAMES = ("enable_auto_exposure", "exposure", "gain",
-                "enable_auto_white_balance", "auto_exposure_priority")
+OPTION_NAMES = (
+    "enable_auto_exposure",
+    "exposure",
+    "gain",
+    "enable_auto_white_balance",
+    "auto_exposure_priority",
+)
 SWITCHES = {"enable_auto_exposure", "enable_auto_white_balance", "auto_exposure_priority"}
 
 
@@ -36,9 +40,12 @@ def validate_rgb_options(options):
     if not isinstance(options, dict) or set(options) - set(OPTION_NAMES):
         raise ValueError("rgb_options_requires_known_RGB_option_dictionary")
     for name, value in options.items():
-        if (not isinstance(value, (int, float)) or not math.isfinite(value)
-                or (isinstance(value, bool) and name not in SWITCHES)
-                or (name in SWITCHES and value not in (0, 1))):
+        if (
+            not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or (isinstance(value, bool) and name not in SWITCHES)
+            or (name in SWITCHES and value not in (0, 1))
+        ):
             raise ValueError(f"invalid_RGB_option_value: {name}")
     if any(name in options for name in ("exposure", "gain")) and options.get("enable_auto_exposure") == 1:
         raise ValueError("manual_RGB_exposure_or_gain_conflicts_with_auto_exposure")
@@ -51,6 +58,7 @@ class RGBControls:
     control transfers for every video frame. Per-frame SDK metadata, when
     available, is recorded separately with its original names and raw values.
     """
+
     def __init__(self, device, rs):
         self.sensor = device.first_color_sensor()
         self.rs = rs
@@ -65,8 +73,11 @@ class RGBControls:
             if self.sensor.supports(option):
                 limits = self.sensor.get_option_range(option)
                 values = [float(getattr(limits, field)) for field in ("min", "max", "step", "default")]
-                if (not all(math.isfinite(value) for value in values)
-                        or values[0] > values[1] or values[2] < 0):
+                if (
+                    not all(math.isfinite(value) for value in values)
+                    or values[0] > values[1]
+                    or values[2] < 0
+                ):
                     raise ValueError(f"invalid_RGB_option_range: {name}")
                 self._options[name] = option
                 self._ranges[name] = dict(zip(("min", "max", "step", "default"), values))
@@ -78,10 +89,13 @@ class RGBControls:
             values = {name: float(self.sensor.get_option(option)) for name, option in self._options.items()}
             if not all(math.isfinite(value) for value in values.values()):
                 raise ValueError("nonfinite_RGB_sensor_option")
-            self._snapshot = {"source": "sensor_get_option",
-                              "observed_at_utc": datetime.now(timezone.utc).isoformat(),
-                              "values": values, "ranges": deepcopy(self._ranges),
-                              "last_changes": deepcopy(self._last_changes)}
+            self._snapshot = {
+                "source": "sensor_get_option",
+                "observed_at_utc": datetime.now(timezone.utc).isoformat(),
+                "values": values,
+                "ranges": deepcopy(self._ranges),
+                "last_changes": deepcopy(self._last_changes),
+            }
             return deepcopy(self._snapshot)
 
     def _validate_value(self, name, value):
@@ -93,17 +107,18 @@ class RGBControls:
         if not limits["min"] <= value <= limits["max"]:
             raise ValueError(f"RGB_option_out_of_range: {name} [{limits['min']}, {limits['max']}]")
         step = limits["step"]
-        if step > 0 and not math.isclose((value - limits["min"]) / step,
-                                         round((value - limits["min"]) / step), abs_tol=1e-6):
+        if step > 0 and not math.isclose(
+            (value - limits["min"]) / step, round((value - limits["min"]) / step), abs_tol=1e-6
+        ):
             raise ValueError(f"RGB_option_requires_step: {name} {step}")
 
     def _expected_readback(self, name, value):
         if name == "exposure" and self._windows_exposure and value > 0:
             # librealsense v2.59.1 mf-uvc.cpp from_100micros/to_100micros:
             # Windows uses log2(seconds), even when the reported UVC step is 1.
-            exponent = math.log2(value * .0001)
-            exponent = math.floor(exponent + .5) if exponent >= 0 else math.ceil(exponent - .5)
-            return float(int(10000 * 2. ** exponent))
+            exponent = math.log2(value * 0.0001)
+            exponent = math.floor(exponent + 0.5) if exponent >= 0 else math.ceil(exponent - 0.5)
+            return float(int(10000 * 2.0**exponent))
         return float(value)
 
     def _write(self, name, value):
@@ -116,14 +131,18 @@ class RGBControls:
         self.sensor.set_option(self._options[name], float(value))
         expected = self._expected_readback(name, value)
         # A short bounded readback window accommodates UVC control propagation.
-        for delay in (0., .02, .04, .08, .16, .32):
+        for delay in (0.0, 0.02, 0.04, 0.08, 0.16, 0.32):
             if delay:
                 time.sleep(delay)
             actual = float(self.sensor.get_option(self._options[name]))
-            if math.isfinite(actual) and (math.isclose(actual, value, abs_tol=1e-5)
-                                          or math.isclose(actual, expected, abs_tol=1e-5)):
-                self._last_changes[name] = {"requested": float(value), "readback": actual,
-                                           "status": "applied" if actual == value else "quantized"}
+            if math.isfinite(actual) and (
+                math.isclose(actual, value, abs_tol=1e-5) or math.isclose(actual, expected, abs_tol=1e-5)
+            ):
+                self._last_changes[name] = {
+                    "requested": float(value),
+                    "readback": actual,
+                    "status": "applied" if actual == value else "quantized",
+                }
                 return
         raise RuntimeError(f"RGB_option_readback_mismatch: {name}, requested={value}, actual={actual}")
 
@@ -131,7 +150,7 @@ class RGBControls:
         validate_rgb_options(requested)
         requested = dict(requested)
         if any(name in requested for name in ("exposure", "gain")):
-            requested["enable_auto_exposure"] = 0.
+            requested["enable_auto_exposure"] = 0.0
         with self._lock:
             current = self.snapshot()["values"]
             if requested.get("enable_auto_exposure") == 0 and current.get("enable_auto_exposure") == 1:
@@ -143,7 +162,7 @@ class RGBControls:
             for name, value in requested.items():
                 self._validate_value(name, value)
             # Disable AE before a manual exposure/gain write, irrespective of dict order.
-            ordered = (["enable_auto_exposure"] if requested.get("enable_auto_exposure") == 0 else [])
+            ordered = ["enable_auto_exposure"] if requested.get("enable_auto_exposure") == 0 else []
             ordered += [name for name in requested if name not in ordered]
             self._last_changes = {}
             try:
@@ -169,13 +188,16 @@ class RGBControls:
                 raise ValueError(f"unsupported_RGB_option: {name}")
             limits = self._ranges[name]
             # Windows exposure must cross a logarithmic UVC step; gain uses 5%.
-            change = (abs(values[name]) * .25 if name == "exposure"
-                      else (limits["max"] - limits["min"]) * .05)
+            change = (
+                abs(values[name]) * 0.25 if name == "exposure" else (limits["max"] - limits["min"]) * 0.05
+            )
             step = limits["step"]
             change = max(step, change)
             target = min(limits["max"], max(limits["min"], values[name] + direction * change))
             if name == "exposure" and self._windows_exposure:
-                target = min(limits["max"], max(limits["min"], values[name] * (2. if direction > 0 else .5)))
+                target = min(
+                    limits["max"], max(limits["min"], values[name] * (2.0 if direction > 0 else 0.5))
+                )
             if step > 0:
                 target = limits["min"] + round((target - limits["min"]) / step) * step
                 target = min(limits["max"], max(limits["min"], target))
@@ -198,9 +220,11 @@ class RGBControls:
                     values[name] = int(frame.get_frame_metadata(field))
             except RuntimeError as exc:
                 errors[name] = str(exc)
-        return {"sensor_options": cached,
-                "frame_metadata": {"source": "sdk_frame_metadata", "values": values, "errors": errors},
-                "note": "Sensor options are cached reads, not frame exposure. Frame metadata uses raw SDK units."}
+        return {
+            "sensor_options": cached,
+            "frame_metadata": {"source": "sdk_frame_metadata", "values": values, "errors": errors},
+            "note": "Sensor options are cached reads, not frame exposure. Frame metadata uses raw SDK units.",
+        }
 
     def restore(self):
         with self._lock:
@@ -209,12 +233,18 @@ class RGBControls:
             original, touched = self._original, set(self._touched)
             writes = []
             if touched & {"enable_auto_exposure", "exposure", "gain"}:
-                writes.append(("enable_auto_exposure", 0.))
-                writes += [(name, original[name]) for name in ("exposure", "gain")
-                           if name in original and not self._ranges[name]["read_only"]]
+                writes.append(("enable_auto_exposure", 0.0))
+                writes += [
+                    (name, original[name])
+                    for name in ("exposure", "gain")
+                    if name in original and not self._ranges[name]["read_only"]
+                ]
                 touched.add("enable_auto_exposure")
-            writes += [(name, original[name]) for name in OPTION_NAMES
-                       if name in touched and name not in {"enable_auto_exposure", "exposure", "gain"}]
+            writes += [
+                (name, original[name])
+                for name in OPTION_NAMES
+                if name in touched and name not in {"enable_auto_exposure", "exposure", "gain"}
+            ]
             if "enable_auto_exposure" in touched:
                 writes.append(("enable_auto_exposure", original["enable_auto_exposure"]))
             errors = []
@@ -235,11 +265,14 @@ def load_capture_config(path, profile):
         raise ValueError("camera_config_object_required")
     if "profiles" not in config:
         return config, {}
-    if (config.get("schema_version") != 1 or not isinstance(config["profiles"], dict)
-            or not isinstance(config["profiles"].get(profile), dict)
-            or not isinstance(config.get("device"), dict)
-            or not isinstance(config.get("depth"), dict)
-            or not isinstance(config.get("vision"), dict)):
+    if (
+        config.get("schema_version") != 1
+        or not isinstance(config["profiles"], dict)
+        or not isinstance(config["profiles"].get(profile), dict)
+        or not isinstance(config.get("device"), dict)
+        or not isinstance(config.get("depth"), dict)
+        or not isinstance(config.get("vision"), dict)
+    ):
         raise ValueError("invalid_capture_profiles_config")
     return {**config["device"], **config["profiles"][profile]}, config
 
@@ -247,11 +280,16 @@ def load_capture_config(path, profile):
 def list_devices(rs=None) -> list[dict]:
     if rs is None:
         import pyrealsense2 as rs
+
         ensure_camera_privilege(sdk=rs)
     context = rs.context()
-    return [{"name": device.get_info(rs.camera_info.name),
-             "serial": device.get_info(rs.camera_info.serial_number)}
-            for device in context.query_devices()]
+    return [
+        {
+            "name": device.get_info(rs.camera_info.name),
+            "serial": device.get_info(rs.camera_info.serial_number),
+        }
+        for device in context.query_devices()
+    ]
 
 
 def validate_config(config: dict) -> None:
@@ -270,6 +308,7 @@ def validate_config(config: dict) -> None:
 
 class CaptureColorCamera:
     """Independent data acquisition; never publishes a robot pose."""
+
     def __init__(self, config: dict):
         validate_config(config)
         self.config = dict(config)
@@ -283,6 +322,7 @@ class CaptureColorCamera:
 
     def __enter__(self):
         import pyrealsense2 as rs
+
         ensure_camera_privilege(sdk=rs)
         serial = self.config["serial"]
         matches = [device for device in list_devices(rs) if device["serial"] == serial]
@@ -293,8 +333,9 @@ class CaptureColorCamera:
             raise ValueError(f"该序列号不是指定的 {model}，数据采集入口拒绝启动")
         config = rs.config()
         config.enable_device(serial)
-        config.enable_stream(rs.stream.color, self.config["width"], self.config["height"],
-                             rs.format.bgr8, self.config["fps"])
+        config.enable_stream(
+            rs.stream.color, self.config["width"], self.config["height"], rs.format.bgr8, self.config["fps"]
+        )
         self.pipeline = rs.pipeline()
         try:
             profile = self.pipeline.start(config)
@@ -306,17 +347,33 @@ class CaptureColorCamera:
             color = profile.get_stream(rs.stream.color).as_video_stream_profile()
             intrinsics = color.get_intrinsics()
             if (intrinsics.width, intrinsics.height, color.fps(), color.format()) != (
-                    self.config["width"], self.config["height"], self.config["fps"], rs.format.bgr8):
+                self.config["width"],
+                self.config["height"],
+                self.config["fps"],
+                rs.format.bgr8,
+            ):
                 raise ValueError("实际彩色流配置与请求的分辨率、帧率或格式不一致")
             self.camera = {
-                "stream": "color", "serial": actual_serial, "device_name": name, "device_model": model,
-                "image_width": intrinsics.width, "image_height": intrinsics.height,
-                "fps": color.fps(), "pixel_format": "bgr8",
-                "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx],
-                                  [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
-                "dist_coeffs": list(intrinsics.coeffs), "distortion_model": intrinsics.model.name,
-                "source": "device_color_stream", "validated": False, "version": None,
-                "is_placeholder": False, "is_approximate": False,
+                "stream": "color",
+                "serial": actual_serial,
+                "device_name": name,
+                "device_model": model,
+                "image_width": intrinsics.width,
+                "image_height": intrinsics.height,
+                "fps": color.fps(),
+                "pixel_format": "bgr8",
+                "camera_matrix": [
+                    [intrinsics.fx, 0, intrinsics.ppx],
+                    [0, intrinsics.fy, intrinsics.ppy],
+                    [0, 0, 1],
+                ],
+                "dist_coeffs": list(intrinsics.coeffs),
+                "distortion_model": intrinsics.model.name,
+                "source": "device_color_stream",
+                "validated": False,
+                "version": None,
+                "is_placeholder": False,
+                "is_approximate": False,
             }
             validate_camera(self.camera, (intrinsics.height, intrinsics.width, 3))
             self.camera["intrinsics_sha256"] = intrinsics_signature(self.camera)
@@ -337,10 +394,12 @@ class CaptureColorCamera:
         if not color:
             raise ValueError("采集相机没有返回彩色帧")
         image = np.asanyarray(color.get_data()).copy()
-        metadata = {"frame_number": color.get_frame_number(),
-                    "device_timestamp_ms": color.get_timestamp(),
-                    "timestamp_domain": color.get_frame_timestamp_domain().name,
-                    "received_at_utc": received_at}
+        metadata = {
+            "frame_number": color.get_frame_number(),
+            "device_timestamp_ms": color.get_timestamp(),
+            "timestamp_domain": color.get_frame_timestamp_domain().name,
+            "received_at_utc": received_at,
+        }
         if self.rgb_controls is not None:
             metadata["rgb_settings"] = self.rgb_controls.frame_settings(color)
         return image, metadata
@@ -367,22 +426,29 @@ def validate_depth_config(config):
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
             raise ValueError(f"invalid_depth_{key}")
     skew = config.get("max_pair_skew_ms")
-    if (isinstance(skew, bool) or not isinstance(skew, (int, float))
-            or not math.isfinite(skew) or skew <= 0):
+    if isinstance(skew, bool) or not isinstance(skew, (int, float)) or not math.isfinite(skew) or skew <= 0:
         raise ValueError("invalid_max_pair_skew_ms")
 
 
 def _stream_camera(profile, stream, serial, name, model):
     intrinsics = profile.get_intrinsics()
     camera = {
-        "stream": stream, "serial": serial, "device_name": name, "device_model": model,
-        "image_width": intrinsics.width, "image_height": intrinsics.height,
-        "fps": profile.fps(), "pixel_format": "bgr8" if stream == "color" else "z16",
-        "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx],
-                          [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
-        "dist_coeffs": list(intrinsics.coeffs), "distortion_model": intrinsics.model.name,
-        "source": f"device_{stream}_stream", "validated": False, "version": None,
-        "is_placeholder": False, "is_approximate": False,
+        "stream": stream,
+        "serial": serial,
+        "device_name": name,
+        "device_model": model,
+        "image_width": intrinsics.width,
+        "image_height": intrinsics.height,
+        "fps": profile.fps(),
+        "pixel_format": "bgr8" if stream == "color" else "z16",
+        "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx], [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
+        "dist_coeffs": list(intrinsics.coeffs),
+        "distortion_model": intrinsics.model.name,
+        "source": f"device_{stream}_stream",
+        "validated": False,
+        "version": None,
+        "is_placeholder": False,
+        "is_approximate": False,
     }
     # Validate matrix and distortion without claiming depth is an RGB stream.
     validate_camera({**camera, "stream": "color"}, (intrinsics.height, intrinsics.width, 3))
@@ -394,19 +460,24 @@ def _extrinsics(extrinsics):
     # rs2_extrinsics.rotation is column-major; persisted matrices are row-major.
     rotation = np.asarray(extrinsics.rotation, dtype=float).reshape(3, 3, order="F")
     translation = np.asarray(extrinsics.translation, dtype=float)
-    if (translation.shape != (3,) or not np.isfinite(translation).all()
-            or not np.isfinite(rotation).all()
-            or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-5)
-            or not np.isclose(np.linalg.det(rotation), 1., atol=1e-5)):
+    if (
+        translation.shape != (3,)
+        or not np.isfinite(translation).all()
+        or not np.isfinite(rotation).all()
+        or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-5)
+        or not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-5)
+    ):
         raise ValueError("invalid_depth_to_color_extrinsics")
     return {"rotation": rotation.tolist(), "translation_m": translation.tolist()}
 
 
 def _frame_metadata(frame, received_at):
-    return {"frame_number": frame.get_frame_number(),
-            "device_timestamp_ms": frame.get_timestamp(),
-            "timestamp_domain": frame.get_frame_timestamp_domain().name,
-            "received_at_utc": received_at}
+    return {
+        "frame_number": frame.get_frame_number(),
+        "device_timestamp_ms": frame.get_timestamp(),
+        "timestamp_domain": frame.get_frame_timestamp_domain().name,
+        "received_at_utc": received_at,
+    }
 
 
 class CaptureRGBDCamera(CaptureColorCamera):
@@ -416,6 +487,7 @@ class CaptureRGBDCamera(CaptureColorCamera):
     packet. Unusable pairs keep raw depth for diagnosis but have no derived 3D
     points. The legacy ``read`` two-item contract remains available.
     """
+
     def __init__(self, config, depth_config):
         validate_config(config)
         validate_depth_config(depth_config)
@@ -425,6 +497,7 @@ class CaptureRGBDCamera(CaptureColorCamera):
 
     def __enter__(self):
         import pyrealsense2 as rs
+
         ensure_camera_privilege(sdk=rs)
         serial, model = self.config["serial"], self.config["device_model"]
         matches = [device for device in list_devices(rs) if device["serial"] == serial]
@@ -432,10 +505,16 @@ class CaptureRGBDCamera(CaptureColorCamera):
             raise ValueError("RGBD_camera_model_or_serial_mismatch")
         config = rs.config()
         config.enable_device(serial)
-        config.enable_stream(rs.stream.color, self.config["width"], self.config["height"],
-                             rs.format.bgr8, self.config["fps"])
-        config.enable_stream(rs.stream.depth, self.depth_config["width"], self.depth_config["height"],
-                             rs.format.z16, self.depth_config["fps"])
+        config.enable_stream(
+            rs.stream.color, self.config["width"], self.config["height"], rs.format.bgr8, self.config["fps"]
+        )
+        config.enable_stream(
+            rs.stream.depth,
+            self.depth_config["width"],
+            self.depth_config["height"],
+            rs.format.z16,
+            self.depth_config["fps"],
+        )
         self.pipeline = rs.pipeline()
         try:
             profile = self.pipeline.start(config)
@@ -447,25 +526,35 @@ class CaptureRGBDCamera(CaptureColorCamera):
             color = profile.get_stream(rs.stream.color).as_video_stream_profile()
             depth = profile.get_stream(rs.stream.depth).as_video_stream_profile()
             for video, requested, pixel_format in (
-                    (color, self.config, rs.format.bgr8), (depth, self.depth_config, rs.format.z16)):
+                (color, self.config, rs.format.bgr8),
+                (depth, self.depth_config, rs.format.z16),
+            ):
                 intrinsic = video.get_intrinsics()
                 if (intrinsic.width, intrinsic.height, video.fps(), video.format()) != (
-                        requested["width"], requested["height"], requested["fps"], pixel_format):
+                    requested["width"],
+                    requested["height"],
+                    requested["fps"],
+                    pixel_format,
+                ):
                     raise ValueError("RGBD_actual_stream_profile_mismatch")
             self.camera = _stream_camera(color, "color", serial, name, model)
             scale = float(device.first_depth_sensor().get_depth_scale())
             if not math.isfinite(scale) or scale <= 0:
                 raise ValueError("invalid_depth_scale_m")
             self.depth_calibration = {
-                "schema_version": 1, "source": "device_sdk", "validated": False,
+                "schema_version": 1,
+                "source": "device_sdk",
+                "validated": False,
                 "depth_camera": _stream_camera(depth, "depth", serial, name, model),
                 "color_intrinsics_sha256": self.camera["intrinsics_sha256"],
-                "depth_scale_m": scale, "depth_to_color": _extrinsics(depth.get_extrinsics_to(color)),
+                "depth_scale_m": scale,
+                "depth_to_color": _extrinsics(depth.get_extrinsics_to(color)),
                 "depth_profile": {key: self.depth_config[key] for key in ("width", "height", "fps")},
                 "max_pair_skew_ms": self.depth_config["max_pair_skew_ms"],
                 "firmware_version": device.get_info(rs.camera_info.firmware_version),
                 "usb_type_descriptor": device.get_info(rs.camera_info.usb_type_descriptor),
-                "point_frame": "camera_color_optical", "point_unit": "m",
+                "point_frame": "camera_color_optical",
+                "point_unit": "m",
                 "depth_pixels": "native_unaligned_unfiltered_z16",
             }
             self.depth_calibration["depth_profile"]["format"] = "z16"
@@ -489,9 +578,12 @@ class CaptureRGBDCamera(CaptureColorCamera):
             return
         previous = self._previous.get(stream)
         if previous is not None and (
-                frame["frame_number"] <= previous["frame_number"]
-                or (frame["timestamp_domain"] == previous["timestamp_domain"]
-                    and timestamp <= previous["device_timestamp_ms"])):
+            frame["frame_number"] <= previous["frame_number"]
+            or (
+                frame["timestamp_domain"] == previous["timestamp_domain"]
+                and timestamp <= previous["device_timestamp_ms"]
+            )
+        ):
             reasons.append(f"repeated_or_reordered_{stream}_frame")
             return
         if previous is not None and frame["timestamp_domain"] != previous["timestamp_domain"]:
@@ -512,9 +604,16 @@ class CaptureRGBDCamera(CaptureColorCamera):
         frame = _frame_metadata(color, received_at)
         if self.rgb_controls is not None:
             frame["rgb_settings"] = self.rgb_controls.frame_settings(color)
-        packet = {"raw_z16": None, "frame": None, "color_frame": dict(frame),
-                  "calibration": self.depth_calibration,
-                  "points_color_m": None, "color_pixels": None, "pair_skew_ms": None, "reasons": []}
+        packet = {
+            "raw_z16": None,
+            "frame": None,
+            "color_frame": dict(frame),
+            "calibration": self.depth_calibration,
+            "points_color_m": None,
+            "color_pixels": None,
+            "pair_skew_ms": None,
+            "reasons": [],
+        }
         reasons = packet["reasons"]
         self._check_frame("color", frame, reasons)
         if not depth:
@@ -623,8 +722,9 @@ class PreviewCapture:
         timeout = self.source.config.get("timeout_ms", 5000) / 1000 + 1
         with self._condition:
             ready = self._condition.wait_for(
-                lambda: self._error is not None or self._version > self._consumed
-                or self._stop.is_set(), timeout=timeout)
+                lambda: self._error is not None or self._version > self._consumed or self._stop.is_set(),
+                timeout=timeout,
+            )
             if self._error is not None:
                 raise self._error
             if not ready or self._version <= self._consumed:
@@ -642,9 +742,11 @@ class PreviewCapture:
         with self._condition:
             span = self._arrivals[-1] - self._arrivals[0] if len(self._arrivals) > 1 else 0
             total_span = (self._last_at - self._first_at) if self._count > 1 else 0
-            return {"capture_fps": (len(self._arrivals) - 1) / span if span > 0 else 0.,
-                    "capture_mean_fps": (self._count - 1) / total_span if total_span > 0 else 0.,
-                    "captured_frames": self._count}
+            return {
+                "capture_fps": (len(self._arrivals) - 1) / span if span > 0 else 0.0,
+                "capture_mean_fps": (self._count - 1) / total_span if total_span > 0 else 0.0,
+                "captured_frames": self._count,
+            }
 
     def change_rgb(self, action, direction=None):
         if action not in {"toggle_auto", "adjust_exposure", "adjust_gain"}:
@@ -668,8 +770,10 @@ class PreviewCapture:
                 method = getattr(self.rgb_controls, action)
                 result = method() if direction is None else method(direction)
                 values = result["values"]
-                self.control_message = (f"自动曝光 {values.get('enable_auto_exposure', '--')} | "
-                                        f"曝光 {values.get('exposure', '--')} | 增益 {values.get('gain', '--')}")
+                self.control_message = (
+                    f"自动曝光 {values.get('enable_auto_exposure', '--')} | "
+                    f"曝光 {values.get('exposure', '--')} | 增益 {values.get('gain', '--')}"
+                )
             except (ValueError, RuntimeError) as exc:
                 self.control_message = f"RGB 参数调整失败：{exc}"
 
@@ -682,14 +786,19 @@ class PreviewCapture:
 
 
 def intake_status(report):
-    return (f"已存{report['saved']} 入库{report['imported']} 待同步{report['pending_sync']} "
-            f"待标{report['pending_annotation']} 分组{report['pending_split']} 排队{report['queued']}")
+    return (
+        f"已存{report['saved']} 入库{report['imported']} 待同步{report['pending_sync']} "
+        f"待标{report['pending_annotation']} 分组{report['pending_split']} 排队{report['queued']}"
+    )
 
 
 def print_intake_summary(report, session_path, library_root):
     print("本批采集：" + intake_status(report), flush=True)
-    print(f"旧会话恢复：已补入库 {report.get('recovered_previous', 0)} 张，"
-          f"仍待同步 {report.get('previous_pending_sync', 0)} 项", flush=True)
+    print(
+        f"旧会话恢复：已补入库 {report.get('recovered_previous', 0)} 张，"
+        f"仍待同步 {report.get('previous_pending_sync', 0)} 项",
+        flush=True,
+    )
     if report.get("failed_saves"):
         print(f"保存失败 {report['failed_saves']} 次：{report.get('last_message', '')}", flush=True)
     if report.get("pending_sync"):
@@ -701,16 +810,28 @@ def print_intake_summary(report, session_path, library_root):
     if report.get("review_file"):
         print(f"本批复核页: {report['review_file']}", flush=True)
     if library_root is not None and report.get("imported"):
-        command = subprocess.list2cmdline([sys.executable, "-B", "-X", "utf8", "-m",
-                                         "ev_charging.review.review_library", "--library", str(library_root),
-                                         "--session", str(session_path)])
+        command = subprocess.list2cmdline(
+            [
+                sys.executable,
+                "-B",
+                "-X",
+                "utf8",
+                "-m",
+                "ev_charging.review.review_library",
+                "--library",
+                str(library_root),
+                "--session",
+                str(session_path),
+            ]
+        )
         if sys.platform == "win32":
             command = "& " + command
         print(f"复核并直接保存到图库：\n{command}", flush=True)
 
 
-def collect(camera, session, interval: float = 0, max_images: int = 0, *,
-            library_root: Path | None = None) -> dict:
+def collect(
+    camera, session, interval: float = 0, max_images: int = 0, *, library_root: Path | None = None
+) -> dict:
     """Space/S saves the current full frame. A display overlay never enters PNGs."""
     from ev_charging.capture.intake import CaptureIntake
 
@@ -729,14 +850,14 @@ def collect(camera, session, interval: float = 0, max_images: int = 0, *,
                 last_intake_message = report["last_message"]
                 print(last_intake_message, flush=True)
             preview = image.copy()
-            line = (f"Saved {report['saved']} | Library {report['imported']} | Sync {report['pending_sync']} | "
-                    f"Labels {report['pending_annotation']} | Split {report['pending_split']} | Queue {report['queued']}")
-            cv2.putText(preview, line, (15, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, .65, (0, 255, 0), 2)
-            cv2.putText(preview, message, (15, 58),
-                        cv2.FONT_HERSHEY_SIMPLEX, .65, (0, 255, 0), 2)
+            line = (
+                f"Saved {report['saved']} | Library {report['imported']} | Sync {report['pending_sync']} | "
+                f"Labels {report['pending_annotation']} | Split {report['pending_split']} | Queue {report['queued']}"
+            )
+            cv2.putText(preview, line, (15, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
+            cv2.putText(preview, message, (15, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
             cv2.imshow(WINDOW, preview)
-            key = cv2.waitKey(1) & 0xff
+            key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q"), ord("Q")) or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
                 break
             now = time.monotonic()
@@ -774,15 +895,23 @@ def main(argv=None) -> int:
     parser.add_argument("--specimen", help="唯一样件编号")
     parser.add_argument("--printing-batch", help="打印批次编号；同批不跨数据分区")
     parser.add_argument("--geometry-version", help="本次所对应的几何版本")
-    parser.add_argument("--source-kind", choices=("printed_connector", "real_connector", "unknown"), default="unknown")
+    parser.add_argument(
+        "--source-kind", choices=("printed_connector", "real_connector", "unknown"), default="unknown"
+    )
     parser.add_argument("--conditions", type=Path, help="JSON 工况：distance/tilt/image_position 等分层字段")
     parser.add_argument("--output-root", type=Path, help="项目内的数据目录，默认 artifacts/captures")
     library_group = parser.add_mutually_exclusive_group()
-    library_group.add_argument("--library", type=Path, default=ROOT / "dataset/vision",
-                               help="统一 RGB 图库，默认 dataset/vision；新图待标注")
+    library_group.add_argument(
+        "--library",
+        type=Path,
+        default=ROOT / "dataset/vision",
+        help="统一 RGB 图库，默认 dataset/vision；新图待标注",
+    )
     library_group.add_argument("--no-library", action="store_true", help="仅保存诊断会话，不加入训练图库")
     parser.add_argument("--interval", type=float, default=0, help="自动保存间隔秒数；默认 0 为手动")
-    parser.add_argument("--max-images", type=int, default=0, help="提交指定次数保存请求后等待完成并结束；0 为按键结束")
+    parser.add_argument(
+        "--max-images", type=int, default=0, help="提交指定次数保存请求后等待完成并结束；0 为按键结束"
+    )
     args = parser.parse_args(argv)
     if not math.isfinite(args.interval) or args.interval < 0 or args.max_images < 0:
         parser.error("保存间隔和最大图片数必须为非负数")
@@ -803,17 +932,28 @@ def main(argv=None) -> int:
         output = (output if output.is_absolute() else ROOT / output).resolve()
         if not output.is_relative_to(ROOT):
             raise ValueError("采集输出需在项目目录内，以便连接九孔复核页面")
-        library_root = None if args.no_library else (
-            args.library if args.library.is_absolute() else ROOT / args.library).resolve()
+        library_root = (
+            None
+            if args.no_library
+            else (args.library if args.library.is_absolute() else ROOT / args.library).resolve()
+        )
         from ev_charging.capture.capture_session import CaptureSession
-        metadata = {"specimen_id": args.specimen, "printing_batch_id": args.printing_batch,
-                    "geometry_version": args.geometry_version, "source_kind": args.source_kind,
-                    "training_library_enabled": library_root is not None,
-                    "training_library_path": str(library_root) if library_root is not None else None,
-                    "conditions": json.loads(args.conditions.read_text(encoding="utf-8-sig")) if args.conditions else {}}
+
+        metadata = {
+            "specimen_id": args.specimen,
+            "printing_batch_id": args.printing_batch,
+            "geometry_version": args.geometry_version,
+            "source_kind": args.source_kind,
+            "training_library_enabled": library_root is not None,
+            "training_library_path": str(library_root) if library_root is not None else None,
+            "conditions": json.loads(args.conditions.read_text(encoding="utf-8-sig"))
+            if args.conditions
+            else {},
+        }
         batch = args.batch or "rgb_capture_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         if library_root is not None:
             from ev_charging.datasets.vision.dataset_split import check_capture_split
+
             check_capture_split(library_root, batch, args.split, metadata)
         with CaptureColorCamera(config) as camera:
             session = CaptureSession(output, camera.camera, batch, args.split, args.notes, metadata=metadata)

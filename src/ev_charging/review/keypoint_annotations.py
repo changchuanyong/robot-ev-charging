@@ -1,25 +1,21 @@
 """Schema checks for development-only nine-hole annotations in original pixels."""
+
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
 import hashlib
 import json
 import math
-from pathlib import Path, PurePosixPath
 import re
 import sys
+from datetime import datetime
+from pathlib import Path, PurePosixPath
 
 import numpy as np
-
 
 LABELS = ("S_neg", "CC2", "S_pos", "CC1", "DC_neg", "DC_pos", "A_neg", "PE", "A_pos")
 VISIBILITIES = ("unlabeled", "visible", "uncertain", "occluded", "out_of_frame")
 SOURCES = ("unlabeled", "ai_visual", "human")
-
-
-def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def normalized_image_key(path: str) -> str:
@@ -39,9 +35,11 @@ def _hash(value, description):
 
 
 def _xy(value, width, height, description):
-    if (not isinstance(value, (list, tuple)) or len(value) != 2
-            or any(isinstance(v, bool) or not isinstance(v, (int, float))
-                   or not math.isfinite(v) for v in value)):
+    if (
+        not isinstance(value, (list, tuple))
+        or len(value) != 2
+        or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in value)
+    ):
         raise ValueError(f"Invalid finite pixel coordinate: {description}")
     if not (0 <= value[0] < width and 0 <= value[1] < height):
         raise ValueError(f"Pixel coordinate outside image: {description}")
@@ -49,8 +47,7 @@ def _xy(value, width, height, description):
 
 def visible_points(image: dict) -> dict[str, list[float]]:
     """Only directly visible, named observations may enter PnP."""
-    return {name: point["xy"] for name, point in image["points"].items()
-            if point["visibility"] == "visible"}
+    return {name: point["xy"] for name, point in image["points"].items() if point["visibility"] == "visible"}
 
 
 def validate_annotations(data: dict) -> None:
@@ -69,7 +66,12 @@ def validate_annotations(data: dict) -> None:
     if data["schema_version"] == 1:
         for field in ("batch_report_path", "camera_config_path", "model_points_path"):
             normalized_image_key(provenance.get(field))
-        for field in ("batch_report_sha256", "camera_config_sha256", "model_points_sha256", "pnp_source_sha256"):
+        for field in (
+            "batch_report_sha256",
+            "camera_config_sha256",
+            "model_points_sha256",
+            "pnp_source_sha256",
+        ):
             _hash(provenance.get(field), field)
     elif data["schema_version"] == 2:
         if provenance.get("kind") != "capture_session":
@@ -110,7 +112,8 @@ def validate_annotations(data: dict) -> None:
                 if entry.get(field) != provenance[field]:
                     raise ValueError(f"Capture image {field} differs from provenance: {key}")
         if not isinstance(entry.get("selection_reasons"), list) or any(
-                not isinstance(reason, str) for reason in entry["selection_reasons"]):
+            not isinstance(reason, str) for reason in entry["selection_reasons"]
+        ):
             raise ValueError(f"Invalid selection_reasons: {key}")
         if not isinstance(entry.get("notes"), str):
             raise ValueError(f"Invalid notes: {key}")
@@ -132,9 +135,10 @@ def validate_annotations(data: dict) -> None:
         roi = entry.get("roi_bbox_xyxy")
         if not isinstance(roi, list) or len(roi) not in (0, 4):
             raise ValueError(f"ROI must be empty or four coordinates: {key}")
-        if roi and (any(isinstance(v, bool) or not isinstance(v, (int, float))
-                        or not math.isfinite(v) for v in roi)
-                    or not (0 <= roi[0] < roi[2] <= width and 0 <= roi[1] < roi[3] <= height)):
+        if roi and (
+            any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in roi)
+            or not (0 <= roi[0] < roi[2] <= width and 0 <= roi[1] < roi[3] <= height)
+        ):
             raise ValueError(f"Invalid ROI bounds: {key}")
         points = entry.get("points")
         if not isinstance(points, dict) or set(points) != set(LABELS):
@@ -168,8 +172,11 @@ def compare_passes(first: dict, second: dict, blind_protocol: dict) -> dict:
             raise ValueError("both_passes_must_be_human_reviewed")
     if first["feature_definition"] != second["feature_definition"]:
         raise ValueError("feature_definition_must_match")
-    if (blind_protocol.get("independent_blind_passes") is not True
-            or not isinstance(blind_protocol.get("record"), str) or not blind_protocol["record"].strip()):
+    if (
+        blind_protocol.get("independent_blind_passes") is not True
+        or not isinstance(blind_protocol.get("record"), str)
+        or not blind_protocol["record"].strip()
+    ):
         raise ValueError("explicit_blind_annotation_protocol_record_required")
     a = {row["image_sha256"]: row for row in first["images"]}
     b = {row["image_sha256"]: row for row in second["images"]}
@@ -186,12 +193,18 @@ def compare_passes(first: dict, second: dict, blind_protocol: dict) -> dict:
         for name in first["labels"]:
             p, q = left["points"][name], right["points"][name]
             if p["visibility"] != q["visibility"]:
-                disagreements.append({"image_sha256": digest, "label": name,
-                                      "first": p["visibility"], "second": q["visibility"]})
+                disagreements.append(
+                    {
+                        "image_sha256": digest,
+                        "label": name,
+                        "first": p["visibility"],
+                        "second": q["visibility"],
+                    }
+                )
             if p["visibility"] == q["visibility"] == "visible":
                 if p["source"] != "human" or q["source"] != "human":
                     raise ValueError("repeatability_requires_human_point_sources")
-                delta = np.asarray(q["xy"])-np.asarray(p["xy"])
+                delta = np.asarray(q["xy"]) - np.asarray(p["xy"])
                 distance = float(np.linalg.norm(delta))
                 points[name] = {"delta_xy_px": delta.tolist(), "distance_px": distance}
                 distances.append(distance)
@@ -199,14 +212,26 @@ def compare_passes(first: dict, second: dict, blind_protocol: dict) -> dict:
     if not distances:
         raise ValueError("no_common_visible_points")
     values = np.asarray(distances)
-    return {"schema_version": 1, "kind": "blind_annotation_repeatability", "source": "human_annotations",
-            "image_count": len(rows), "planned_image_count": 20, "count_budget_met": len(rows) >= 20,
-            "point_count": len(values), "mean_distance_px": float(values.mean()),
-            "rms_distance_px": float(np.sqrt(np.mean(values**2))), "median_distance_px": float(np.median(values)),
-            "p95_distance_px": float(np.quantile(values, .95)), "max_distance_px": float(values.max()),
-            "visibility_disagreements": disagreements, "blind_protocol": blind_protocol,
-            "tolerance_frozen": False, "tolerance_px": None, "rows": rows,
-            "interpretation": "Inter-pass differences measure repeatability, not absolute accuracy. Review disagreements and freeze a separate tolerance before held-out evaluation."}
+    return {
+        "schema_version": 1,
+        "kind": "blind_annotation_repeatability",
+        "source": "human_annotations",
+        "image_count": len(rows),
+        "planned_image_count": 20,
+        "count_budget_met": len(rows) >= 20,
+        "point_count": len(values),
+        "mean_distance_px": float(values.mean()),
+        "rms_distance_px": float(np.sqrt(np.mean(values**2))),
+        "median_distance_px": float(np.median(values)),
+        "p95_distance_px": float(np.quantile(values, 0.95)),
+        "max_distance_px": float(values.max()),
+        "visibility_disagreements": disagreements,
+        "blind_protocol": blind_protocol,
+        "tolerance_frozen": False,
+        "tolerance_px": None,
+        "rows": rows,
+        "interpretation": "Inter-pass differences measure repeatability, not absolute accuracy. Review disagreements and freeze a separate tolerance before held-out evaluation.",
+    }
 
 
 def repeatability_main(argv=None):
@@ -223,14 +248,23 @@ def repeatability_main(argv=None):
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as stream:
         json.dump(report, stream, ensure_ascii=False, indent=2, allow_nan=False)
-    print(json.dumps({key: report[key] for key in ("image_count", "point_count", "p95_distance_px", "tolerance_frozen")}))
+    print(
+        json.dumps(
+            {
+                key: report[key]
+                for key in ("image_count", "point_count", "p95_distance_px", "tolerance_frozen")
+            }
+        )
+    )
 
 
 def main(argv=None):
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments and arguments[0] == "repeatability":
         return repeatability_main(arguments[1:])
-    parser = argparse.ArgumentParser(description="Nine-hole annotation validation and blind-pass repeatability")
+    parser = argparse.ArgumentParser(
+        description="Nine-hole annotation validation and blind-pass repeatability"
+    )
     parser.add_argument("command", choices=("repeatability",))
     parser.parse_args(arguments)
 

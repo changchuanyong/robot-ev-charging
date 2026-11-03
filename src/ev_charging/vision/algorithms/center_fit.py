@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
+
 
 @dataclass
 class CandidateContour:
@@ -73,8 +74,7 @@ def ellipse_fit_quality(contour: np.ndarray, ellipse: tuple) -> tuple[float, flo
     """Radial RMS in pixels and observed angular coverage of an ellipse boundary."""
     (cx, cy), (axis_x, axis_y), angle = ellipse
     theta = math.radians(angle)
-    rotation = np.array([[math.cos(theta), -math.sin(theta)],
-                         [math.sin(theta), math.cos(theta)]])
+    rotation = np.array([[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]])
     local = (np.asarray(contour, dtype=float).reshape(-1, 2) - [cx, cy]) @ rotation
     normalized = local / [axis_x / 2.0, axis_y / 2.0]
     radius = np.linalg.norm(normalized, axis=1)
@@ -83,7 +83,7 @@ def ellipse_fit_quality(contour: np.ndarray, ellipse: tuple) -> tuple[float, flo
     radial_distance = np.linalg.norm(local * (1.0 - 1.0 / radius[:, None]), axis=1)
     phases = np.sort(np.mod(np.arctan2(normalized[:, 1], normalized[:, 0]), 2.0 * math.pi))
     gaps = np.diff(np.r_[phases, phases[0] + 2.0 * math.pi])
-    return float(np.sqrt(np.mean(radial_distance ** 2))), float(1.0 - gaps.max() / (2.0 * math.pi))
+    return float(np.sqrt(np.mean(radial_distance**2))), float(1.0 - gaps.max() / (2.0 * math.pi))
 
 
 def ellipse_center_valid(
@@ -143,10 +143,7 @@ def fit_ellipse_on_kept_candidates(
             ellipse = cv2.fitEllipse(cnt)
         except cv2.error:
             cand.fit_reject_reason = "fit_error"
-            print(
-                f"fit=fallback_error    "
-                f"center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})"
-            )
+            print(f"fit=fallback_error    center=({cand.center[0]:6.1f},{cand.center[1]:6.1f})")
             fitted_results.append(cand)
             continue
 
@@ -241,7 +238,9 @@ def export_fitted_centers(fitted_candidates: list[CandidateContour]) -> list[dic
         item = {
             "index": i,
             "raw_center": [round(c.center[0], 3), round(c.center[1], 3)],
-            "fitted_center": None if c.fitted_center is None else [round(c.fitted_center[0], 3), round(c.fitted_center[1], 3)],
+            "fitted_center": None
+            if c.fitted_center is None
+            else [round(c.fitted_center[0], 3), round(c.fitted_center[1], 3)],
             "fit_method": c.fit_method,
             "fit_valid": c.fit_valid,
             "fit_residual_px": None if c.fit_residual_px is None else round(c.fit_residual_px, 6),
@@ -261,7 +260,9 @@ def export_fitted_centers(fitted_candidates: list[CandidateContour]) -> list[dic
             "layout_accept_dist": round(c.layout_accept_dist, 6),
             "is_main_anchor": c.is_main_anchor,
             "is_top_backup": c.is_top_backup,
-            "ellipse_axes": None if c.ellipse_axes is None else [round(c.ellipse_axes[0], 3), round(c.ellipse_axes[1], 3)],
+            "ellipse_axes": None
+            if c.ellipse_axes is None
+            else [round(c.ellipse_axes[0], 3), round(c.ellipse_axes[1], 3)],
             "ellipse_angle": None if c.ellipse_angle is None else round(c.ellipse_angle, 3),
         }
         out.append(item)

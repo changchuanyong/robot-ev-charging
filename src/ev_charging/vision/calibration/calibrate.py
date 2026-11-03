@@ -6,6 +6,7 @@ T_camera_board or image. Images additionally require camera and board objects.
 The camera/robot times must already share a measured clock mapping. Output
 does not invent the independent plug TCP or force-sensor extrinsics.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,17 +27,20 @@ def transform(value) -> np.ndarray:
     rotation = matrix[:3, :3]
     if not np.allclose(matrix[3], [0, 0, 0, 1], atol=1e-8):
         raise ValueError("invalid_homogeneous_transform")
-    if not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6) or not np.isclose(np.linalg.det(rotation), 1, atol=1e-6):
+    if not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6) or not np.isclose(
+        np.linalg.det(rotation), 1, atol=1e-6
+    ):
         raise ValueError("rotation_must_be_SO3")
     return matrix
 
 
 def rotation_angle(rotation: np.ndarray) -> float:
-    return float(np.arccos(np.clip((np.trace(rotation)-1)/2, -1, 1)))
+    return float(np.arccos(np.clip((np.trace(rotation) - 1) / 2, -1, 1)))
 
 
 def board_pose(image_path: Path, camera: dict, board: dict) -> np.ndarray:
     import cv2
+
     image = cv2.imread(str(image_path))
     if image is None:
         raise ValueError(f"calibration_image_unreadable: {image_path}")
@@ -63,6 +67,7 @@ def board_pose(image_path: Path, camera: dict, board: dict) -> np.ndarray:
 
 def prepare_pairs(data: dict, base_dir: Path = Path(".")) -> tuple[list, list]:
     import cv2
+
     if data.get("translation_unit") != "m":
         raise ValueError("calibration_input_must_use_metres")
     max_skew = float(data["max_pair_skew_s"])
@@ -110,7 +115,7 @@ def prepare_pairs(data: dict, base_dir: Path = Path(".")) -> tuple[list, list]:
 def average_pose(poses: list[np.ndarray]) -> np.ndarray:
     result = np.eye(4)
     u, _, vt = np.linalg.svd(sum(pose[:3, :3] for pose in poses))
-    correction = np.diag([1., 1., np.linalg.det(u @ vt)])
+    correction = np.diag([1.0, 1.0, np.linalg.det(u @ vt)])
     result[:3, :3] = u @ correction @ vt
     result[:3, 3] = np.mean([pose[:3, 3] for pose in poses], axis=0)
     return result
@@ -121,17 +126,25 @@ def residuals(pairs, camera: np.ndarray, board_reference: np.ndarray) -> list[di
     results = []
     for identifier, flange, board in pairs:
         error = reference_inverse @ flange @ camera @ board
-        results.append({"id": identifier, "translation_m": float(np.linalg.norm(error[:3, 3])),
-                        "rotation_rad": rotation_angle(error[:3, :3])})
+        results.append(
+            {
+                "id": identifier,
+                "translation_m": float(np.linalg.norm(error[:3, 3])),
+                "rotation_rad": rotation_angle(error[:3, :3]),
+            }
+        )
     return results
 
 
 def solve_calibration(data: dict, base_dir: Path = Path(".")) -> dict:
     import cv2
+
     training, validation = prepare_pairs(data, base_dir)
     rotation, translation = cv2.calibrateHandEye(
-        [pair[1][:3, :3] for pair in training], [pair[1][:3, 3] for pair in training],
-        [pair[2][:3, :3] for pair in training], [pair[2][:3, 3] for pair in training],
+        [pair[1][:3, :3] for pair in training],
+        [pair[1][:3, 3] for pair in training],
+        [pair[2][:3, :3] for pair in training],
+        [pair[2][:3, 3] for pair in training],
         method=cv2.CALIB_HAND_EYE_TSAI,
     )
     camera = np.eye(4)
@@ -145,25 +158,42 @@ def solve_calibration(data: dict, base_dir: Path = Path(".")) -> dict:
     if acceptance is not None:
         translation_limit = float(acceptance["max_translation_m"])
         rotation_limit = float(acceptance["max_rotation_rad"])
-        if not np.isfinite([translation_limit, rotation_limit]).all() or min(translation_limit, rotation_limit) <= 0:
+        if (
+            not np.isfinite([translation_limit, rotation_limit]).all()
+            or min(translation_limit, rotation_limit) <= 0
+        ):
             raise ValueError("positive_independent_validation_limits_required")
-        passed = all(row["translation_m"] <= translation_limit and row["rotation_rad"] <= rotation_limit
-                     for row in validation_results)
+        passed = all(
+            row["translation_m"] <= translation_limit and row["rotation_rad"] <= rotation_limit
+            for row in validation_results
+        )
     source = data.get("source", "unspecified")
     source_hash = hashlib.sha256(json.dumps(data, sort_keys=True, allow_nan=False).encode()).hexdigest()
     version = str(data.get("version") or "handeye-" + source_hash[:12])
     validated = bool(passed and source == "measured" and data.get("pairing_verified", False))
     return {
-        "schema_version": 1, "mount": "eye_in_hand", "translation_unit": "m", "version": version,
-        "validated": validated, "source": source, "method": "OpenCV_Tsai",
-        "opencv_version": cv2.__version__, "input_sha256": source_hash,
+        "schema_version": 1,
+        "mount": "eye_in_hand",
+        "translation_unit": "m",
+        "version": version,
+        "validated": validated,
+        "source": source,
+        "method": "OpenCV_Tsai",
+        "opencv_version": cv2.__version__,
+        "input_sha256": source_hash,
         "camera_serial": data.get("camera_serial"),
-        "T_flange_camera": camera.tolist(), "T_base_board_reference": reference.tolist(),
-        "T_flange_tool": None, "T_tool_sensor": None,
-        "tool_calibration_validated": False, "force_reference_validated": False,
-        "train_pose_count": len(training), "validation_pose_count": len(validation),
-        "train_residuals": train_results, "validation_residuals": validation_results,
-        "acceptance": acceptance, "acceptance_passed": passed,
+        "T_flange_camera": camera.tolist(),
+        "T_base_board_reference": reference.tolist(),
+        "T_flange_tool": None,
+        "T_tool_sensor": None,
+        "tool_calibration_validated": False,
+        "force_reference_validated": False,
+        "train_pose_count": len(training),
+        "validation_pose_count": len(validation),
+        "train_residuals": train_results,
+        "validation_residuals": validation_results,
+        "acceptance": acceptance,
+        "acceptance_passed": passed,
         "validation_scope": "Held-out fixed-board consistency; no external absolute-accuracy claim.",
     }
 
@@ -178,8 +208,16 @@ def main(argv=None) -> int:
     data = json.loads(args.samples.read_text(encoding="utf-8-sig"))
     result = solve_calibration(data, args.samples.resolve().parent)
     atomic_json(args.output, result)
-    print(json.dumps({"output": str(args.output), "validated": result["validated"],
-                      "acceptance_passed": result["acceptance_passed"]}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "output": str(args.output),
+                "validated": result["validated"],
+                "acceptance_passed": result["acceptance_passed"],
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0 if result["acceptance_passed"] else 2
 
 

@@ -3,6 +3,7 @@
 The independent hard limits belong to the execution supervisor. This local
 model does not establish stability of robot dynamics, delay or contact.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,10 +31,13 @@ class Admittance:
         self.damping_min = _six(config["damping_min"], "damping_min")
         self.damping_max = _six(config["damping_max"], "damping_max")
         self.damping_rate = _six(config["damping_rate"], "damping_rate")
-        if (np.any(self.mass <= 0) or np.any(self.stiffness <= 0)
-                or np.any(self.damping_min <= 0)
-                or np.any(self.damping_max < self.damping_min)
-                or np.any(self.damping_rate < 0)):
+        if (
+            np.any(self.mass <= 0)
+            or np.any(self.stiffness <= 0)
+            or np.any(self.damping_min <= 0)
+            or np.any(self.damping_max < self.damping_min)
+            or np.any(self.damping_rate < 0)
+        ):
             raise ValueError("M,K,D must be positive; Dmax>=Dmin and damping_rate>=0")
         margin = float(config["dt_margin"])
         if not np.isfinite(margin) or not 0 < margin <= 1:
@@ -64,8 +68,9 @@ class Admittance:
             # Thesis eq. (4-15): higher risk lowers damping to its positive
             # lower bound. Independent load gating reduces/stops advancement.
             target = self.damping_max - (self.damping_max - self.damping_min) * risk
-        damping = self.damping + np.clip(target - self.damping,
-                                        -self.damping_rate * dt, self.damping_rate * dt)
+        damping = self.damping + np.clip(
+            target - self.damping, -self.damping_rate * dt, self.damping_rate * dt
+        )
         acceleration = (load - damping * self.velocity - self.stiffness * self.displacement) / self.mass
         velocity = self.velocity + dt * acceleration
         displacement = self.displacement + dt * velocity

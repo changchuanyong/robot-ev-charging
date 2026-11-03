@@ -4,13 +4,14 @@ This is an engineering margin, not a probability of jamming. Calibration
 readiness is separate from mathematical validity, allowing explicit simulation
 domains to be tested without representing them as measured hardware limits.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 import argparse
 import copy
 import hashlib
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -35,12 +36,16 @@ class EngineeringRisk:
         self.reference = np.asarray(config["reference"], dtype=float)
         if not self.version:
             raise ValueError("engineering domain needs a version")
-        if (self.scale.shape != (6,) or not np.all(np.isfinite(self.scale))
-                or np.any(self.scale <= 0)):
+        if self.scale.shape != (6,) or not np.all(np.isfinite(self.scale)) or np.any(self.scale <= 0):
             raise ValueError("risk scale must contain six positive finite values")
-        if (self.A.ndim != 2 or self.A.shape[1] != 6 or self.A.shape[0] < 12
-                or self.b.shape != (self.A.shape[0],)
-                or not np.all(np.isfinite(self.A)) or not np.all(np.isfinite(self.b))):
+        if (
+            self.A.ndim != 2
+            or self.A.shape[1] != 6
+            or self.A.shape[0] < 12
+            or self.b.shape != (self.A.shape[0],)
+            or not np.all(np.isfinite(self.A))
+            or not np.all(np.isfinite(self.b))
+        ):
             raise ValueError("domain needs finite A[m,6] and b[m], including signed axis bounds")
         if self.reference.shape != (6,) or not np.all(np.isfinite(self.reference)):
             raise ValueError("domain reference must be a finite normalized six-vector")
@@ -160,12 +165,18 @@ def build_domain(spec: dict, base_dir: Path = Path(".")) -> dict:
         digest = _digest_file(path)
         if source.get("sha256") is not None and source["sha256"] != digest:
             raise ValueError(f"source evidence hash mismatch: {identifier}")
-        sources[identifier] = {"id": identifier, "version": source_version,
-                               "path": str(path), "sha256": digest}
+        sources[identifier] = {
+            "id": identifier,
+            "version": source_version,
+            "path": str(path),
+            "sha256": digest,
+        }
+
     def source_id(value):
         if value not in sources:
             raise ValueError(f"missing source evidence: {value}")
         return value
+
     reference_source = source_id(spec["reference_source"])
     lower, upper, lower_sources, upper_sources = [], [], [], []
     if set(spec["limits"]) != set(CHANNELS):
@@ -185,10 +196,14 @@ def build_domain(spec: dict, base_dir: Path = Path(".")) -> dict:
         raise ValueError("scale must be positive")
     matrix = list(np.eye(6)) + list(-np.eye(6))
     bounds = list(upper / scale) + list(-lower / scale)
-    row_sources = [{"constraint": f"{channel}_upper", "source": source}
-                   for channel, source in zip(CHANNELS, upper_sources)]
-    row_sources += [{"constraint": f"{channel}_lower", "source": source}
-                    for channel, source in zip(CHANNELS, lower_sources)]
+    row_sources = [
+        {"constraint": f"{channel}_upper", "source": source}
+        for channel, source in zip(CHANNELS, upper_sources)
+    ]
+    row_sources += [
+        {"constraint": f"{channel}_lower", "source": source}
+        for channel, source in zip(CHANNELS, lower_sources)
+    ]
     for index, row in enumerate(spec.get("coupled", [])):
         if row.get("space") != "normalized":
             raise ValueError("coupled coefficients must explicitly use normalized wrench space")
@@ -198,20 +213,41 @@ def build_domain(spec: dict, base_dir: Path = Path(".")) -> dict:
             raise ValueError("invalid coupling row")
         matrix.append(coefficients)
         bounds.append(bound)
-        row_sources.append({"constraint": f"coupled_{index}", "source": source_id(row["source"]),
-                            "version": _text(row.get("version"), "coupled.version")})
+        row_sources.append(
+            {
+                "constraint": f"coupled_{index}",
+                "source": source_id(row["source"]),
+                "version": _text(row.get("version"), "coupled.version"),
+            }
+        )
     reference = _vector(spec["reference_wrench"], "reference_wrench") / scale
-    domain = {"version": version, "scale": scale.tolist(), "A": np.asarray(matrix).tolist(),
-              "b": bounds, "reference": reference.tolist(), "calibrated": False}
+    domain = {
+        "version": version,
+        "scale": scale.tolist(),
+        "A": np.asarray(matrix).tolist(),
+        "b": bounds,
+        "reference": reference.tolist(),
+        "calibrated": False,
+    }
     EngineeringRisk(domain)  # Includes strict interior reference and boundedness checks.
     domain_hash = hashlib.sha256(json.dumps(domain, sort_keys=True, allow_nan=False).encode()).hexdigest()
     spec_hash = hashlib.sha256(json.dumps(spec, sort_keys=True, allow_nan=False).encode()).hexdigest()
-    domain["provenance"] = {**identities, "frame": "task", "moment_origin": "plug", "units": UNITS,
-                            "spec_sha256": spec_hash, "domain_sha256": domain_hash,
-                            "sources": list(sources.values()), "constraint_sources": row_sources,
-                            "reference_source": reference_source}
-    domain["acceptance"] = {"status": "manual_review_required", "calibrated_by_builder": False,
-                            "note": "Hashing evidence and reporting log coverage do not approve hardware limits."}
+    domain["provenance"] = {
+        **identities,
+        "frame": "task",
+        "moment_origin": "plug",
+        "units": UNITS,
+        "spec_sha256": spec_hash,
+        "domain_sha256": domain_hash,
+        "sources": list(sources.values()),
+        "constraint_sources": row_sources,
+        "reference_source": reference_source,
+    }
+    domain["acceptance"] = {
+        "status": "manual_review_required",
+        "calibrated_by_builder": False,
+        "note": "Hashing evidence and reporting log coverage do not approve hardware limits.",
+    }
     return domain
 
 
@@ -247,7 +283,9 @@ def validate_records(domain: dict, paths: list[Path]) -> dict:
         identity = manifest.get("risk_validation", config.get("risk_validation", {}))
         expected = {key: provenance[key] for key in (*IDENTITIES, "frame", "moment_origin", "units")}
         expected.update(split="validation", domain_version=domain["version"])
-        if not isinstance(identity, dict) or any(identity.get(key) != value for key, value in expected.items()):
+        if not isinstance(identity, dict) or any(
+            identity.get(key) != value for key, value in expected.items()
+        ):
             raise ValueError("validation partition/domain/coordinate/specimen/tool identity mismatch")
         inside = outside = invalid = ignored = 0
         minimum = np.full(6, np.inf)
@@ -265,8 +303,12 @@ def validate_records(domain: dict, paths: list[Path]) -> dict:
                 wrench = row.get("decision", {}).get("details", {}).get("wrench")
             elif row.get("kind") == "sample":
                 sample = row.get("sample", {})
-                if sample.get("wrench_frame") != "task" or sample.get("metadata", {}).get("moment_origin") not in {"tool", "plug"}:
-                    raise ValueError("sample validation requires explicit task-axis plug-origin wrench; raw data is not converted")
+                if sample.get("wrench_frame") != "task" or sample.get("metadata", {}).get(
+                    "moment_origin"
+                ) not in {"tool", "plug"}:
+                    raise ValueError(
+                        "sample validation requires explicit task-axis plug-origin wrench; raw data is not converted"
+                    )
                 if sample.get("valid") is not True:
                     invalid += 1
                     continue
@@ -287,17 +329,34 @@ def validate_records(domain: dict, paths: list[Path]) -> dict:
         count = inside + outside
         if count == 0:
             raise ValueError("validation log contains no evaluable task-frame wrench samples")
-        reports.append({"path": str(path.resolve()), "sha256": digest, "task_id": task_id, "source": source,
-                        "evaluable_samples": count, "inside_samples": inside, "outside_samples": outside,
-                        "invalid_samples": invalid, "ignored_records": ignored,
-                        "domain_inclusion_fraction": inside/count, "outside_fraction": outside/count,
-                        "observed_minimum": minimum.tolist(), "observed_maximum": maximum.tolist()})
-    return {"logs": reports, "boundaries_refitted": False,
-            "note": "Sample inclusion is not task success, hazard probability or proof of safety; simulation is labeled separately."}
+        reports.append(
+            {
+                "path": str(path.resolve()),
+                "sha256": digest,
+                "task_id": task_id,
+                "source": source,
+                "evaluable_samples": count,
+                "inside_samples": inside,
+                "outside_samples": outside,
+                "invalid_samples": invalid,
+                "ignored_records": ignored,
+                "domain_inclusion_fraction": inside / count,
+                "outside_fraction": outside / count,
+                "observed_minimum": minimum.tolist(),
+                "observed_maximum": maximum.tolist(),
+            }
+        )
+    return {
+        "logs": reports,
+        "boundaries_refitted": False,
+        "note": "Sample inclusion is not task success, hazard probability or proof of safety; simulation is labeled separately.",
+    }
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--spec", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--records", nargs="+", type=Path, default=[])
@@ -310,8 +369,17 @@ def main(argv=None):
         with args.output.open("x", encoding="utf-8") as stream:
             json.dump(domain, stream, ensure_ascii=False, indent=2, allow_nan=False)
             stream.write("\n")
-        print(json.dumps({"output": str(args.output), "calibrated": False,
-                          "constraints": len(domain["b"]), "validation_logs": len(args.records)}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "output": str(args.output),
+                    "calibrated": False,
+                    "constraints": len(domain["b"]),
+                    "validation_logs": len(args.records),
+                },
+                ensure_ascii=False,
+            )
+        )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         parser.exit(2, f"Risk-domain build rejected: {exc}\n")
     return 0

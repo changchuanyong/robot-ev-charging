@@ -1,17 +1,16 @@
 """Resolve the shared detector once, while keeping experiment weights explicit."""
+
 from __future__ import annotations
 
-from ev_charging.paths import PROJECT_ROOT
-
-from copy import deepcopy
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import re
+from copy import deepcopy
+from datetime import datetime, timezone
+from pathlib import Path
 
 from ev_charging.file_io import atomic_persist_json
-
+from ev_charging.paths import PROJECT_ROOT
 
 ROOT = PROJECT_ROOT
 CURRENT_MODEL_CONFIG = "config/vision_model.json"
@@ -42,7 +41,8 @@ def resolve_model_config(config: dict, *, root=ROOT, verify=False) -> dict:
         result["weights"] = str(_path(registry.get("weights"), root))
         result["weights_sha256"] = expected
         result["model_source"] = {
-            "kind": "registry", "registry_path": str(registry_path),
+            "kind": "registry",
+            "registry_path": str(registry_path),
             "registry_sha256": hashlib.sha256(content).hexdigest(),
             "training_run": registry.get("training_run"),
         }
@@ -71,9 +71,13 @@ def publish_current_model(weights, *, root=ROOT, training_report) -> dict:
     content = report_path.read_bytes()
     report = json.loads(content.decode("utf-8-sig"))
     epochs = report.get("requested_epochs")
-    if (report.get("status") != "completed" or type(epochs) is not int or epochs <= 0
-            or report.get("completed_epochs") != epochs
-            or report.get("snapshot_posttrain_check", {}).get("status") != "passed"):
+    if (
+        report.get("status") != "completed"
+        or type(epochs) is not int
+        or epochs <= 0
+        or report.get("completed_epochs") != epochs
+        or report.get("snapshot_posttrain_check", {}).get("status") != "passed"
+    ):
         raise ValueError("completed_checked_training_report_required_for_publication")
     if _path(report.get("best_weights"), root) != weights:
         raise ValueError("published_weights_must_match_completed_training_report")
@@ -88,8 +92,10 @@ def publish_current_model(weights, *, root=ROOT, training_report) -> dict:
     registry = {
         "schema_version": 1,
         "description": "Shared active YOLOv8n detector; camera calibration and control acceptance are configured separately.",
-        "weights": portable(weights), "weights_sha256": expected,
-        "training_run": portable(report_path.parent), "training_report": portable(report_path),
+        "weights": portable(weights),
+        "weights_sha256": expected,
+        "training_run": portable(report_path.parent),
+        "training_report": portable(report_path),
         "training_report_sha256": hashlib.sha256(content).hexdigest(),
         "evaluation": report.get("evaluation", "held_out_development"),
         "independent_validation": report.get("independent_validation", False),
