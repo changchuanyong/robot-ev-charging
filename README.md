@@ -9,21 +9,30 @@
 - **权重**：`yolov8n.pt`、`runs/*/weights/best.pt` 和 `last.pt` 随 Git 跟踪。
 - **最近训练**：40 轮，217 train / 36 dev-val；P 0.97068 / R 0.97222 / mAP50 0.97250 / mAP50-95 0.90472（best epoch 21）。
 
-命令都在仓库根目录运行，直接用 `.venv\Scripts\python.exe`，不要激活虚拟环境。日常只走 **采集 → 复核 → 训练 → 离线检查**；不常用的带参数命令和维护命令集中在 [进阶命令](#4-进阶命令不常用参数)，正常流程不需要逐个了解。
+日常命令在各自项目根目录运行，使用 `run_vision.cmd` 自动进入 Conda 的 `ev-vision`，无需手动激活。日常只走 **采集 → 复核 → 训练 → 离线检查**；不常用的带参数命令和维护命令集中在 [进阶命令](#4-进阶命令不常用参数)，正常流程不需要逐个了解。
 
 ## 2. 环境
 
-`.venv` 已存在（Python 3.12.14），由 `uv` 创建、**没有 pip**：
+默认使用 Anaconda 的 `ev-vision` 环境（Python 3.12），通过 `run_vision.cmd` 启动。环境声明为 `environment-vision.yml`，现有工作版本及 CUDA PyTorch 下载来源锁定在 `environments/vision-pip.lock.txt`。两份项目副本共用此依赖环境，但各自使用自己的代码和数据。
+
+换机或首次创建环境时，在本项目目录执行一次：
 
 ```powershell
-uv pip install --python .venv\Scripts\python.exe -r requirements-control.txt
-uv pip install --python .venv\Scripts\python.exe -r requirements-gpu.txt   # NVIDIA 机器追加 CUDA torch
+& "$env:USERPROFILE\anaconda3\Scripts\conda.exe" env create --format environment-yaml -f environment-vision.yml
 ```
+
+本机 Anaconda 安装在 `C:\Users\admin\anaconda3`。可在 Navigator 的 Environments 中查看 `ev-vision`，或在 Anaconda Prompt 中执行 `conda activate ev-vision` 后使用 `python`。旧 `.venv` 保留用于回退；默认启动入口已切换到 Conda。
 
 GPU 自检（本机输出 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`）：
 
 ```powershell
-.\.venv\Scripts\python.exe -c "import torch; print(torch.__version__, torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+.\run_vision.cmd -c "import torch; print(torch.__version__, torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+```
+
+九孔复核可双击 `start_keypoint_review.cmd`，或运行：
+
+```powershell
+.\run_vision.cmd -m vision.review_keypoints
 ```
 
 ## 3. 正常流程
@@ -35,13 +44,13 @@ GPU 自检（本机输出 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`）：
 Windows 相机入口需要进程内的 `SeSecurityPrivilege`，统一使用 `vision.launch`；每次从非管理员终端启动都可能弹出 UAC：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth
+.\run_vision.cmd -m vision.launch vision.preview --depth
 ```
 
 日常流程：**F5 拍照并入库 → 退出后复核检测框 → 准备训练**。新会话默认 `train`；需要开发验证数据时在采集前指定 `--split val`。建议填写 `--batch` 和 `--specimen`，同批次、同样件、同打印批次沿用一致分组，冲突会在打开相机前提示：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth --batch d415_session01 --specimen print_dev01 --notes "打印件，正视"
+.\run_vision.cmd -m vision.launch vision.preview --depth --batch d415_session01 --specimen print_dev01 --notes "打印件，正视"
 ```
 
 D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`profiles.preview` 设置检测预览（默认 1920×1080 / 30 fps），`profiles.collect` 设置纯 RGB 采集（默认 1280×720 / 15 fps），`depth` 设置深度流，`vision` 设置检测与 PnP。预览和纯采集都可用 `--config` 指定这份配置；`--vision-config` 仍可单独加载某次训练导出的检测配置。D435 继续使用自己的设备与定位配置。
@@ -78,8 +87,8 @@ D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`p
 正常入库与检查：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 train/python/prepare_port_library.py       # 同步入库
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library status          # 库状态
+.\run_vision.cmd train/python/prepare_port_library.py       # 同步入库
+.\run_vision.cmd -m vision.training_library status          # 库状态
 ```
 
 图片与标签校验、深度绑定、参数完整性等维护命令见 [图库维护](#42-图库维护)。
@@ -89,7 +98,7 @@ D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`p
 拍完后运行本机复核页；会自动打开浏览器，查看或拖动修改框，点击“保存框并下一张”直接写回图库。草稿可以恢复，只有明确确认才成为正式标注；保存冲突会提示刷新。完成后点击页面的结束按钮或在终端按 Ctrl+C：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.review_library
+.\run_vision.cmd -m vision.review_library
 ```
 
 默认显示全库待标注图片；采集结束会打印带真实路径的完整命令。该命令不需要 `vision.launch`。只看一批、只打印地址，以及退出采集后离线 `review.html` 的导出/导入方式见 [复核](#43-复核)。
@@ -103,7 +112,7 @@ D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`p
 ### 3.3 训练
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_port.py
+.\run_vision.cmd train/python/train_port.py
 ```
 
 训练前依次同步图库、检查图片和标注、自动补齐分组、冻结本轮数据。待标注、分组冲突、来源无法判断或哈希不符仍会报错。`--prepare-only` 同样会自动补齐分组并生成数据快照，但不会训练；显式轮数、批大小与设备选择见 [训练与复现](#46-训练与复现)。训练完成全部轮数并通过覆盖检查后才原子更新 `config/vision_model.json`。输出含 `training_manifest.json`、`training_report.json`、`epoch_coverage.jsonl`、`validation_coverage.jsonl`、`weights/`。
@@ -117,8 +126,8 @@ Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在
 ### 3.4 离线检查
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.check_project
-.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate --scenario nominal
+.\run_vision.cmd -m vision.check_project
+.\run_vision.cmd -m control.simulate --scenario nominal
 ```
 
 `vision.check_project` 检查项目完整性并报告数据待办，不启动相机或机器人，不能替代算法与硬件验证。批量评估、其他仿真场景与力觉/实验工具见 [评估、控制与力觉](#47-评估控制与力觉)。
@@ -131,23 +140,23 @@ Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在
 
 ```powershell
 # 查看设备序列号（默认绑定 D415 349222063070，换机加 --serial）
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.collect --list-devices
+.\run_vision.cmd -m vision.launch vision.collect --list-devices
 # 管理员终端可省掉启动器，直接运行相机入口
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.preview --depth
+.\run_vision.cmd -m vision.preview --depth
 # 放大唯一目标（保存仍是全分辨率原图）
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth --zoom
+.\run_vision.cmd -m vision.launch vision.preview --depth --zoom
 # 只看彩色
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview
+.\run_vision.cmd -m vision.launch vision.preview
 # 分析 3 帧后退出；保存首个完成结果（含失败）
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth --frames 3 --save-first
+.\run_vision.cmd -m vision.launch vision.preview --depth --frames 3 --save-first
 # 开发验证数据
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth --batch d415_val01 --specimen print_val01 --split val
+.\run_vision.cmd -m vision.launch vision.preview --depth --batch d415_val01 --specimen print_val01 --split val
 ```
 
 只采 RGB：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.collect --batch d415_session01 --split train --notes "打印件，多角度"
+.\run_vision.cmd -m vision.launch vision.collect --batch d415_session01 --split train --notes "打印件，多角度"
 ```
 
 空格/S 保存，Q/Esc 退出，输出在 `artifacts/captures/`。纯 RGB 采集同样后台入库，复核时手动画框；省略 `--batch` 会生成唯一批次名。独立 test 采集使用 `--split test --no-library`。
@@ -155,7 +164,7 @@ Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在
 补同步入库：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.intake
+.\run_vision.cmd -m vision.intake
 ```
 
 补同步遇到损坏文件或分组冲突会保留错误并返回非零退出码；可加 `--session "artifacts/d415_preview/实际会话目录"` 只处理一批。
@@ -163,64 +172,94 @@ Ultralytics 的设置与字体、Matplotlib 字体缓存和临时文件都写在
 ### 4.2 图库维护
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library validate        # 图片、标签和哈希检查
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library depth-status    # 深度绑定
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library calibration-status # 参数完整性
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library preserve-calibrations # 保存现有参数或标记缺失
+.\run_vision.cmd -m vision.training_library validate        # 图片、标签和哈希检查
+.\run_vision.cmd -m vision.training_library depth-status    # 深度绑定
+.\run_vision.cmd -m vision.training_library calibration-status # 参数完整性
+.\run_vision.cmd -m vision.training_library preserve-calibrations # 保存现有参数或标记缺失
 ```
 
 ### 4.3 复核
 
 ```powershell
 # 只看某一次采集会话
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.review_library --session "artifacts/d415_preview/实际会话目录"
+.\run_vision.cmd -m vision.review_library --session "artifacts/d415_preview/实际会话目录"
 # 只打印地址，不自动打开浏览器
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.review_library --no-browser
+.\run_vision.cmd -m vision.review_library --no-browser
 ```
 
 退出采集时生成的 `review.html` 是离线副本，离线复核继续使用导出/导入：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 train/python/prepare_port_library.py --review artifacts/port_library_review.html
+.\run_vision.cmd train/python/prepare_port_library.py --review artifacts/port_library_review.html
 Start-Process artifacts/port_library_review.html
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
+.\run_vision.cmd -m vision.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
 ```
 
 ### 4.4 数据分组
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 -m train.python.dataset_split --list-pending
-.\.venv\Scripts\python.exe -B -X utf8 -m train.python.dataset_split --assign-group "实际group_id" --split train
+.\run_vision.cmd -m train.python.dataset_split --list-pending
+.\run_vision.cmd -m train.python.dataset_split --assign-group "实际group_id" --split train
 ```
 
 ### 4.5 九孔复核
+
+日常直接打开全图库孔位标注页（与检测框复核独立）：
+
+```powershell
+.\run_vision.cmd -m vision.review_keypoints
+```
+
+页面按需加载原图，包含检测框已排除的图片。选择孔名后点击孔中心，支持缩放和平移；不可见孔选择不确定、遮挡或出画。修改自动保存到 `dataset/vision/keypoint_annotations.json`，九孔状态齐全并填写复核人后点击确认。重启可继续，导出 JSON 可用于 `check_reviewed_detection_labels.py --annotations` 检查；孔位结果不会修改检测框标签。多页面编辑同一张图发生冲突时会阻止覆盖，提示先导出修改再刷新。`--no-browser` 只打印地址；`prepare_keypoint_review.py` 不带参数也会打开此页面。
+
+全图库孔位文件记录原图像素坐标，不补填缺失的相机参数，也不直接作为位姿精度验收依据。下面的离线流程继续用于绑定特定会话或历史诊断报告：
+
+每次打开或切换到未确认图片，都会读取 `config/vision_model.json` 指向的最近一次完成并发布的权重，重新检测充电口框，再用轮廓与二维布局算法提取孔位；不复用旧诊断点或人工检测框来代替当前模型推理。权重变化后自动重载模型并使旧候选缓存失效，无需重启服务。页面显示本图使用的训练轮次，自动点记录权重路径与 SHA256。橙色自动点仍是待复核草稿；更新会替换旧自动点，但保留人工点、人工清除状态和已确认图片。也可点击“用当前权重更新候选”立即刷新当前未确认图；识别不足时不会补造九个点。
+
+孔位助手会对已通过椭圆拟合的 Canny 候选补做原图暗内孔证据检查，使用与原暗区分支相同的内外亮度差阈值；不会直接把所有外壁中心当作内孔，也不投影补造缺失点。该补充仅用于复核预标注，实时相机/PnP 的控制筛选逻辑仍独立。
+
+复核预标注另外检查主孔间距相对图像区域的尺度、两个主孔的孔径比例及 PE 的相对孔径。补充 Canny 点不会放宽小孔匹配范围；存在接近等分的匹配时，只保留各方案一致的孔位，主孔或朝向不一致则不输出孔名。信号孔、中心孔和辅助孔还需符合实测 DC—PE—CC2 的相对位置。低证据图片因此可能比旧版本少显示候选，需要手工标注；已确认图与人工编辑不会被这些规则覆盖。
+
+已确认的全图库孔位 JSON 可直接做逐孔诊断，不再需要历史批处理报告：
+
+```powershell
+.\run_vision.cmd train/python/evaluate_library_keypoints.py --annotations "$env:USERPROFILE\Downloads\reviewed_annotations.json" --output-dir artifacts/keypoint_eval_first
+# 修改算法后，使用冻结的相同标注；权重必须与基线一致
+.\run_vision.cmd train/python/evaluate_library_keypoints.py --annotations artifacts/keypoint_eval_first/annotations.json --output-dir artifacts/keypoint_eval_second --baseline artifacts/keypoint_eval_first/report.json
+```
+
+输出目录必须是新目录。报告包含阶段诊断、逐图叠加图和参考来源分类；对比模式另外生成 `comparison.html` 与 `comparison.json`。默认 5 原像素是诊断邻域，可用 `--tolerance-px` 明确指定，不能当作精度验收标准。孔名拓扑矛盾只提示人工检查，不修改标注。
 
 新采集传 `--manifest`，使用该会话保存的相机参数；历史图片传 `--selection` 和 `--batch-report`，保留原历史参数：
 
 ```powershell
 # 已结束的采集会话，输出默认在会话目录的 review/ 下
-.\.venv\Scripts\python.exe -B -X utf8 live/python/prepare_keypoint_review.py --manifest "artifacts/d415_preview/实际会话目录/manifest.json"
+.\run_vision.cmd live/python/prepare_keypoint_review.py --manifest "artifacts/d415_preview/实际会话目录/manifest.json"
 # 历史图片，明确指定已有的图片选择清单和批量诊断报告
-.\.venv\Scripts\python.exe -B -X utf8 live/python/prepare_keypoint_review.py --selection "config/vision_annotation_pilot.json" --batch-report "artifacts/实际诊断目录/latest_details.json" --output-dir "artifacts/keypoint_review"
+.\run_vision.cmd live/python/prepare_keypoint_review.py --selection "config/vision_annotation_pilot.json" --batch-report "artifacts/实际诊断目录/latest_details.json" --output-dir "artifacts/keypoint_review"
 ```
 
 打开命令输出的 `review.html`，复核后导出 `reviewed_annotations.json`。加 `--annotations "已复核文件.json"` 可继续复核，工具不会覆盖原标注；`--manifest` 不能与历史数据参数混用。
 
 ### 4.6 训练与复现
 
+默认使用 `batch=32`、`workers=4` 和混合精度（AMP），仍逐轮检查实际完成批次中的训练图和验证图覆盖。AMP 使用本轮冻结的本地权重自检，不下载额外模型；自检不通过时使用 FP32。图片全量缓存保持关闭，避免额外占满内存。实际加载进程数和 AMP 启用状态写入 `training_report.json`；环境禁止多进程管道时会提示并回退到 `workers=0`。
+
 ```powershell
 # 只同步、检查、分组并生成快照，不训练
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_port.py --prepare-only
-# 显式指定轮数、批大小和 GPU
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_port.py --epochs 40 --batch 16 --device 0
+.\run_vision.cmd train/python/train_port.py --prepare-only
+# 显式指定轮数、批大小、加载进程数和 GPU
+.\run_vision.cmd train/python/train_port.py --epochs 40 --batch 32 --workers 4 --device 0
+# 使用原来的单进程、FP32 设置作速度对比
+.\run_vision.cmd train/python/train_port.py --batch 16 --workers 0 --no-amp
 # 用某轮训练导出的配置复现旧轮次
-.\.venv\Scripts\python.exe -B -X utf8 -m vision.launch vision.preview --depth --vision-config "runs/本轮目录/preview_config.json"
+.\run_vision.cmd -m vision.launch vision.preview --depth --vision-config "runs/本轮目录/preview_config.json"
 ```
 
 ### 4.7 评估、控制与力觉
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 live\python\batch_pipeline_eval.py --max-images 50
+.\run_vision.cmd live\python\batch_pipeline_eval.py --max-images 50
 ```
 
 批量评估默认跑 `dataset/vision/images/historical`，用 Kinect v2 近似内参（`config/camera_intrinsics.json`），结果在 `artifacts/batch_eval/`；不要用它评价 D415/D435 的重投影误差。
@@ -228,20 +267,20 @@ Start-Process artifacts/port_library_review.html
 合并后的工具按子命令选择用途，以下命令显示各自完整参数：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_keypoint_annotations.py annotations --help
-.\.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_keypoint_annotations.py labeled --help
-.\.venv\Scripts\python.exe -B -X utf8 live/python/evaluate_keypoint_annotations.py batch --help
-.\.venv\Scripts\python.exe -B -X utf8 live/python/keypoint_annotations.py repeatability --help
-.\.venv\Scripts\python.exe -B -X utf8 -m control.force_dataset --help
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py train --help
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py evaluate --help
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py accept --help
-.\.venv\Scripts\python.exe -B -X utf8 train/python/train_force_gru.py demo --help
-.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate simulate --help
-.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate replay --help
-.\.venv\Scripts\python.exe -B -X utf8 -m control.simulate admittance --help
-.\.venv\Scripts\python.exe -B -X utf8 -m control.experiments evaluate --help
-.\.venv\Scripts\python.exe -B -X utf8 -m control.risk --help
+.\run_vision.cmd live/python/evaluate_keypoint_annotations.py annotations --help
+.\run_vision.cmd live/python/evaluate_keypoint_annotations.py labeled --help
+.\run_vision.cmd live/python/evaluate_keypoint_annotations.py batch --help
+.\run_vision.cmd live/python/keypoint_annotations.py repeatability --help
+.\run_vision.cmd -m control.force_dataset --help
+.\run_vision.cmd train/python/train_force_gru.py train --help
+.\run_vision.cmd train/python/train_force_gru.py evaluate --help
+.\run_vision.cmd train/python/train_force_gru.py accept --help
+.\run_vision.cmd train/python/train_force_gru.py demo --help
+.\run_vision.cmd -m control.simulate simulate --help
+.\run_vision.cmd -m control.simulate replay --help
+.\run_vision.cmd -m control.simulate admittance --help
+.\run_vision.cmd -m control.experiments evaluate --help
+.\run_vision.cmd -m control.risk --help
 ```
 
 视觉评价的 `annotations`、`labeled`、`batch` 分别对应人工点求解、带标注回归比较和批量结果比较，各自保留原统计口径。`control.force_dataset` 用 `--review-logs` 准备人工标签清单，用 `--annotations` 导出确认后的数据。力觉模型的训练、评价、验收和合成数据演示分别执行；训练不会自动通过真机验收。实验配置冻结、排程及统计统一由 `control.experiments` 提供。源码合并改变了代码指纹，新正式实验需按当前版本重新冻结，历史记录保留原指纹。

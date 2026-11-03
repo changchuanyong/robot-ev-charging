@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 from copy import copy
 from datetime import datetime, timezone
+from functools import partial
 import hashlib
 import json
 import os
@@ -12,6 +13,7 @@ import shutil
 import sys
 import time
 import uuid
+from unittest.mock import patch
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -205,8 +207,8 @@ class CoverageAudit:
         loaded = [_key(path) for path in dataset.im_files]
         if len(loaded) != len(expected) or set(loaded) != set(expected):
             raise ValueError(f"{mode}_loader_image_inventory_mismatch")
-        if loader.drop_last or loader.num_workers != 0:
-            raise ValueError("coverage_requires_drop_last_false_and_workers_zero")
+        if loader.drop_last:
+            raise ValueError("coverage_requires_drop_last_false")
         if mode == "train":
             sampler = loader.sampler
             if (type(sampler).__name__ not in {"RandomSampler", "SequentialSampler"}
@@ -229,12 +231,14 @@ class CoverageAudit:
             actual_instances += len(actual_rows)
         if actual_instances != sum(entry["instances"] for entry in expected.values()):
             raise ValueError(f"{mode}_loader_instance_count_mismatch")
-        return {"images": len(loaded), "instances": actual_instances, "drop_last": False, "workers": 0}
+        return {"images": len(loaded), "instances": actual_instances,
+                "drop_last": False, "workers": loader.num_workers}
 
     def pretrain(self, trainer):
         if _key(trainer.save_dir) != _key(self.run):
             raise ValueError("trainer_run_directory_changed")
         _write_report(self.run, status="training", snapshot_pretrain_check=verify_snapshot(self.run, self.manifest),
+                      amp_enabled=bool(trainer.amp),
                       train_loader=self.check_loader(trainer.train_loader),
                       validation_loader=self.check_loader(trainer.test_loader, mode="val"))
 
@@ -340,6 +344,34 @@ def validate_device(device, torch_module=None):
             "torch": torch_module.__version__, "cuda_runtime": torch_module.version.cuda}
 
 
+def _check_local_amp(model, *, weights):
+    """Check FP32/FP16 detections using frozen local weights, without downloads."""
+    import torch
+    from ultralytics import YOLO
+    from ultralytics.utils import ASSETS
+    from ultralytics.utils.torch_utils import autocast
+
+    device = next(model.parameters()).device
+    if device.type != "cuda":
+        return False
+    weights = Path(weights)
+    image = ASSETS / "bus.jpg"
+    if not weights.is_file() or not image.is_file():
+        print("AMP 自检所需本地权重或示例图片缺失，使用 FP32。", flush=True)
+        return False
+    probe = YOLO(str(weights))
+    images = [str(image)] * 8
+    with torch.inference_mode():
+        fp32 = probe(images, imgsz=256, device=device, verbose=False)[0].boxes.data
+        with autocast(enabled=True, device=device.type):
+            fp16 = probe(images, imgsz=256, device=device, verbose=False)[0].boxes.data
+    passed = (fp32.numel() > 0 and fp32.shape == fp16.shape
+              and bool(torch.isfinite(fp32).all()) and bool(torch.isfinite(fp16).all())
+              and torch.allclose(fp32, fp16.float(), atol=0.5))
+    print(f"本地 AMP 自检{'通过，启用混合精度' if passed else '未通过，使用 FP32'}。", flush=True)
+    return passed
+
+
 def train_all(run, manifest, config, *, root=ROOT_DIR):
     from ultralytics import YOLO, __version__
 
@@ -350,9 +382,13 @@ def train_all(run, manifest, config, *, root=ROOT_DIR):
         print("当前环境不能创建命名管道，标注扫描改为串行。", flush=True)
     parameters = {key: config[key] for key in ("epochs", "imgsz", "batch", "device")}
     device_info = validate_device(config["device"])
-    parameters.update(workers=0, optimizer="AdamW", lr0=.0003, cos_lr=True, freeze=0, seed=0,
+    workers = config.get("workers", 4)
+    if label_scan == "serial" and workers:
+        print("当前环境不支持多进程管道，数据加载回退到 workers=0。", flush=True)
+        workers = 0
+    parameters.update(workers=workers, optimizer="AdamW", lr0=.0003, cos_lr=True, freeze=0, seed=0,
                       deterministic=True, patience=0, fraction=1.0, compile=False,
-                      cache=False, amp=False, plots=True, save=True, val=True)
+                      cache=False, amp=config.get("amp", True), plots=True, save=True, val=True)
     _write_report(run, requested_epochs=parameters["epochs"], training_parameters=parameters,
                   coverage_unit="primary_training_image", runtime_cache=CACHE_DIRS,
                   label_scan=label_scan, ultralytics_version=__version__,
@@ -368,8 +404,10 @@ def train_all(run, manifest, config, *, root=ROOT_DIR):
                                 ("on_val_batch_end", audit.complete_validation_batch),
                                 ("on_val_end", audit.complete_validation)):
             model.add_callback(event, callback)
-        model.train(trainer=_audited_trainer(), data=str(run / "dataset.yaml"),
-                    project=str(run.parent), name=run.name, exist_ok=True, **parameters)
+        # Keep Ultralytics' AMP enable/disable flow, replacing only its downloading probe.
+        with patch("ultralytics.engine.trainer.check_amp", partial(_check_local_amp, weights=run / "initial.pt")):
+            model.train(trainer=_audited_trainer(), data=str(run / "dataset.yaml"),
+                        project=str(run.parent), name=run.name, exist_ok=True, **parameters)
         if audit.completed_epochs != parameters["epochs"]:
             raise ValueError("training_stopped_before_all_requested_epochs")
         if audit.validation_passes < parameters["epochs"]:
@@ -436,10 +474,13 @@ def main(argv=None):
     parser.add_argument("--batch", type=int)
     parser.add_argument("--imgsz", type=int)
     parser.add_argument("--device")
+    parser.add_argument("--workers", type=int, help="数据加载进程数；0 为主进程加载")
+    parser.add_argument("--amp", action=argparse.BooleanOptionalAction, default=None,
+                        help="启用混合精度；--no-amp 使用 FP32")
     parser.add_argument("--prepare-only", action="store_true", help="只同步、检查和冻结全量数据，不启动训练")
     args = parser.parse_args(argv)
     config = load_train_config(args.config)
-    for key in ("epochs", "batch", "imgsz", "device"):
+    for key in ("epochs", "batch", "imgsz", "device", "workers", "amp"):
         value = getattr(args, key)
         if value is not None:
             config[key] = value
@@ -448,6 +489,10 @@ def main(argv=None):
     for key in ("epochs", "batch", "imgsz"):
         if type(config[key]) is not int or config[key] <= 0:
             parser.error(f"{key} 必须为正整数")
+    if type(config.get("workers", 4)) is not int or config.get("workers", 4) < 0:
+        parser.error("workers 必须为非负整数")
+    if type(config.get("amp", True)) is not bool:
+        parser.error("amp 必须为布尔值")
     if not Path(config["model_file"]).is_file():
         parser.error(f"需要本地模型文件（不自动下载）: {config['model_file']}")
     device = str(config.get("device", "cpu"))
