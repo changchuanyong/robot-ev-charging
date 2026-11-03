@@ -11,7 +11,9 @@ import numpy as np
 from ev_charging.control.admittance import Admittance
 from ev_charging.control.config import METHODS, load_config, simulation_config
 from ev_charging.control.geometry import invert, log_so3
+from ev_charging.control.learning import make_policy as make_policy
 from ev_charging.control.logging import TaskLog, finite_json, source_digest
+from ev_charging.control.logging import load_log as load_log
 from ev_charging.control.state_machine import InsertionController
 from ev_charging.control.types import RobotSample
 
@@ -128,22 +130,6 @@ class SimulatedRobot:
         self.stopped = True
 
 
-def make_policy(config):
-    if not METHODS[config["method"]]["learning"]:
-        return None
-    from ev_charging.control.learning import ForcePolicy
-
-    learning = {
-        **config["learning"],
-        "allow_synthetic": config.get("simulation_only") is True,
-        "require_hardware_validation": config.get("simulation_only") is not True,
-    }
-    policy = ForcePolicy(learning, learning.get("model_path"))
-    if not policy.model_ready:
-        raise ValueError("GRU checkpoint is not ready: " + policy.last_reason)
-    return policy
-
-
 def run_simulation(config=None, scenario="nominal", output=None, max_steps=10000, policy=None):
     config = config or simulation_config()
     controller = InsertionController(config, policy if policy is not None else make_policy(config))
@@ -200,16 +186,6 @@ def run_simulation(config=None, scenario="nominal", output=None, max_steps=10000
         robot.stop()
         if logger:
             logger.close()
-
-
-def load_log(path):
-    rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
-    if not rows or rows[0].get("kind") != "manifest" or rows[0].get("schema_version") not in (1, 2):
-        raise ValueError("not a versioned control task log")
-    ids = {r.get("task_id") for r in rows}
-    if len(ids) != 1 or None in ids:
-        raise ValueError("a task log must contain exactly one task identity")
-    return rows
 
 
 def replay(path):

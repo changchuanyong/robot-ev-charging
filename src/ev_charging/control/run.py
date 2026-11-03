@@ -10,9 +10,9 @@ import numpy as np
 
 from ev_charging.control.config import METHODS, load_config, validate_config
 from ev_charging.control.geometry import validate_transform
+from ev_charging.control.learning import make_policy
 from ev_charging.control.logging import TaskLog
 from ev_charging.control.probe import OperatorProbePolicy, prepare_probe
-from ev_charging.control.simulate import make_policy
 from ev_charging.control.state_machine import InsertionController
 from ev_charging.control.synergy import ACTIONS
 from ev_charging.control.types import Decision

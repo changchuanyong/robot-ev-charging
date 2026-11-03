@@ -36,6 +36,16 @@ def finite_json(value):
     return value
 
 
+def load_log(path):
+    rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not rows or rows[0].get("kind") != "manifest" or rows[0].get("schema_version") not in (1, 2):
+        raise ValueError("not a versioned control task log")
+    ids = {r.get("task_id") for r in rows}
+    if len(ids) != 1 or None in ids:
+        raise ValueError("a task log must contain exactly one task identity")
+    return rows
+
+
 def source_digest():
     digest = hashlib.sha256()
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):

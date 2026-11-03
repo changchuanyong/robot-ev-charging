@@ -423,7 +423,7 @@ class CaptureIntake:
             self._refresh(attempts=2, force=True)
             manifest = _json(self.session.path / "manifest.json")
             if self.poll()["imported"]:
-                from ev_charging.datasets.vision.prepare_port_library import write_review
+                from ev_charging.review.review_library import write_review
 
                 path = self.session.path / "review.html"
                 write_review(self.library, path, weights=None, session_id=manifest["session_id"])

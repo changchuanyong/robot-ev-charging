@@ -9,7 +9,22 @@ from pathlib import Path
 import numpy as np
 
 from ev_charging.control.synergy import ACTIONS
+from ev_charging.control.types import METHODS
 from ev_charging.datasets.force import FORCE_UNITS
+
+
+def make_policy(config):
+    if not METHODS[config["method"]]["learning"]:
+        return None
+    learning = {
+        **config["learning"],
+        "allow_synthetic": config.get("simulation_only") is True,
+        "require_hardware_validation": config.get("simulation_only") is not True,
+    }
+    policy = ForcePolicy(learning, learning.get("model_path"))
+    if not policy.model_ready:
+        raise ValueError("GRU checkpoint is not ready: " + policy.last_reason)
+    return policy
 
 
 def build_model(hidden_size):

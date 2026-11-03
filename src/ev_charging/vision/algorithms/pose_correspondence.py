@@ -14,6 +14,7 @@ from ev_charging.vision.algorithms.center_fit import export_fitted_centers, fit_
 from ev_charging.vision.algorithms.layout_prior import (
     LAYOUT_TO_MODEL_LABEL,
     MAIN_PAIR_RELATIVE_SCORE_MIN,
+    _minimum_assignment,
     find_main_big_hole_pair_hypotheses,
     normalized_model_points,
 )
@@ -44,43 +45,6 @@ def _orientation_evidence(kept):
         "reason": "ok" if ratio >= 1.25 else "PE_signal_size_not_distinct",
         "pe_to_signal_ratio": ratio,
     }
-
-
-def _minimum_assignment(cost):
-    """Rectangular Hungarian assignment; dummy columns represent missing holes."""
-    rows, cols = cost.shape
-    u, v = np.zeros(rows + 1), np.zeros(cols + 1)
-    p, way = np.zeros(cols + 1, int), np.zeros(cols + 1, int)
-    for i in range(1, rows + 1):
-        p[0], j0 = i, 0
-        minimum, used = np.full(cols + 1, np.inf), np.zeros(cols + 1, bool)
-        while True:
-            used[j0] = True
-            i0 = p[j0]
-            remaining = np.flatnonzero(~used[1:]) + 1
-            current = cost[i0 - 1, remaining - 1] - u[i0] - v[remaining]
-            better = current < minimum[remaining]
-            minimum[remaining[better]] = current[better]
-            way[remaining[better]] = j0
-            j1 = remaining[np.argmin(minimum[remaining])]
-            delta = minimum[j1]
-            u[p[used]] += delta
-            v[used] -= delta
-            minimum[~used] -= delta
-            j0 = j1
-            if p[j0] == 0:
-                break
-        while True:
-            j1 = way[j0]
-            p[j0] = p[j1]
-            j0 = j1
-            if j0 == 0:
-                break
-    result = np.full(rows, -1, int)
-    for j in range(1, cols + 1):
-        if p[j]:
-            result[p[j] - 1] = j - 1
-    return result
 
 
 def _assign(predicted, points, anchor_indices, scale, scores, diameters=None):

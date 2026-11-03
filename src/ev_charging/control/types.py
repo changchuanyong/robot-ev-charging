@@ -9,6 +9,15 @@ from typing import Any
 
 import numpy as np
 
+METHODS = {
+    "A": {"learning": False, "risk": False, "synergy": False},
+    "B": {"learning": False, "risk": True, "synergy": False},
+    "C": {"learning": True, "risk": True, "synergy": False},
+    "D": {"learning": True, "risk": False, "synergy": False},
+    "E": {"learning": True, "risk": True, "synergy": False},
+    "F": {"learning": True, "risk": True, "synergy": True},
+}
+
 
 @dataclass
 class RobotSample:

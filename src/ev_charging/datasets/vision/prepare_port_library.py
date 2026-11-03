@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from collections import Counter
@@ -12,7 +11,8 @@ from pathlib import Path
 from ev_charging.datasets.vision.photo_sources import resolve_photo
 from ev_charging.datasets.vision.training_library import read_entries, register_image
 from ev_charging.file_io import atomic_capture_json, sha256_file
-from ev_charging.paths import PACKAGE_ROOT, PROJECT_ROOT
+from ev_charging.paths import PROJECT_ROOT
+from ev_charging.review.review_library import write_review as write_review
 from ev_charging.vision.model_config import current_model_path
 
 ROOT = PROJECT_ROOT
@@ -185,67 +185,6 @@ def sync_library(root=ROOT, library=None, extra_sources=(), *, include_history=T
     }
     atomic_capture_json(library / "sync_report.json", report)
     return report
-
-
-def write_review(library, output, weights=None, review_all=False, session_id=None):
-    from ev_charging.review.review_library import session_entries, suggested_label
-
-    library, output = Path(library).resolve(), Path(output).resolve()
-    entries = read_entries(library)
-    if session_id is not None:
-        entries = session_entries(entries, session_id)
-    unavailable = [e for e in entries if e["status"] == "excluded" and not (library / e["image"]).exists()]
-    records = [
-        e for e in entries if (review_all or e["status"] in {"pending", "conflict"}) and e not in unavailable
-    ]
-    model = None
-    items = []
-    for record in records:
-        label_text = ""
-        if record.get("label") and (library / record["label"]).exists():
-            label_text = (library / record["label"]).read_text(encoding="utf-8")
-        has_suggestions = bool(record.get("box_suggestions"))
-        if not label_text and has_suggestions:
-            label_text = suggested_label(record)
-        if not label_text and not has_suggestions and weights and record["status"] == "pending":
-            if model is None:
-                from ultralytics import YOLO
-
-                if not Path(weights).is_file():
-                    raise FileNotFoundError(weights)
-                model = YOLO(str(weights))
-            result = model.predict(str(library / record["image"]), conf=0.25, device="cpu", verbose=False)[0]
-            label_text = "\n".join(
-                "0 " + " ".join(f"{x:.8f}" for x in box) for box in result.boxes.xywhn.cpu().tolist()
-            )
-        items.append(
-            {
-                "image_sha256": record["image_sha256"],
-                "record_version": sha256_file(library / "records" / f"{record['image_sha256']}.json"),
-                "image_url": (library / record["image"]).as_uri(),
-                "width": record["width"],
-                "height": record["height"],
-                "status": record["status"],
-                "label_text": label_text,
-                "sources": record["sources"],
-                "label_candidates": record.get("label_candidates", []),
-                "box_suggestions": record.get("box_suggestions", []),
-            }
-        )
-    template = (PACKAGE_ROOT / "review/port_box_review.html").read_text(encoding="utf-8")
-    payload = json.dumps(items, ensure_ascii=False).replace("<", "\\u003c")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    config = {"scope_key": hashlib.sha256((str(library) + ":" + str(session_id)).encode()).hexdigest()}
-    page = template.replace("/*__REVIEW_DATA__*/[]", payload).replace(
-        "/*__REVIEW_CONFIG__*/{}", json.dumps(config)
-    )
-    output.write_text(page, encoding="utf-8")
-    return {
-        "review_file": str(output),
-        "images": len(items),
-        "suggestions_are_reviewed": False,
-        "excluded_missing_copies": len(unavailable),
-    }
 
 
 def main(argv=None):

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ev_charging.control.simulate import load_log
+from ev_charging.control.logging import load_log
 
 METHODS = ("A", "B", "C", "F")
 AXES = ("x", "y", "Rx", "Ry")

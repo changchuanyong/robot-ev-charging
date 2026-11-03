@@ -111,6 +111,43 @@ def is_duplicate_candidate(c1: CandidateContour, c2: CandidateContour, center_di
     return d < center_dist_thresh
 
 
+def _minimum_assignment(cost):
+    """Rectangular Hungarian assignment; dummy columns represent missing holes."""
+    rows, cols = cost.shape
+    u, v = np.zeros(rows + 1), np.zeros(cols + 1)
+    p, way = np.zeros(cols + 1, int), np.zeros(cols + 1, int)
+    for i in range(1, rows + 1):
+        p[0], j0 = i, 0
+        minimum, used = np.full(cols + 1, np.inf), np.zeros(cols + 1, bool)
+        while True:
+            used[j0] = True
+            i0 = p[j0]
+            remaining = np.flatnonzero(~used[1:]) + 1
+            current = cost[i0 - 1, remaining - 1] - u[i0] - v[remaining]
+            better = current < minimum[remaining]
+            minimum[remaining[better]] = current[better]
+            way[remaining[better]] = j0
+            j1 = remaining[np.argmin(minimum[remaining])]
+            delta = minimum[j1]
+            u[p[used]] += delta
+            v[used] -= delta
+            minimum[~used] -= delta
+            j0 = j1
+            if p[j0] == 0:
+                break
+        while True:
+            j1 = way[j0]
+            p[j0] = p[j1]
+            j0 = j1
+            if j0 == 0:
+                break
+    result = np.full(rows, -1, int)
+    for j in range(1, cols + 1):
+        if p[j]:
+            result[p[j] - 1] = j - 1
+    return result
+
+
 def layout_reject_log(reason: str, feat: CandidateContour) -> None:
     print(
         f"reject={reason:>16s}  "
