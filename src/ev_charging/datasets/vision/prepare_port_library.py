@@ -45,63 +45,64 @@ def _date(path):
     return "-".join(match.groups()) if match else None
 
 
-def sync_library(root=ROOT, library=None, extra_sources=()):
+def sync_library(root=ROOT, library=None, extra_sources=(), *, include_history=True):
     """Idempotent import; known old label candidates cannot undo a review decision."""
     root = Path(root).resolve()
     library = Path(library or root / "dataset/vision").resolve()
     registered = 0
-    upgraded_sources = set()
-    manifest_path = root / LATEST_LABELS
-    if manifest_path.exists():
-        for item in _json(manifest_path)["entries"]:
-            image = _inside(manifest_path.parent, item["image"])
-            label = _inside(manifest_path.parent, item["label"])
-            if sha256_file(image) != item["image_sha256"] or sha256_file(label) != item["label_sha256"]:
-                raise ValueError(f"historical_snapshot_hash_mismatch: {image}")
-            original = _inside(root, item["source_image"])
-            if original.exists() and sha256_file(original) != item["image_sha256"]:
-                raise ValueError(f"original_image_missing_or_changed: {original}")
-            try:
-                available = resolve_photo(
-                    item["source_image"], root=root, library=library, expected_sha256=item["image_sha256"]
+    if include_history:
+        upgraded_sources = set()
+        manifest_path = root / LATEST_LABELS
+        if manifest_path.exists():
+            for item in _json(manifest_path)["entries"]:
+                image = _inside(manifest_path.parent, item["image"])
+                label = _inside(manifest_path.parent, item["label"])
+                if sha256_file(image) != item["image_sha256"] or sha256_file(label) != item["label_sha256"]:
+                    raise ValueError(f"historical_snapshot_hash_mismatch: {image}")
+                original = _inside(root, item["source_image"])
+                if original.exists() and sha256_file(original) != item["image_sha256"]:
+                    raise ValueError(f"original_image_missing_or_changed: {original}")
+                try:
+                    available = resolve_photo(
+                        item["source_image"], root=root, library=library, expected_sha256=item["image_sha256"]
+                    )
+                except (OSError, ValueError) as exc:
+                    raise ValueError(f"original_image_missing_or_changed: {original}") from exc
+                register_image(
+                    available,
+                    library_root=library,
+                    date=_date(original),
+                    label_path=label,
+                    source={
+                        "path": str(original),
+                        "training_manifest": str(manifest_path),
+                        "original_image": str(original),
+                        "original_split": item["split"],
+                        "original_group": item.get("group"),
+                        "snapshot_label": str(label),
+                    },
+                    annotation_source=item.get("annotation_source", "existing_yolo_label"),
+                    human_reviewed=item.get("human_reviewed", False),
                 )
-            except (OSError, ValueError) as exc:
-                raise ValueError(f"original_image_missing_or_changed: {original}") from exc
+                upgraded_sources.add(original)
+                registered += 1
+
+        historical = root / "yolo_port/images"
+        for image in sorted(historical.rglob("*")) if historical.exists() else []:
+            if not image.is_file() or image.suffix.lower() not in IMAGE_SUFFIXES:
+                continue
+            relative = image.relative_to(historical)
+            label = root / "yolo_port/labels" / relative.with_suffix(".txt")
             register_image(
-                available,
+                image,
                 library_root=library,
-                date=_date(original),
-                label_path=label,
-                source={
-                    "path": str(original),
-                    "training_manifest": str(manifest_path),
-                    "original_image": str(original),
-                    "original_split": item["split"],
-                    "original_group": item.get("group"),
-                    "snapshot_label": str(label),
-                },
-                annotation_source=item.get("annotation_source", "existing_yolo_label"),
-                human_reviewed=item.get("human_reviewed", False),
+                source={"path": str(image.resolve()), "original_split": relative.parts[0]},
+                label_path=label if label.exists() and image.resolve() not in upgraded_sources else None,
+                annotation_source="existing_yolo_port_label",
             )
-            upgraded_sources.add(original)
             registered += 1
 
-    historical = root / "yolo_port/images"
-    for image in sorted(historical.rglob("*")) if historical.exists() else []:
-        if not image.is_file() or image.suffix.lower() not in IMAGE_SUFFIXES:
-            continue
-        relative = image.relative_to(historical)
-        label = root / "yolo_port/labels" / relative.with_suffix(".txt")
-        register_image(
-            image,
-            library_root=library,
-            source={"path": str(image.resolve()), "original_split": relative.parts[0]},
-            label_path=label if label.exists() and image.resolve() not in upgraded_sources else None,
-            annotation_source="existing_yolo_port_label",
-        )
-        registered += 1
-
-    for directory in CAPTURE_ROOTS:
+    for directory in CAPTURE_ROOTS if include_history else CAPTURE_ROOTS[:2]:
         folder = root / directory
         if not folder.exists():
             continue
@@ -131,7 +132,11 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
             ):
                 continue
             original = image.parent.name == "images"
-            raw_check = directory.endswith("d415_preview_upgrade") and image.name.startswith("raw_")
+            raw_check = (
+                include_history
+                and directory.endswith("d415_preview_upgrade")
+                and image.name.startswith("raw_")
+            )
             if original or raw_check:
                 register_image(
                     image,
@@ -258,8 +263,15 @@ def main(argv=None):
     suggestions.add_argument(
         "--no-suggestions", action="store_true", help="Draw boxes manually without loading YOLO"
     )
+    parser.add_argument("--import-history", action="store_true", help="显式导入旧标签快照及历史诊断目录")
     args = parser.parse_args(argv)
-    print(json.dumps(sync_library(ROOT, args.library, args.source), ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            sync_library(ROOT, args.library, args.source, include_history=args.import_history),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     if args.review:
         weights = (
             None

@@ -139,7 +139,7 @@ def prepare_training(
     if synchronize:
         from ev_charging.datasets.vision.prepare_port_library import sync_library
 
-        synchronization = sync_library(root=root, library=library)
+        synchronization = sync_library(root=root, library=library, include_history=False)
     ready = validate_library(library)
     split_policy, assignments = auto_assign_groups(ready, split_path)
     with _lock(split_path.parent):

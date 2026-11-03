@@ -189,7 +189,8 @@ def _retry_session(session_path, library_root, *, attempts, attempt_budget):
     if metadata.get("training_library_enabled") is False:
         return {"imported": 0, "pending_sync": 0, "skipped": True}
     state_path = session / "intake.json"
-    if state_path.exists():
+    dirty = not state_path.exists()
+    if not dirty:
         state = _json(state_path)
         if (
             state.get("schema_version") != 1
@@ -205,10 +206,15 @@ def _retry_session(session_path, library_root, *, attempts, attempt_budget):
             "items": {},
         }
     for saved in manifest["frames"]:
-        state["items"].setdefault(
-            saved["image_sha256"], {"image": saved["image"], "status": "pending", "attempts": 0}
-        )
-    atomic_capture_json(state_path, state)
+        if saved["image_sha256"] not in state["items"]:
+            state["items"][saved["image_sha256"]] = {
+                "image": saved["image"],
+                "status": "pending",
+                "attempts": 0,
+            }
+            dirty = True
+    if dirty:
+        atomic_capture_json(state_path, state)
     for saved in manifest["frames"]:
         item = state["items"][saved["image_sha256"]]
         if item["status"] == "imported":
@@ -250,6 +256,7 @@ class CaptureIntake:
         self._lock = threading.Lock()
         self._seen = set()
         self._attempt_budget = {}
+        self._record_cache = {}
         self._closed = False
         self._status = dict(
             queued=0,
@@ -374,7 +381,7 @@ class CaptureIntake:
                 self._status["queued"] -= 1
                 self._status["save_ms"].append((time.monotonic() - started) * 1000)
 
-    def _refresh(self, *, attempts):
+    def _refresh(self, *, attempts, force=False):
         if self.library is None:
             return
         result = retry_session(
@@ -387,10 +394,20 @@ class CaptureIntake:
         annotations = groups = 0
         for frame in manifest["frames"]:
             record = self.library / "records" / f"{frame['image_sha256']}.json"
-            if record.exists():
-                entry = _json(record)
-                annotations += entry["status"] in {"pending", "conflict"}
-                groups += entry["status"] != "excluded" and group_for(entry, split) not in split["groups"]
+            try:
+                stat = record.stat()
+            except FileNotFoundError:
+                self._record_cache.pop(record, None)
+                continue
+            signature = (stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino)
+            cached = self._record_cache.get(record)
+            if force or cached is None or cached[0] != signature:
+                cached = (signature, _json(record))
+                self._record_cache[record] = cached
+            # This cache is only for displayed counts; registration still verifies source bytes.
+            entry = cached[1]
+            annotations += entry["status"] in {"pending", "conflict"}
+            groups += entry["status"] != "excluded" and group_for(entry, split) not in split["groups"]
         self._update(
             imported=result["imported"],
             pending_sync=result["pending_sync"],
@@ -403,7 +420,7 @@ class CaptureIntake:
         if self.library is None:
             return
         try:
-            self._refresh(attempts=2)
+            self._refresh(attempts=2, force=True)
             manifest = _json(self.session.path / "manifest.json")
             if self.poll()["imported"]:
                 from ev_charging.datasets.vision.prepare_port_library import write_review

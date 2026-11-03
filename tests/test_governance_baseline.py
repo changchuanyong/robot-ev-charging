@@ -1,6 +1,7 @@
 """Frozen images, control decisions and capture integrity before governance."""
 
 import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -103,8 +104,63 @@ class CaptureIntegrityTests(unittest.TestCase):
         self.assertEqual((result["imported"], result["pending_sync"]), (0, 1))
         self.assertIn("capture_file_hash_mismatch", result["errors"][0])
 
+    def test_completed_retry_does_not_rewrite_state(self):
+        intake.retry_session(self.session.path, self.library)
+        with patch.object(intake, "atomic_capture_json", wraps=intake.atomic_capture_json) as write:
+            result = intake.retry_session(self.session.path, self.library)
+        self.assertEqual(result["imported"], 1)
+        write.assert_not_called()
+
+    def test_display_cache_detects_changes_and_forces_final_refresh(self):
+        intake.retry_session(self.session.path, self.library)
+        worker = intake.CaptureIntake(self.session, self.library)
+        self.addCleanup(worker.close)
+        worker._pool.submit(lambda: None).result()
+        worker._refresh(attempts=1)
+        record = self.library / "records" / f"{self.saved['image_sha256']}.json"
+        with patch.object(intake, "_json", wraps=intake._json) as read:
+            worker._refresh(attempts=1)
+        self.assertNotIn(record, [Path(call.args[0]) for call in read.call_args_list])
+        entry = json.loads(record.read_bytes())
+        entry["status"] = "excluded"
+        record.write_text(json.dumps(entry), encoding="utf-8")
+        worker._refresh(attempts=1)
+        self.assertEqual(worker.poll()["pending_annotation"], 0)
+        with patch.object(intake, "_json", wraps=intake._json) as read:
+            worker._refresh(attempts=1, force=True)
+        self.assertIn(record, [Path(call.args[0]) for call in read.call_args_list])
+
+    def test_daily_sync_excludes_legacy_sources_but_explicit_import_preserves_them(self):
+        from ev_charging.datasets.vision.prepare_port_library import sync_library
+
+        original = self.root / "yolo_port/images/train/old.png"
+        original.parent.mkdir(parents=True)
+        original.write_bytes((self.session.path / self.saved["image"]).read_bytes())
+        self.assertEqual(sync_library(self.root, self.library, include_history=False)["unique_images"], 0)
+        self.assertEqual(sync_library(self.root, self.library, include_history=True)["unique_images"], 1)
+        self.assertTrue(original.is_file())
+
 
 class TrainingCoverageTests(unittest.TestCase):
+    def test_training_preparation_requests_daily_sync(self):
+        from ev_charging.training.train_port import prepare_training
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            weights = root / "initial.pt"
+            weights.write_bytes(b"fixture")
+            with patch("ev_charging.datasets.vision.prepare_port_library.sync_library") as sync:
+                with patch(
+                    "ev_charging.training.train_port.validate_library", side_effect=ValueError("fixture stop")
+                ):
+                    with self.assertRaisesRegex(ValueError, "fixture stop"):
+                        prepare_training(
+                            root=root,
+                            weights=weights,
+                            expected_weights_sha256=hashlib.sha256(b"fixture").hexdigest(),
+                        )
+            self.assertFalse(sync.call_args.kwargs["include_history"])
+
     def test_missing_and_unplanned_batches_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             audit = CoverageAudit(directory, {"entries": [{"split": "train", "image": "a.png"}]})

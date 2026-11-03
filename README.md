@@ -174,6 +174,8 @@ python -m ev_charging.capture.intake
 
 离线检测框页面的导出与回写：
 
+日常同步和训练准备只扫描当前采集目录。需要重新导入旧标签快照及历史诊断目录时，显式运行 `python -m ev_charging.datasets.vision.prepare_port_library --import-history`；原始文件不会被删除。
+
 ```powershell
 python -m ev_charging.datasets.vision.prepare_port_library --review artifacts/port_library_review.html
 Start-Process artifacts/port_library_review.html
