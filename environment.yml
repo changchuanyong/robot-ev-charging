@@ -1,0 +1,12 @@
+name: ev-charging
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12.16
+  - pip
+  - tk
+  - setuptools=84.2.1
+  - wheel=0.48.0
+  - pip:
+      - -r environments/pip.lock.txt

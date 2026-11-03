@@ -11,7 +11,7 @@
 环境：**Windows · Python 3.12 · Conda**。以下命令均在项目根目录运行。
 
 ```powershell
-conda activate ev-vision
+conda activate ev-charging
 ```
 
 <details>
@@ -20,11 +20,16 @@ conda activate ev-vision
 在 Anaconda Prompt 中运行：
 
 ```powershell
-conda env create --format environment-yaml -f environment-vision.yml
-conda activate ev-vision
+conda env create --format environment-yaml -f environment.yml
+conda activate ev-charging
+python -m pip install --no-deps --no-build-isolation -e .
 ```
 
-环境定义见 [environment-vision.yml](environment-vision.yml)，依赖版本见 [vision-pip.lock.txt](environments/vision-pip.lock.txt)。
+环境定义见 [environment.yml](environment.yml)，依赖版本见 [pip.lock.txt](environments/pip.lock.txt)。
+
+统一使用 `ev-charging` 环境，包含视觉、训练、设备 SDK 和 MuJoCo。NumPy 固定为 2.4.3；旧的 `ev-vision`、`ev-sim` 环境保留用于回退。本工程提供控制状态机的软件仿真，未包含其他工程副本中的 MuJoCo 场景代码。
+
+源码采用 `src` 布局，首次创建环境后需要执行上面的可编辑安装；随后源码修改直接生效。环境与包安装说明见 [环境说明](docs/environment.md)。
 
 </details>
 
@@ -32,13 +37,13 @@ conda activate ev-vision
 
 | 步骤 | 命令 | 完成标志 |
 | --- | --- | --- |
-| ① 预览与拍照 | `python -m vision.launch vision.capture.preview --depth` | F5 保存，Esc 退出；查看本批摘要 |
-| ② 复核检测框 | `python -m vision.review.review_library` | 人工确认待标注图片 |
-| ③ 训练检测器 | `python train/python/train_port.py` | 训练完成，发布当前模型 |
-| ④ 离线自检 | `python -m vision.check_project` | 查看错误、警告和数据待办 |
+| ① 预览与拍照 | `python -m ev_charging.vision.launch ev_charging.capture.preview --depth` | F5 保存，Esc 退出；查看本批摘要 |
+| ② 复核检测框 | `python -m ev_charging.review.review_library` | 人工确认待标注图片 |
+| ③ 训练检测器 | `python -m ev_charging.training.train_port` | 训练完成，发布当前模型 |
+| ④ 离线自检 | `python -m ev_charging.vision.check_project` | 查看错误、警告和数据待办 |
 
-- 需要标注九孔中心时，运行 `python -m vision.review.review_keypoints`；孔位标注与检测框标签分别保存。
-- Windows 相机入口通过 `vision.launch` 申请进程权限，可能弹出 UAC；是否启动成功以新窗口为准。
+- 需要标注九孔中心时，运行 `python -m ev_charging.review.review_keypoints`；孔位标注与检测框标签分别保存。
+- Windows 相机入口通过 `ev_charging.vision.launch` 申请进程权限，可能弹出 UAC；是否启动成功以新窗口为准。
 - 自检不连接相机或机器人；程序默认不驱动机器人。
 
 ### 采集快捷键
@@ -71,30 +76,38 @@ D415 默认预览为 **1920×1080 / 30 fps**，纯 RGB 采集为 **1280×720 / 1
 
 ```powershell
 # RGB 数据采集
-python -m vision.launch vision.capture.collect --config config/data_capture_d435.json --serial "实际完整序列号" --batch d435_session01
+python -m ev_charging.vision.launch ev_charging.capture.collect --config config/data_capture_d435.json --serial "实际完整序列号" --batch d435_session01
 
 # 定位入口
-python -m vision.launch vision.locate.run --config config/realsense_config.json
+python -m ev_charging.vision.launch ev_charging.vision.locate.run --config config/realsense_config.json
 ```
 
 ## 目录结构
 
 ```text
-vision/
-├── capture/       # 采集、预览、会话保存、补入库、相机
-├── algorithms/    # 增强、轮廓、中心拟合、孔位关联、PnP
-├── review/        # 检测框 / 九孔复核与页面
-├── library/       # 图库、来源映射、同步与分组
-├── evaluation/    # 批量评估、人工点对比、图库诊断
-├── locate/        # D435 定位与诊断
-└── calibration/   # 标定与深度诊断
-train/python/      # 检测器 / 力觉模型训练、布局拟合
-control/           # 插装控制、实验管理、软件仿真
-config/            # 设备、模型、训练与实验配置
-dataset/vision/    # 原图、深度、标签、相机参数、来源记录
-runs/              # 训练快照、权重、指标与报告
-artifacts/         # 原始采集会话、诊断与验证输出
+src/ev_charging/
+├── vision/         # algorithms、calibration、evaluation、locate 与视觉流水线
+├── control/        # 插装控制、实验管理、软件仿真
+├── hardware/       # RealSense 相机与 RealMan 机械臂适配
+├── capture/        # 采集、预览、会话保存与补入库
+├── review/         # 检测框 / 九孔复核及 HTML 页面
+├── datasets/       # vision 图库、来源、分组及 force 力觉数据处理
+├── training/       # 检测器 / GRU 训练与布局拟合
+├── paths.py        # 源码资源与工程数据目录定位
+├── runtime.py      # 运行环境与缓存配置
+└── file_io.py      # 共用原子 JSON 写入
+config/             # 设备、模型、训练与实验配置
+dataset/vision/     # 原图、深度、标签、相机参数、来源记录
+runs/               # 训练快照、权重、指标与报告
+artifacts/          # 原始采集会话、诊断与验证输出
+tests/              # 离线回归测试
+docs/               # 架构与环境说明
+environments/       # Conda 与 pip 精确版本清单
+environment.yml     # 统一环境入口
+pyproject.toml      # 包构建、依赖与命令入口
 ```
+
+模块迁移对应关系见 [架构说明](docs/architecture.md)。旧的 `vision.*`、`control.*` 和 `train/python/*.py` 命令已迁移为上文的 `ev_charging.*` 入口。
 
 ## 进阶用法
 
@@ -105,16 +118,16 @@ artifacts/         # 原始采集会话、诊断与验证输出
 
 ```powershell
 # 查看设备型号与序列号
-python -m vision.launch vision.capture.collect --list-devices
+python -m ev_charging.vision.launch ev_charging.capture.collect --list-devices
 
 # 记录验证集批次和样件
-python -m vision.launch vision.capture.preview --depth --batch d415_val01 --specimen print_val01 --split val
+python -m ev_charging.vision.launch ev_charging.capture.preview --depth --batch d415_val01 --specimen print_val01 --split val
 
 # 仅采 RGB
-python -m vision.launch vision.capture.collect --batch d415_session01 --split train
+python -m ev_charging.vision.launch ev_charging.capture.collect --batch d415_session01 --split train
 
 # 补同步未完成入库的会话
-python -m vision.capture.intake
+python -m ev_charging.capture.intake
 ```
 
 | 选项 | 用途 |
@@ -126,7 +139,7 @@ python -m vision.capture.intake
 | `--split test --no-library` | 独立 test 采集，避免进入训练图库 |
 | intake 的 `--session "会话目录"` | 只补同步指定会话 |
 
-管理员终端可直接运行 `python -m vision.capture.preview --depth`。未检测到目标或 PnP 失败仍可保存；新图待人工复核，不自动成为负样本。
+管理员终端可直接运行 `python -m ev_charging.capture.preview --depth`。未检测到目标或 PnP 失败仍可保存；新图待人工复核，不自动成为负样本。
 
 预览会话保存在 `artifacts/d415_preview/<会话>/`，纯 RGB 会话在 `artifacts/captures/<会话>/`：
 
@@ -146,12 +159,12 @@ python -m vision.capture.intake
 
 | 操作 | 命令 |
 | --- | --- |
-| 同步已有图片 | `python -m vision.library.prepare_port_library` |
-| 查看图库状态 | `python -m vision.library.training_library status` |
-| 校验图片、标签和哈希 | `python -m vision.library.training_library validate` |
-| 检查深度绑定 | `python -m vision.library.training_library depth-status` |
-| 检查 / 保存相机参数 | `python -m vision.library.training_library calibration-status` / `preserve-calibrations` |
-| 只复核一批检测框 | `python -m vision.review.review_library --session "会话目录"` |
+| 同步已有图片 | `python -m ev_charging.datasets.vision.prepare_port_library` |
+| 查看图库状态 | `python -m ev_charging.datasets.vision.training_library status` |
+| 校验图片、标签和哈希 | `python -m ev_charging.datasets.vision.training_library validate` |
+| 检查深度绑定 | `python -m ev_charging.datasets.vision.training_library depth-status` |
+| 检查 / 保存相机参数 | `python -m ev_charging.datasets.vision.training_library calibration-status` / `preserve-calibrations` |
+| 只复核一批检测框 | `python -m ev_charging.review.review_library --session "会话目录"` |
 | 只打印复核页地址 | 复核命令追加 `--no-browser` |
 
 - 检测框需人工确认；草稿可恢复，版本冲突时先刷新。
@@ -162,16 +175,16 @@ python -m vision.capture.intake
 离线检测框页面的导出与回写：
 
 ```powershell
-python -m vision.library.prepare_port_library --review artifacts/port_library_review.html
+python -m ev_charging.datasets.vision.prepare_port_library --review artifacts/port_library_review.html
 Start-Process artifacts/port_library_review.html
-python -m vision.library.training_library annotate --review-json "已导出的框标注.json"
+python -m ev_charging.datasets.vision.training_library annotate --review-json "已导出的框标注.json"
 ```
 
 九孔离线页面：传 `--manifest` 绑定已结束的采集会话；历史图片改用 `--selection` 与 `--batch-report`。可加 `--annotations` 恢复已有复核内容，两种来源不可混用。
 
 ```powershell
-python -m vision.review.prepare_keypoint_review --manifest "会话目录/manifest.json"
-python -m vision.review.prepare_keypoint_review --selection config/vision_annotation_pilot.json --batch-report "历史批处理报告.json" --output-dir artifacts/keypoint_review
+python -m ev_charging.review.prepare_keypoint_review --manifest "会话目录/manifest.json"
+python -m ev_charging.review.prepare_keypoint_review --selection config/vision_annotation_pilot.json --batch-report "历史批处理报告.json" --output-dir artifacts/keypoint_review
 ```
 
 </details>
@@ -186,17 +199,17 @@ python -m vision.review.prepare_keypoint_review --selection config/vision_annota
 
 ```powershell
 # 查看待分组项；需要时明确指定用途
-python -m vision.library.dataset_split --list-pending
-python -m vision.library.dataset_split --assign-group "实际group_id" --split train
+python -m ev_charging.datasets.vision.dataset_split --list-pending
+python -m ev_charging.datasets.vision.dataset_split --assign-group "实际group_id" --split train
 
 # 只准备数据快照，不训练
-python train/python/train_port.py --prepare-only
+python -m ev_charging.training.train_port --prepare-only
 
 # 指定训练参数
-python train/python/train_port.py --epochs 40 --batch 32 --workers 4 --device 0
+python -m ev_charging.training.train_port --epochs 40 --batch 32 --workers 4 --device 0
 
 # 使用某轮训练导出的模型配置
-python -m vision.launch vision.capture.preview --depth --vision-config "runs/本轮目录/preview_config.json"
+python -m ev_charging.vision.launch ev_charging.capture.preview --depth --vision-config "runs/本轮目录/preview_config.json"
 ```
 
 训练支持 `--no-amp` 和 `--workers 0`。AMP 自检失败时使用 FP32；环境不支持多进程时回退到单进程。实际参数、逐轮覆盖和指标保存在训练报告中；缓存写入项目内 `.cache/`。
@@ -208,13 +221,13 @@ python -m vision.launch vision.capture.preview --depth --vision-config "runs/本
 
 ```powershell
 # 评估已确认的图库孔位
-python -m vision.evaluation.evaluate_library_keypoints --annotations "已复核孔位.json" --output-dir artifacts/keypoint_eval_first
+python -m ev_charging.vision.evaluation.evaluate_library_keypoints --annotations "已复核孔位.json" --output-dir artifacts/keypoint_eval_first
 
 # 使用相同标注和权重比较算法版本
-python -m vision.evaluation.evaluate_library_keypoints --annotations artifacts/keypoint_eval_first/annotations.json --output-dir artifacts/keypoint_eval_second --baseline artifacts/keypoint_eval_first/report.json
+python -m ev_charging.vision.evaluation.evaluate_library_keypoints --annotations artifacts/keypoint_eval_first/annotations.json --output-dir artifacts/keypoint_eval_second --baseline artifacts/keypoint_eval_first/report.json
 
 # 历史图片批量诊断
-python -m vision.evaluation.batch_pipeline_eval --max-images 50
+python -m ev_charging.vision.evaluation.batch_pipeline_eval --max-images 50
 ```
 
 - 输出目录必须是新目录；报告含逐孔诊断、叠加图和参考来源，对比模式另存比较报告。
@@ -223,9 +236,9 @@ python -m vision.evaluation.batch_pipeline_eval --max-images 50
 
 | 其他检查 | 查看参数 |
 | --- | --- |
-| 检测框是否覆盖人工孔位 | `python -m vision.evaluation.check_reviewed_detection_labels --help` |
-| 人工点求解 / 带标注比较 / 批量结果比较 | `python -m vision.evaluation.evaluate_keypoint_annotations --help` |
-| 重复标注一致性 | `python -m vision.review.keypoint_annotations repeatability --help` |
+| 检测框是否覆盖人工孔位 | `python -m ev_charging.vision.evaluation.check_reviewed_detection_labels --help` |
+| 人工点求解 / 带标注比较 / 批量结果比较 | `python -m ev_charging.vision.evaluation.evaluate_keypoint_annotations --help` |
+| 重复标注一致性 | `python -m ev_charging.review.keypoint_annotations repeatability --help` |
 
 </details>
 
@@ -233,20 +246,20 @@ python -m vision.evaluation.batch_pipeline_eval --max-images 50
 <summary>软件仿真、实验与力觉工具</summary>
 
 ```powershell
-python -m control.simulate --scenario nominal
-python -m control.simulate --scenario overload --output artifacts/sim_overload.jsonl
-python -m control.simulate replay --input "任务日志.jsonl"
-python -m control.simulate admittance --output artifacts/admittance_report.json
+python -m ev_charging.control.simulate --scenario nominal
+python -m ev_charging.control.simulate --scenario overload --output artifacts/sim_overload.jsonl
+python -m ev_charging.control.simulate replay --input "任务日志.jsonl"
+python -m ev_charging.control.simulate admittance --output artifacts/admittance_report.json
 ```
 
-仿真使用合成数据，不访问硬件。场景覆盖阻塞、过载、过期反馈等；完整场景及 `--method`、`--model` 参数见 `python -m control.simulate --help`。
+仿真使用合成数据，不访问硬件。场景覆盖阻塞、过载、过期反馈等；完整场景及 `--method`、`--model` 参数见 `python -m ev_charging.control.simulate --help`。
 
 | 工具 | 入口 |
 | --- | --- |
-| 力觉数据准备 | `python -m control.force_dataset --help` |
-| GRU 训练、评价、验收与演示 | `python train/python/train_force_gru.py --help` |
-| 实验配置、排程与统计 | `python -m control.experiments --help` |
-| 风险约束 | `python -m control.risk --help` |
+| 力觉数据准备 | `python -m ev_charging.datasets.force --help` |
+| GRU 训练、评价、验收与演示 | `python -m ev_charging.training.train_force_gru --help` |
+| 实验配置、排程与统计 | `python -m ev_charging.control.experiments --help` |
+| 风险约束 | `python -m ev_charging.control.risk --help` |
 
 正式实验需冻结当前配置和源码指纹；训练完成或合成仿真通过不代表真机验收。
 
@@ -257,8 +270,8 @@ python -m control.simulate admittance --output artifacts/admittance_report.json
 
 | 现象 | 检查方式 |
 | --- | --- |
-| 相机权限错误 | 使用 `vision.launch`，确认 UAC；启动结果查看新窗口 |
-| 保存排队 / 入库待同步 | 等待退出摘要，必要时运行 `vision.capture.intake` |
+| 相机权限错误 | 使用 `ev_charging.vision.launch`，确认 UAC；启动结果查看新窗口 |
+| 保存排队 / 入库待同步 | 等待退出摘要，必要时运行 `ev_charging.capture.intake` |
 | 训练被阻止 | 检查待标注图片、分组冲突及哈希；不要强行跳过 |
 | 相机参数缺失 | 运行 `calibration-status` 检查来源；RGB 框训练与几何验收分别判断 |
 | CUDA DLL 被系统拦截 | 检查 Windows 应用控制策略及获准的依赖构建 |

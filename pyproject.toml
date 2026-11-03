@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robot-ev-charging"
+version = "0.1.0"
+description = "Vision, training and force control for robotic EV charging research"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=2,<3",
+    "opencv-python>=4.13,<5",
+    "torch>=2.14,<2.15",
+    "torchvision>=0.29,<0.30",
+    "ultralytics>=8.4,<9",
+    "pyrealsense2>=2.59,<3",
+    "robotic-arm==1.1.6",
+    "mujoco==3.17.0",
+    "pillow>=13,<14",
+]
+
+[project.optional-dependencies]
+dev = ["ruff==0.17.3"]
+
+[project.scripts]
+ev-check = "ev_charging.vision.check_project:main"
+ev-train-port = "ev_charging.training.train_port:main"
+ev-review-keypoints = "ev_charging.review.review_keypoints:main"
+ev-review-library = "ev_charging.review.review_library:main"
+ev-control-sim = "ev_charging.control.simulate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"ev_charging.review" = ["*.html"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+src = ["src"]
+cache-dir = ".cache/ruff"
+extend-exclude = ["artifacts", "build", "dataset", "runs"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ev_charging"]
+
+[tool.ruff.lint.per-file-ignores]
+# Cache directories must be configured before importing Ultralytics.
+"src/ev_charging/training/train_port.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "cr-lf"

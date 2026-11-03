@@ -1,12 +1,12 @@
-# ARCHIVED: superseded by environments/vision-pip.lock.txt (conda env `ev-vision`).
+# ARCHIVED: superseded by environments/pip.lock.txt (conda env `ev-charging`).
 # The lock pins these five packages plus all transitive dependencies with the same
-# versions; create the environment from environment-vision.yml, not from this file.
+# versions; create the environment from environment.yml, not from this file.
 #
 # Original pre-conda tiers, kept here as a record since their content is duplicated
 # in the lock:
 #   requirements-control.txt = this file + pyrealsense2==2.59.1.11053 + Robotic_Arm==1.1.6
 #   requirements-gpu.txt     = torch/torchvision cu132 wheels (the two pinned URLs
-#                              in vision-pip.lock.txt carry the same version + SHA256)
+#                              in pip.lock.txt carry the same version + SHA256)
 ultralytics==8.4.189
 torch==2.14.1
 torchvision==0.29.1

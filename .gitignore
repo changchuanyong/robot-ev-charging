@@ -12,7 +12,7 @@ __pycache__/
 Thumbs.db
 desktop.ini
 
-# Third-party caches: train/python/runtime_env.py redirects YOLO_CONFIG_DIR,
+# Third-party caches: src/ev_charging/runtime.py redirects YOLO_CONFIG_DIR,
 # MPLCONFIGDIR and the temporary directory into .cache/ so a training run never
 # writes outside the project.
 .cache/
@@ -41,7 +41,7 @@ artifacts/
 # labels and records stay under dataset/vision/labels and dataset/vision/records.
 dataset/vision/review_drafts.json
 
-# Process-safe lock state written by vision/library/training_library.py::_lock: the
+# Process-safe lock state written by src/ev_charging/datasets/vision/training_library.py::_lock: the
 # guard file must persist, and .intake/ / .intake-retry/ are lock roots.
 .library.guard
 .intake/
@@ -59,3 +59,8 @@ CLAUDE.md
 *.pdb
 *.ilk
 *.exe
+
+# Python package build products
+build/
+dist/
+*.egg-info/

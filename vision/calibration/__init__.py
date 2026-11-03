@@ -1,1 +1,0 @@
-﻿"""Calibration and geometry checks."""
