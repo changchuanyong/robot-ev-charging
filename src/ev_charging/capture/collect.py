@@ -18,8 +18,8 @@ from threading import Condition, Event, RLock, Thread
 import cv2
 import numpy as np
 
+from ev_charging.hardware.realsense import stream_camera as _stream_camera
 from ev_charging.paths import PROJECT_ROOT
-from ev_charging.vision.contracts import intrinsics_signature, validate_camera
 from ev_charging.vision.launch import ensure_camera_privilege
 
 ROOT = PROJECT_ROOT
@@ -345,38 +345,15 @@ class CaptureColorCamera:
             if actual_serial != serial or name.split()[-1] != model:
                 raise ValueError("启动后的相机身份与指定型号/序列号不一致")
             color = profile.get_stream(rs.stream.color).as_video_stream_profile()
-            intrinsics = color.get_intrinsics()
-            if (intrinsics.width, intrinsics.height, color.fps(), color.format()) != (
-                self.config["width"],
-                self.config["height"],
-                self.config["fps"],
-                rs.format.bgr8,
-            ):
-                raise ValueError("实际彩色流配置与请求的分辨率、帧率或格式不一致")
-            self.camera = {
-                "stream": "color",
-                "serial": actual_serial,
-                "device_name": name,
-                "device_model": model,
-                "image_width": intrinsics.width,
-                "image_height": intrinsics.height,
-                "fps": color.fps(),
-                "pixel_format": "bgr8",
-                "camera_matrix": [
-                    [intrinsics.fx, 0, intrinsics.ppx],
-                    [0, intrinsics.fy, intrinsics.ppy],
-                    [0, 0, 1],
-                ],
-                "dist_coeffs": list(intrinsics.coeffs),
-                "distortion_model": intrinsics.model.name,
-                "source": "device_color_stream",
-                "validated": False,
-                "version": None,
-                "is_placeholder": False,
-                "is_approximate": False,
-            }
-            validate_camera(self.camera, (intrinsics.height, intrinsics.width, 3))
-            self.camera["intrinsics_sha256"] = intrinsics_signature(self.camera)
+            self.camera = _stream_camera(
+                color,
+                "color",
+                actual_serial,
+                name,
+                model,
+                expected=(self.config["width"], self.config["height"], self.config["fps"], rs.format.bgr8),
+                profile_error="实际彩色流配置与请求的分辨率、帧率或格式不一致",
+            )
             self._start_rgb_controls(device, rs)
             for _ in range(self.config["warmup_frames"]):
                 self.read()
@@ -428,32 +405,6 @@ def validate_depth_config(config):
     skew = config.get("max_pair_skew_ms")
     if isinstance(skew, bool) or not isinstance(skew, (int, float)) or not math.isfinite(skew) or skew <= 0:
         raise ValueError("invalid_max_pair_skew_ms")
-
-
-def _stream_camera(profile, stream, serial, name, model):
-    intrinsics = profile.get_intrinsics()
-    camera = {
-        "stream": stream,
-        "serial": serial,
-        "device_name": name,
-        "device_model": model,
-        "image_width": intrinsics.width,
-        "image_height": intrinsics.height,
-        "fps": profile.fps(),
-        "pixel_format": "bgr8" if stream == "color" else "z16",
-        "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx], [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
-        "dist_coeffs": list(intrinsics.coeffs),
-        "distortion_model": intrinsics.model.name,
-        "source": f"device_{stream}_stream",
-        "validated": False,
-        "version": None,
-        "is_placeholder": False,
-        "is_approximate": False,
-    }
-    # Validate matrix and distortion without claiming depth is an RGB stream.
-    validate_camera({**camera, "stream": "color"}, (intrinsics.height, intrinsics.width, 3))
-    camera["intrinsics_sha256"] = intrinsics_signature(camera)
-    return camera
 
 
 def _extrinsics(extrinsics):

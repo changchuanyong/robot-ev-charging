@@ -288,6 +288,7 @@ class PreviewSession:
             for name in (
                 "src/ev_charging/capture/preview.py",
                 "src/ev_charging/capture/collect.py",
+                "src/ev_charging/hardware/realsense.py",
                 "src/ev_charging/vision/launch.py",
                 "src/ev_charging/vision/locate/diagnose.py",
                 "src/ev_charging/vision/model_config.py",

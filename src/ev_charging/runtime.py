@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import os
 import shutil
+from contextlib import contextmanager
+from importlib import import_module
 from pathlib import Path
 
 from ev_charging.paths import PROJECT_ROOT
@@ -110,6 +112,18 @@ def serialise_label_scan() -> bool:
             module.ThreadPool = _SerialPool
             patched = True
     return patched
+
+
+@contextmanager
+def label_scan_scope():
+    """Restore upstream pools on every exit, including failed or interrupted training."""
+    modules = [import_module(name) for name in ("ultralytics.data.base", "ultralytics.data.dataset")]
+    previous = [(module, module.ThreadPool) for module in modules if hasattr(module, "ThreadPool")]
+    try:
+        yield serialise_label_scan()
+    finally:
+        for module, pool in previous:
+            module.ThreadPool = pool
 
 
 def configure_caches(root: Path | None = None) -> dict[str, object]:

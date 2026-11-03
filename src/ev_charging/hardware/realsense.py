@@ -16,6 +16,42 @@ from ev_charging.vision.contracts import FrameClock, FramePacket, intrinsics_sig
 from ev_charging.vision.launch import ensure_camera_privilege
 
 
+def stream_camera(
+    profile, stream, serial, name, model=None, *, expected=None, profile_error="stream_profile_mismatch"
+):
+    """Build original SDK metadata; calibration acceptance remains the caller's responsibility."""
+    intrinsics = profile.get_intrinsics()
+    if (
+        expected is not None
+        and (intrinsics.width, intrinsics.height, profile.fps(), profile.format()) != expected
+    ):
+        raise ValueError(profile_error)
+    camera = {
+        "stream": stream,
+        "serial": serial,
+        "device_name": name,
+        "device_model": model,
+        "image_width": intrinsics.width,
+        "image_height": intrinsics.height,
+        "fps": profile.fps(),
+        "pixel_format": "bgr8" if stream == "color" else "z16",
+        "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx], [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
+        "dist_coeffs": list(intrinsics.coeffs),
+        "distortion_model": intrinsics.model.name,
+        "source": f"device_{stream}_stream",
+        "validated": False,
+        "version": None,
+        "is_placeholder": False,
+        "is_approximate": False,
+    }
+    if model is None:
+        camera.pop("device_model")
+    # Validate matrix and distortion without claiming depth is an RGB stream.
+    validate_camera({**camera, "stream": "color"}, (intrinsics.height, intrinsics.width, 3))
+    camera["intrinsics_sha256"] = intrinsics_signature(camera)
+    return camera
+
+
 def validated_camera_override(sdk_camera: dict, config: dict) -> dict:
     """Apply only an explicitly reviewed calibration bound to this exact RGB profile."""
     value = config.get("intrinsics_override_file")
@@ -118,38 +154,23 @@ class RealSenseCamera:
                 if sensor.supports(rs.option.frames_queue_size):
                     sensor.set_option(rs.option.frames_queue_size, 1)
             video = profile.get_stream(rs.stream.color).as_video_stream_profile()
-            intrinsics = video.get_intrinsics()
-            if (intrinsics.width, intrinsics.height, video.fps(), video.format()) != (
-                int(self.config["width"]),
-                int(self.config["height"]),
-                int(self.config["fps"]),
-                rs.format.bgr8,
-            ):
-                raise ValueError("actual_D435_color_profile_differs_from_config")
-            model = intrinsics.model.name
-            self.camera = {
-                "stream": "color",
-                "serial": actual_serial,
-                "device_name": device_name,
-                "fps": video.fps(),
-                "pixel_format": "bgr8",
-                "image_width": intrinsics.width,
-                "image_height": intrinsics.height,
-                "camera_matrix": [
-                    [intrinsics.fx, 0, intrinsics.ppx],
-                    [0, intrinsics.fy, intrinsics.ppy],
-                    [0, 0, 1],
-                ],
-                "dist_coeffs": list(intrinsics.coeffs),
-                "distortion_model": model,
-                "is_placeholder": False,
-                "is_approximate": False,
-                "validated": bool(self.config.get("intrinsics_validated", False)),
-                "version": self.config.get("calibration_version"),
-                "source": "device_color_stream",
-            }
-            self.camera["intrinsics_sha256"] = intrinsics_signature(self.camera)
-            validate_camera(self.camera, (intrinsics.height, intrinsics.width, 3))
+            self.camera = stream_camera(
+                video,
+                "color",
+                actual_serial,
+                device_name,
+                expected=(
+                    int(self.config["width"]),
+                    int(self.config["height"]),
+                    int(self.config["fps"]),
+                    rs.format.bgr8,
+                ),
+                profile_error="actual_D435_color_profile_differs_from_config",
+            )
+            self.camera.update(
+                validated=bool(self.config.get("intrinsics_validated", False)),
+                version=self.config.get("calibration_version"),
+            )
             if self.config.get("intrinsics_override_file") is not None:
                 self.camera = validated_camera_override(self.camera, self.config)
             elif self.camera["validated"] and (

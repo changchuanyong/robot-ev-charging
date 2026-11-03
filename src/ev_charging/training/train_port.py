@@ -21,7 +21,7 @@ from ev_charging.paths import source_path as package_source
 ROOT_DIR = PROJECT_ROOT
 CONFIG_PATH = ROOT_DIR / "config" / "train_config.json"
 
-from ev_charging.runtime import configure_caches, serialise_label_scan
+from ev_charging.runtime import configure_caches, label_scan_scope
 
 # Before ultralytics/matplotlib import: they resolve their cache and font
 # directories at import time, and the user profile is not writable here.
@@ -505,109 +505,110 @@ def _check_local_amp(model, *, weights):
 
 
 def train_all(run, manifest, config, *, root=ROOT_DIR):
-    from ultralytics import YOLO, __version__
+    with label_scan_scope() as serial_scan:
+        from ultralytics import YOLO, __version__
 
-    run = Path(run)
-    audit = CoverageAudit(run, manifest)
-    label_scan = "serial" if serialise_label_scan() else "thread_pool"
-    if label_scan == "serial":
-        print("当前环境不能创建命名管道，标注扫描改为串行。", flush=True)
-    parameters = {key: config[key] for key in ("epochs", "imgsz", "batch", "device")}
-    device_info = validate_device(config["device"])
-    workers = config.get("workers", 4)
-    if label_scan == "serial" and workers:
-        print("当前环境不支持多进程管道，数据加载回退到 workers=0。", flush=True)
-        workers = 0
-    parameters.update(
-        workers=workers,
-        optimizer="AdamW",
-        lr0=0.0003,
-        cos_lr=True,
-        freeze=0,
-        seed=0,
-        deterministic=True,
-        patience=0,
-        fraction=1.0,
-        compile=False,
-        cache=False,
-        amp=config.get("amp", True),
-        plots=True,
-        save=True,
-        val=True,
-    )
-    _write_report(
-        run,
-        requested_epochs=parameters["epochs"],
-        training_parameters=parameters,
-        coverage_unit="primary_training_image",
-        runtime_cache=CACHE_DIRS,
-        label_scan=label_scan,
-        ultralytics_version=__version__,
-        python_version=sys.version,
-        device=device_info,
-    )
-    try:
-        _write_report(run, snapshot_before_model_load=verify_snapshot(run, manifest))
-        model = YOLO(run / "initial.pt")
-        for event, callback in (
-            ("on_pretrain_routine_end", audit.pretrain),
-            ("on_train_epoch_start", audit.start_epoch),
-            ("on_train_batch_end", audit.complete_batch),
-            ("on_train_epoch_end", audit.complete_epoch),
-            ("on_val_start", audit.start_validation),
-            ("on_val_batch_end", audit.complete_validation_batch),
-            ("on_val_end", audit.complete_validation),
-        ):
-            model.add_callback(event, callback)
-        # Keep Ultralytics' AMP enable/disable flow, replacing only its downloading probe.
-        with patch(
-            "ultralytics.engine.trainer.check_amp", partial(_check_local_amp, weights=run / "initial.pt")
-        ):
-            model.train(
-                trainer=_audited_trainer(),
-                data=str(run / "dataset.yaml"),
-                project=str(run.parent),
-                name=run.name,
-                exist_ok=True,
-                **parameters,
+        run = Path(run)
+        audit = CoverageAudit(run, manifest)
+        label_scan = "serial" if serial_scan else "thread_pool"
+        if label_scan == "serial":
+            print("当前环境不能创建命名管道，标注扫描改为串行。", flush=True)
+        parameters = {key: config[key] for key in ("epochs", "imgsz", "batch", "device")}
+        device_info = validate_device(config["device"])
+        workers = config.get("workers", 4)
+        if label_scan == "serial" and workers:
+            print("当前环境不支持多进程管道，数据加载回退到 workers=0。", flush=True)
+            workers = 0
+        parameters.update(
+            workers=workers,
+            optimizer="AdamW",
+            lr0=0.0003,
+            cos_lr=True,
+            freeze=0,
+            seed=0,
+            deterministic=True,
+            patience=0,
+            fraction=1.0,
+            compile=False,
+            cache=False,
+            amp=config.get("amp", True),
+            plots=True,
+            save=True,
+            val=True,
+        )
+        _write_report(
+            run,
+            requested_epochs=parameters["epochs"],
+            training_parameters=parameters,
+            coverage_unit="primary_training_image",
+            runtime_cache=CACHE_DIRS,
+            label_scan=label_scan,
+            ultralytics_version=__version__,
+            python_version=sys.version,
+            device=device_info,
+        )
+        try:
+            _write_report(run, snapshot_before_model_load=verify_snapshot(run, manifest))
+            model = YOLO(run / "initial.pt")
+            for event, callback in (
+                ("on_pretrain_routine_end", audit.pretrain),
+                ("on_train_epoch_start", audit.start_epoch),
+                ("on_train_batch_end", audit.complete_batch),
+                ("on_train_epoch_end", audit.complete_epoch),
+                ("on_val_start", audit.start_validation),
+                ("on_val_batch_end", audit.complete_validation_batch),
+                ("on_val_end", audit.complete_validation),
+            ):
+                model.add_callback(event, callback)
+            # Keep Ultralytics' AMP enable/disable flow, replacing only its downloading probe.
+            with patch(
+                "ultralytics.engine.trainer.check_amp", partial(_check_local_amp, weights=run / "initial.pt")
+            ):
+                model.train(
+                    trainer=_audited_trainer(),
+                    data=str(run / "dataset.yaml"),
+                    project=str(run.parent),
+                    name=run.name,
+                    exist_ok=True,
+                    **parameters,
+                )
+            if audit.completed_epochs != parameters["epochs"]:
+                raise ValueError("training_stopped_before_all_requested_epochs")
+            if audit.validation_passes < parameters["epochs"]:
+                raise ValueError("validation_coverage_missing_for_requested_epochs")
+            _write_report(run, snapshot_posttrain_check=verify_snapshot(run, manifest))
+            best = run / "weights/best.pt"
+            if not best.is_file():
+                raise ValueError("training_finished_without_best_weights")
+            preview = Path(root) / "config/d415.json"
+            preview_config = json.loads(preview.read_text(encoding="utf-8"))["vision"]
+            preview_config.pop("model_registry", None)
+            preview_config["description"] = (
+                f"YOLOv8n run {run.name}: {manifest['split_counts']['train']} train / "
+                f"{manifest['split_counts']['val']} development-val images, {audit.completed_epochs} epochs "
+                "from generic COCO pretrained weights. No independent test or hole-pose validation."
             )
-        if audit.completed_epochs != parameters["epochs"]:
-            raise ValueError("training_stopped_before_all_requested_epochs")
-        if audit.validation_passes < parameters["epochs"]:
-            raise ValueError("validation_coverage_missing_for_requested_epochs")
-        _write_report(run, snapshot_posttrain_check=verify_snapshot(run, manifest))
-        best = run / "weights/best.pt"
-        if not best.is_file():
-            raise ValueError("training_finished_without_best_weights")
-        preview = Path(root) / "config/d415.json"
-        preview_config = json.loads(preview.read_text(encoding="utf-8"))["vision"]
-        preview_config.pop("model_registry", None)
-        preview_config["description"] = (
-            f"YOLOv8n run {run.name}: {manifest['split_counts']['train']} train / "
-            f"{manifest['split_counts']['val']} development-val images, {audit.completed_epochs} epochs "
-            "from generic COCO pretrained weights. No independent test or hole-pose validation."
-        )
-        preview_config["weights"] = str(best.resolve())
-        preview_config["weights_sha256"] = sha256_file(best)
-        atomic_persist_json(run / "preview_config.json", preview_config)
-        _write_report(
-            run,
-            status="completed",
-            completed_epochs=audit.completed_epochs,
-            best_weights=str(best.resolve()),
-            best_weights_sha256=sha256_file(best),
-            preview_config=str((run / "preview_config.json").resolve()),
-        )
-        publish_current_model(best, root=root, training_report=run / "training_report.json")
-    except BaseException as exc:
-        _write_report(
-            run,
-            status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
-            error=f"{type(exc).__name__}: {exc}",
-            completed_epochs=audit.completed_epochs,
-        )
-        raise
-    return json.loads((run / "training_report.json").read_text(encoding="utf-8"))
+            preview_config["weights"] = str(best.resolve())
+            preview_config["weights_sha256"] = sha256_file(best)
+            atomic_persist_json(run / "preview_config.json", preview_config)
+            _write_report(
+                run,
+                status="completed",
+                completed_epochs=audit.completed_epochs,
+                best_weights=str(best.resolve()),
+                best_weights_sha256=sha256_file(best),
+                preview_config=str((run / "preview_config.json").resolve()),
+            )
+            publish_current_model(best, root=root, training_report=run / "training_report.json")
+        except BaseException as exc:
+            _write_report(
+                run,
+                status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
+                error=f"{type(exc).__name__}: {exc}",
+                completed_epochs=audit.completed_epochs,
+            )
+            raise
+        return json.loads((run / "training_report.json").read_text(encoding="utf-8"))
 
 
 def resolve_root_path(value: str | Path) -> Path:
