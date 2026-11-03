@@ -285,6 +285,36 @@ python -m control.risk --help
 
 视觉评价的 `annotations`、`labeled`、`batch` 分别对应人工点求解、带标注回归比较和批量结果比较，各自保留原统计口径。`control.force_dataset` 用 `--review-logs` 准备人工标签清单，用 `--annotations` 导出确认后的数据。力觉模型的训练、评价、验收和合成数据演示分别执行；训练不会自动通过真机验收。实验配置冻结、排程及统计统一由 `control.experiments` 提供。源码合并改变了代码指纹，新正式实验需按当前版本重新冻结，历史记录保留原指纹。
 
+#### 4.7.1 离线仿真
+
+`control.simulate` 用合成数据驱动完整控制状态机，不访问相机、机械臂或真实力传感器。默认场景 `nominal`：
+
+```powershell
+python -m control.simulate
+```
+
+指定场景或写任务日志：
+
+```powershell
+python -m control.simulate --scenario blocked
+python -m control.simulate --scenario overload --output artifacts/sim_overload.jsonl
+```
+
+可选场景（13 个）：`nominal`、`blocked`、`overload`、`stale`、`disconnect`、`no_contact`、`bad_vision`、`risk_outside`、`feedback_lag`、`period_jitter`、`trial_timeout`、`observation_drift`、`confirmation_blocked`。
+
+参数：`--config` 加载指定配置（默认合成配置，要求 `simulation_only`）；`--method` 切换控制方法；`--model` 指定 GRU 权重；`--output` 写 JSONL 任务日志。
+
+成功时输出 JSON 摘要，例如 `nominal` 的结果为 `success: true`、`reason: mechanical_insertion_complete`、`states: [PREALIGN, APPROACH, CONTACT, INSERT, COMPLETE]`。
+
+其他子命令：
+
+```powershell
+python -m control.simulate replay --input 任务日志.jsonl   # 重放记录，不访问硬件
+python -m control.simulate admittance --output 报告.json   # 导纳离散化检查
+```
+
+仿真是离线合成夹具，不是经过验证的连接器仿真器；结果只用于检查状态机与异常分支，不代表真实插装效果。
+
 ## 5. 工程信息
 
 ### 5.1 Git 跟踪
