@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "description": "Shared active YOLOv8n detector; camera calibration and control acceptance are configured separately.",
-  "weights": "runs/detect_split_20261102T013835Z_535a9a87/weights/best.pt",
-  "weights_sha256": "614113a75946fc1167fad1d8f53a53a30e57ad73ad1f61beb2b72472d908c332",
-  "training_run": "runs/detect_split_20261102T013835Z_535a9a87",
-  "training_report": "runs/detect_split_20261102T013835Z_535a9a87/training_report.json",
-  "training_report_sha256": "99ba965569e68cfd495d9a75ee01c6f10e7c0693feafd2097a56fb50cf110997",
+  "weights": "runs/detect_split_20261103T155909Z_11b8287a/weights/best.pt",
+  "weights_sha256": "29acab7f9dc750f883bc2ac87361e4f83f117ee11eabdb7cd63cdb4c8a4ea4bf",
+  "training_run": "runs/detect_split_20261103T155909Z_11b8287a",
+  "training_report": "runs/detect_split_20261103T155909Z_11b8287a/training_report.json",
+  "training_report_sha256": "588b24c6b4149ee9f8ad59695db065e08030c2298461200448d6f3960a636569",
   "evaluation": "held_out_development",
   "independent_validation": false,
-  "published_at": "2026-11-02T01:39:54.685328+00:00"
+  "published_at": "2026-11-03T16:00:34.326849+00:00"
 }
