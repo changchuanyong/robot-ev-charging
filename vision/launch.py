@@ -1,15 +1,15 @@
 """Run a vision entry point with SeSecurityPrivilege enabled (Windows).
 
 Usage:
-    run_vision.cmd -m vision.launch vision.preview --depth
+    python -m vision.launch vision.preview --depth
 
 The launcher re-launches itself through the UAC prompt when the current token is not
 elevated, enables the privilege inside the new process, and then runs the requested
 module exactly as ``python -m <module> <args...>`` would. Nothing is stored: the privilege
 lives only for that process. See README.md for the background.
 
-Using ``run_vision.cmd`` selects the Conda environment without a PowerShell
-activation script. The elevated child uses the same Python executable.
+Activate the Conda environment first (``conda activate ev-vision``); the
+elevated child uses the same Python executable.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ SE_PRIVILEGE_ENABLED = 0x0002
 ERROR_NOT_ALL_ASSIGNED = 1300
 PRIVILEGE = "SeSecurityPrivilege"
 
-HINT = (r"请用 run_vision.cmd -m vision.launch <相机模块> [原参数] 重新启动"
+HINT = (r"请用 python -m vision.launch <相机模块> [原参数] 重新启动"
         r"（相机模块为 vision.preview、vision.collect 或 vision.run），"
         r"或先打开管理员终端；两者都不修改系统安全策略。")
 
