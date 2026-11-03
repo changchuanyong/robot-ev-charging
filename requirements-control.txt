@@ -1,5 +1,0 @@
-# Verified Windows/Python 3.12 environment for control, calibration and training.
-# Install requirements-gpu.txt afterwards for the verified NVIDIA CUDA build.
--r requirements.txt
-pyrealsense2==2.59.1.11053
-Robotic_Arm==1.1.6

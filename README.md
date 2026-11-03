@@ -23,7 +23,7 @@
 
 本机 Anaconda 安装在 `C:\Users\admin\anaconda3`。可在 Navigator 的 Environments 中查看 `ev-vision`，或在 Anaconda Prompt 中执行 `conda activate ev-vision` 后使用 `python`。
 
-GPU 自检（历史输出为 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`；当前 Windows 应用控制拦截 CUDA DLL，新旧环境均受影响，GPU 验收暂未通过，见 [迁移记录](environments/MIGRATION.md)）：
+GPU 自检（历史输出为 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`；当前 Windows 应用控制拦截 CUDA DLL，新旧环境均受影响，GPU 验收暂未通过）：
 
 ```powershell
 python -c "import torch; print(torch.__version__, torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
@@ -160,6 +160,14 @@ python -m vision.launch vision.capture.collect --batch d415_session01 --split tr
 ```
 
 空格/S 保存，Q/Esc 退出，输出在 `artifacts/captures/`。纯 RGB 采集同样后台入库，复核时手动画框；省略 `--batch` 会生成唯一批次名。独立 test 采集使用 `--split test --no-library`。
+
+D435 后续采集继续使用独立配置 `config/data_capture_d435.json`，启动时填写实际设备的完整序列号：
+
+```powershell
+python -m vision.launch vision.capture.collect --config config/data_capture_d435.json --serial "实际完整序列号" --batch d435_session01
+```
+
+D435 定位仍使用 `vision.locate.run` 和 `config/realsense_config.json`；采集配置与定位配置分别保留。
 
 补同步入库：
 
@@ -327,14 +335,14 @@ python -m control.simulate admittance --output 报告.json   # 导纳离散化�
 | `vision/library/` | 图库、来源映射、同步、训练/验证分组 |
 | `vision/evaluation/` | 历史批量评估、人工点对比、当前图库诊断 |
 | `vision/locate/`、`vision/calibration/` | D435 定位、诊断与标定 |
-| `train/python/` | 检测器/力觉模型训练、布局拟合、运行环境及 Labelme 导入工具 |
+| `train/python/` | 检测器/力觉模型训练、布局拟合及运行环境 |
 | `control/` | 力觉与视觉插装控制、实验管理和软件仿真 |
 
 原 `live/python/` 的算法、评估与复核实现已迁入 `vision`，不再维护第二套脚本入口。迁移后的命令使用 `python -m vision.<子包>.<模块>`，上文命令已同步；外部保存的旧命令需要相应更新。原 `train/python/prepare_port_library.py`、`dataset_split.py` 位于 `vision/library/`；`evaluate_library_keypoints.py`、`check_reviewed_detection_labels.py` 位于 `vision/evaluation/`。
 
 `capture` 保留五个业务模块：`collect.py`、`preview.py`、`capture_session.py`、`intake.py`、`realsense.py`。RGB 控制并入采集，显示渲染并入预览；复核专用的暗孔补充逻辑并入 `keypoint_suggestions.py`。
 
-离线回归测试：`python -m unittest discover -s train/tests -p "test_*.py" -v`。源码迁移会改变新报告中的代码路径和哈希；历史采集清单、训练报告及人工标注保留原始内容。
+源码迁移会改变新报告中的代码路径和哈希；历史采集清单、训练报告及人工标注保留原始内容。
 
 ### 5.1 Git 跟踪
 
