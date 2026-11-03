@@ -19,20 +19,24 @@ from ev_charging.control.types import Decision
 from ev_charging.control.wrench import WrenchProcessor
 
 
-def preflight(config, *, probe_action=None):
+def _prepare_controller(config, *, probe_action=None):
     if not isinstance(config, dict):
-        return validate_config(config, hardware=True), None
+        return validate_config(config, hardware=True), None, None
     if probe_action is not None:
         try:
             config = prepare_probe(config, probe_action)
         except (ValueError, KeyError, TypeError) as exc:
-            return [str(exc)], None
+            return [str(exc)], None, None
     elif config.get("supervised_probe") is not None:
-        return [
-            "probe configuration requires explicit --probe-action; ordinary C/F execution cannot bypass GRU acceptance"
-        ], None
+        return (
+            [
+                "probe configuration requires explicit --probe-action; ordinary C/F execution cannot bypass GRU acceptance"
+            ],
+            None,
+            None,
+        )
     errors = validate_config(config, hardware=True, supervised_probe=probe_action is not None)
-    policy = None
+    policy = controller = None
     if not errors:
         try:
             if probe_action is not None:
@@ -54,7 +58,7 @@ def preflight(config, *, probe_action=None):
                     if acceptance.get(name) != expected:
                         errors.append(f"GRU hardware acceptance {name} mismatch")
                 policy = make_policy(config)
-            InsertionController(config, policy, probe_action=probe_action)
+            controller = InsertionController(config, policy, probe_action=probe_action)
             from ev_charging.hardware.realman import RealManRobot
 
             driver_config = hardware_config(config)
@@ -63,6 +67,12 @@ def preflight(config, *, probe_action=None):
             RealManRobot(driver_config)._validate_config()
         except (OSError, ValueError, RuntimeError, KeyError, TypeError, ImportError) as exc:
             errors.append(str(exc))
+    return errors, policy, controller
+
+
+def preflight(config, *, probe_action=None):
+    """Preserve the public errors/policy contract without connecting hardware."""
+    errors, policy, _ = _prepare_controller(config, probe_action=probe_action)
     return errors, policy
 
 
@@ -105,7 +115,7 @@ def run_device(
         if collect_only or collection_frame is not None:
             raise ValueError("supervised probes require explicit motion mode, not collection-only mode")
         config = prepare_probe(config, probe_action)
-    errors, policy = preflight(config, probe_action=probe_action)
+    errors, _policy, controller = _prepare_controller(config, probe_action=probe_action)
     if errors:
         raise ValueError("Preflight rejected:\n- " + "\n- ".join(errors))
     processor, task_rotation = None, None
@@ -124,7 +134,6 @@ def run_device(
     from ev_charging.hardware.realman import RealManRobot
 
     robot = RealManRobot(hardware_config(config))
-    controller = InsertionController(config, policy, probe_action=probe_action)
     stop_command_ack = False
     stop_feedback_confirmed = False
     failure = None

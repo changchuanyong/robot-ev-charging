@@ -246,6 +246,7 @@ def validate_config(config, *, hardware=False, supervised_probe=False):
         errors.append("method must be A, B, C, D, E, or F")
         return errors
     flags = METHODS[method]
+    defaults = simulation_config()
     if type(config.get("simulation_only")) is not bool:
         errors.append("simulation_only must be an explicit boolean")
     if hardware and config.get("simulation_only") is not False:
@@ -263,7 +264,7 @@ def validate_config(config, *, hardware=False, supervised_probe=False):
 
     number(config.get("period"), "period")
     for section in ("timing", "vision", "task", "scheduling"):
-        template = simulation_config()[section]
+        template = defaults[section]
         for name in template:
             value = config.get(section, {}).get(name)
             if name == "retreat_enabled":
@@ -278,7 +279,7 @@ def validate_config(config, *, hardware=False, supervised_probe=False):
                     errors.append(f"{section}.{name} must have {len(template[name])} positive entries")
             else:
                 number(value, f"{section}.{name}")
-    for name, expected in simulation_config()["limits"].items():
+    for name, expected in defaults["limits"].items():
         try:
             a = np.asarray(config["limits"][name], float)
             if a.shape != (len(expected),) or not np.isfinite(a).all():
