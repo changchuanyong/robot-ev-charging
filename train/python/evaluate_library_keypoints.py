@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from live.python.keypoint_annotations import validate_annotations
-from vision.review_keypoints import KeypointStore
+from vision.review.review_keypoints import KeypointStore
 
 SOURCES = ("vision/keypoint_suggestions.py", "live/python/observed_layout.py",
            "live/python/latest_candidate_contours.py", "live/python/center_fit.py", "live/python/enhance.py",

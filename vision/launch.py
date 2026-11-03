@@ -1,7 +1,7 @@
 """Run a vision entry point with SeSecurityPrivilege enabled (Windows).
 
 Usage:
-    python -m vision.launch vision.preview --depth
+    python -m vision.launch vision.capture.preview --depth
 
 The launcher re-launches itself through the UAC prompt when the current token is not
 elevated, enables the privilege inside the new process, and then runs the requested
@@ -23,11 +23,11 @@ from types import ModuleType
 
 LAUNCHER = "vision.launch"
 SW_SHOWNORMAL = 1
-MODULES = ("vision.preview", "vision.collect", "vision.run")
+MODULES = ("vision.capture.preview", "vision.capture.collect", "vision.locate.run")
 USAGE = ("用法: python -m vision.launch <相机模块> [参数...]\n"
          "支持: " + ", ".join(MODULES) + "\n"
-         "例如: python -m vision.launch vision.preview --depth\n"
-         "--help 与 vision.run --image 离线处理不申请管理员权限。")
+         "例如: python -m vision.launch vision.capture.preview --depth\n"
+         "--help 与 vision.locate.run --image 离线处理不申请管理员权限。")
 
 
 TOKEN_ADJUST_PRIVILEGES = 0x0020
@@ -37,7 +37,7 @@ ERROR_NOT_ALL_ASSIGNED = 1300
 PRIVILEGE = "SeSecurityPrivilege"
 
 HINT = (r"请用 python -m vision.launch <相机模块> [原参数] 重新启动"
-        r"（相机模块为 vision.preview、vision.collect 或 vision.run），"
+        r"（相机模块为 vision.capture.preview、vision.capture.collect 或 vision.locate.run），"
         r"或先打开管理员终端；两者都不修改系统安全策略。")
 
 _enabled = False
@@ -200,7 +200,7 @@ def main(argv=None) -> int:
         print(f"不支持的相机模块: {module}\n{USAGE}", file=sys.stderr)
         return 2
     offline = any(arg in ("-h", "--help") for arg in passthrough) or (
-        module == "vision.run" and any(
+        module == "vision.locate.run" and any(
             arg == "--image" or arg.startswith("--image=") for arg in passthrough))
     if not offline and sys.platform == "win32" and not is_elevated():
         return _relaunch(args)

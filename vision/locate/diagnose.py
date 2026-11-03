@@ -12,9 +12,9 @@ import sys
 import cv2
 import numpy as np
 
-from .contracts import distort_normalized, intrinsics_signature, rectify_points, validate_camera
-from .pipeline import PosePipeline, ROOT, select_detection
-from .model_config import resolve_model_config
+from ..contracts import distort_normalized, intrinsics_signature, rectify_points, validate_camera
+from ..pipeline import PosePipeline, ROOT, select_detection
+from ..model_config import resolve_model_config
 
 if str(ROOT / "live/python") not in sys.path:
     sys.path.insert(0, str(ROOT / "live/python"))
@@ -362,7 +362,7 @@ def main(argv=None):
     parser.add_argument("--manual-only", action="store_true")
     parser.add_argument("--output", type=Path, required=True, help="New file; existing reports are preserved")
     args = parser.parse_args(argv)
-    from .geometry_reference import load_geometry_reference
+    from ..geometry_reference import load_geometry_reference
     sessions = [validate_capture_annotations(path, args.root) for path in args.annotations]
     geometries = [load_geometry_reference(path) for path in args.geometry]
     config = resolve_model_config(json.loads(args.config.read_text(encoding="utf-8-sig")))

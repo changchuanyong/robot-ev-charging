@@ -11,10 +11,10 @@ from pathlib import Path
 import threading
 import time
 
-from .contracts import atomic_capture_json
-from .training_library import DEFAULT_LIBRARY, _lock, register_image
+from ..contracts import atomic_capture_json
+from ..library.training_library import DEFAULT_LIBRARY, _lock, register_image
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _json(path):

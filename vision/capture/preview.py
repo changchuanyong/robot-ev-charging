@@ -1,4 +1,4 @@
-"""D415 visual diagnostics: python -m vision.preview (F5 saves, F6 pauses, Esc exits)."""
+"""D415 visual diagnostics: python -m vision.capture.preview (F5 saves, F6 pauses, Esc exits)."""
 from __future__ import annotations
 
 import argparse
@@ -16,13 +16,13 @@ import cv2
 
 from .collect import (CaptureColorCamera, CaptureRGBDCamera, PreviewCapture, intake_status,
                       load_capture_config, print_intake_summary, validate_config)
-from .contracts import validate_camera
-from .diagnose import DiagnosticFrontend, solve_raw_points
-from .geometry_reference import load_geometry_reference
-from .pipeline import ROOT
+from ..contracts import validate_camera
+from ..locate.diagnose import DiagnosticFrontend, solve_raw_points
+from ..geometry_reference import load_geometry_reference
+from ..pipeline import ROOT
 from .preview_render import render_depth, render_preview
 from .capture_session import PreviewSession
-from .depth_diagnostic import analyze_depth
+from ..calibration.depth_diagnostic import analyze_depth
 
 
 WINDOW = "D415 Visual Diagnostics"

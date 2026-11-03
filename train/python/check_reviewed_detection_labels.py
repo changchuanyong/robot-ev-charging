@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT_DIR / "live" / "python"))
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 from keypoint_annotations import normalized_image_key, validate_annotations  # noqa: E402
-from vision.photo_sources import library_label, resolve_photo
+from vision.library.photo_sources import library_label, resolve_photo
 
 
 def detection_bbox(path: Path, width: int, height: int) -> list[float]:

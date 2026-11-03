@@ -88,8 +88,8 @@ def shape_to_bbox(shape: dict, img_w: int, img_h: int):
 def convert_to_library(input_dir, library=OUT_DIR, *, root=ROOT_DIR):
     if str(ROOT_DIR) not in sys.path:
         sys.path.insert(0, str(ROOT_DIR))
-    from vision.photo_sources import resolve_photo
-    from vision.training_library import normalize_label, read_entries, register_image, set_annotation
+    from vision.library.photo_sources import resolve_photo
+    from vision.library.training_library import normalize_label, read_entries, register_image, set_annotation
 
     library, root = Path(library).resolve(), Path(root).resolve()
     known = {e["image_sha256"]: e for e in read_entries(library)}

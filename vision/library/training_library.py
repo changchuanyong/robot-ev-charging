@@ -18,7 +18,7 @@ import uuid
 import cv2
 import numpy as np
 
-DEFAULT_LIBRARY = Path(__file__).resolve().parents[1] / "dataset" / "vision"
+DEFAULT_LIBRARY = Path(__file__).resolve().parents[2] / "dataset" / "vision"
 DEPTH_DIR = "depth"
 _EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 _HASH = re.compile(r"[0-9a-f]{64}")

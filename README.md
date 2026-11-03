@@ -32,7 +32,7 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available()); pr
 九孔复核运行：
 
 ```powershell
-python -m vision.review_keypoints
+python -m vision.review.review_keypoints
 ```
 
 ## 3. 正常流程
@@ -44,18 +44,18 @@ python -m vision.review_keypoints
 Windows 相机入口需要进程内的 `SeSecurityPrivilege`，统一使用 `vision.launch`；每次从非管理员终端启动都可能弹出 UAC：
 
 ```powershell
-python -m vision.launch vision.preview --depth
+python -m vision.launch vision.capture.preview --depth
 ```
 
 日常流程：**F5 拍照并入库 → 退出后复核检测框 → 准备训练**。新会话默认 `train`；需要开发验证数据时在采集前指定 `--split val`。建议填写 `--batch` 和 `--specimen`，同批次、同样件、同打印批次沿用一致分组，冲突会在打开相机前提示：
 
 ```powershell
-python -m vision.launch vision.preview --depth --batch d415_session01 --specimen print_dev01 --notes "打印件，正视"
+python -m vision.launch vision.capture.preview --depth --batch d415_session01 --specimen print_dev01 --notes "打印件，正视"
 ```
 
 D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`profiles.preview` 设置检测预览（默认 1920×1080 / 30 fps），`profiles.collect` 设置纯 RGB 采集（默认 1280×720 / 15 fps），`depth` 设置深度流，`vision` 设置检测与 PnP。预览和纯采集都可用 `--config` 指定这份配置；`--vision-config` 仍可单独加载某次训练导出的检测配置。D435 继续使用自己的设备与定位配置。
 
-**管理员终端**可以省掉启动器，直接运行 `vision.preview`；具体命令见 [采集与设备](#41-采集与设备)。
+**管理员终端**可以省掉启动器，直接运行 `vision.capture.preview`；具体命令见 [采集与设备](#41-采集与设备)。
 
 启动器返回成功只表示已发起子进程，是否正常采集需查看新窗口；离线工具直接运行，无需提权。默认绑定 D415 `349222063070`，换机加 `--serial`；查看设备序列号、纯 RGB 采集等命令见 [采集与设备](#41-采集与设备)。
 
@@ -88,7 +88,7 @@ D415 参数统一在 `config/d415.json`：`device` 设置型号和序列号，`p
 
 ```powershell
 python train/python/prepare_port_library.py       # 同步入库
-python -m vision.training_library status          # 库状态
+python -m vision.library.training_library status          # 库状态
 ```
 
 图片与标签校验、深度绑定、参数完整性等维护命令见 [图库维护](#42-图库维护)。
@@ -98,7 +98,7 @@ python -m vision.training_library status          # 库状态
 拍完后运行本机复核页；会自动打开浏览器，查看或拖动修改框，点击“保存框并下一张”直接写回图库。草稿可以恢复，只有明确确认才成为正式标注；保存冲突会提示刷新。完成后点击页面的结束按钮或在终端按 Ctrl+C：
 
 ```powershell
-python -m vision.review_library
+python -m vision.review.review_library
 ```
 
 默认显示全库待标注图片；采集结束会打印带真实路径的完整命令。该命令不需要 `vision.launch`。只看一批、只打印地址，以及退出采集后离线 `review.html` 的导出/导入方式见 [复核](#43-复核)。
@@ -140,23 +140,23 @@ python -m control.simulate --scenario nominal
 
 ```powershell
 # 查看设备序列号（默认绑定 D415 349222063070，换机加 --serial）
-python -m vision.launch vision.collect --list-devices
+python -m vision.launch vision.capture.collect --list-devices
 # 管理员终端可省掉启动器，直接运行相机入口
-python -m vision.preview --depth
+python -m vision.capture.preview --depth
 # 放大唯一目标（保存仍是全分辨率原图）
-python -m vision.launch vision.preview --depth --zoom
+python -m vision.launch vision.capture.preview --depth --zoom
 # 只看彩色
-python -m vision.launch vision.preview
+python -m vision.launch vision.capture.preview
 # 分析 3 帧后退出；保存首个完成结果（含失败）
-python -m vision.launch vision.preview --depth --frames 3 --save-first
+python -m vision.launch vision.capture.preview --depth --frames 3 --save-first
 # 开发验证数据
-python -m vision.launch vision.preview --depth --batch d415_val01 --specimen print_val01 --split val
+python -m vision.launch vision.capture.preview --depth --batch d415_val01 --specimen print_val01 --split val
 ```
 
 只采 RGB：
 
 ```powershell
-python -m vision.launch vision.collect --batch d415_session01 --split train --notes "打印件，多角度"
+python -m vision.launch vision.capture.collect --batch d415_session01 --split train --notes "打印件，多角度"
 ```
 
 空格/S 保存，Q/Esc 退出，输出在 `artifacts/captures/`。纯 RGB 采集同样后台入库，复核时手动画框；省略 `--batch` 会生成唯一批次名。独立 test 采集使用 `--split test --no-library`。
@@ -164,7 +164,7 @@ python -m vision.launch vision.collect --batch d415_session01 --split train --no
 补同步入库：
 
 ```powershell
-python -m vision.intake
+python -m vision.capture.intake
 ```
 
 补同步遇到损坏文件或分组冲突会保留错误并返回非零退出码；可加 `--session "artifacts/d415_preview/实际会话目录"` 只处理一批。
@@ -172,19 +172,19 @@ python -m vision.intake
 ### 4.2 图库维护
 
 ```powershell
-python -m vision.training_library validate        # 图片、标签和哈希检查
-python -m vision.training_library depth-status    # 深度绑定
-python -m vision.training_library calibration-status # 参数完整性
-python -m vision.training_library preserve-calibrations # 保存现有参数或标记缺失
+python -m vision.library.training_library validate        # 图片、标签和哈希检查
+python -m vision.library.training_library depth-status    # 深度绑定
+python -m vision.library.training_library calibration-status # 参数完整性
+python -m vision.library.training_library preserve-calibrations # 保存现有参数或标记缺失
 ```
 
 ### 4.3 复核
 
 ```powershell
 # 只看某一次采集会话
-python -m vision.review_library --session "artifacts/d415_preview/实际会话目录"
+python -m vision.review.review_library --session "artifacts/d415_preview/实际会话目录"
 # 只打印地址，不自动打开浏览器
-python -m vision.review_library --no-browser
+python -m vision.review.review_library --no-browser
 ```
 
 退出采集时生成的 `review.html` 是离线副本，离线复核继续使用导出/导入：
@@ -192,7 +192,7 @@ python -m vision.review_library --no-browser
 ```powershell
 python train/python/prepare_port_library.py --review artifacts/port_library_review.html
 Start-Process artifacts/port_library_review.html
-python -m vision.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
+python -m vision.library.training_library annotate --review-json "$env:USERPROFILE\Downloads\reviewed_port_boxes.json"
 ```
 
 ### 4.4 数据分组
@@ -207,7 +207,7 @@ python -m train.python.dataset_split --assign-group "实际group_id" --split tra
 日常直接打开全图库孔位标注页（与检测框复核独立）：
 
 ```powershell
-python -m vision.review_keypoints
+python -m vision.review.review_keypoints
 ```
 
 页面按需加载原图，包含检测框已排除的图片。选择孔名后点击孔中心，支持缩放和平移；不可见孔选择不确定、遮挡或出画。修改自动保存到 `dataset/vision/keypoint_annotations.json`，九孔状态齐全并填写复核人后点击确认。重启可继续，导出 JSON 可用于 `check_reviewed_detection_labels.py --annotations` 检查；孔位结果不会修改检测框标签。多页面编辑同一张图发生冲突时会阻止覆盖，提示先导出修改再刷新。`--no-browser` 只打印地址；`prepare_keypoint_review.py` 不带参数也会打开此页面。
@@ -253,7 +253,7 @@ python train/python/train_port.py --epochs 40 --batch 32 --workers 4 --device 0
 # 使用原来的单进程、FP32 设置作速度对比
 python train/python/train_port.py --batch 16 --workers 0 --no-amp
 # 用某轮训练导出的配置复现旧轮次
-python -m vision.launch vision.preview --depth --vision-config "runs/本轮目录/preview_config.json"
+python -m vision.launch vision.capture.preview --depth --vision-config "runs/本轮目录/preview_config.json"
 ```
 
 ### 4.7 评估、控制与力觉

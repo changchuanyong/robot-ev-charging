@@ -29,7 +29,7 @@ CACHE_DIRS = configure_caches(ROOT_DIR)
 
 from vision.contracts import atomic_persist_json
 from vision.model_config import publish_current_model
-from vision.training_library import _lock, normalize_label, read_entries, validate_library
+from vision.library.training_library import _lock, normalize_label, read_entries, validate_library
 from train.python.dataset_split import auto_assign_groups, read_split, split_entries
 
 GENERIC_PRETRAINED_SHA256 = "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36"
@@ -519,7 +519,7 @@ def main(argv=None):
         print(f"训练完成；{report['completed_epochs']} 轮全部训练图及验证图覆盖检查通过。")
         print(f"新模型: {report['best_weights']}")
         print(f"预览配置: {report['preview_config']}")
-        print("当前模型已更新；下次 vision.preview --depth、D435 定位和批量评估使用此权重。")
+        print("当前模型已更新；下次 vision.capture.preview --depth、D435 定位和批量评估使用此权重。")
 
 
 if __name__ == "__main__":

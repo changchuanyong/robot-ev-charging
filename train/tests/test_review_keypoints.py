@@ -13,13 +13,13 @@ import cv2
 import numpy as np
 
 from live.python.keypoint_annotations import validate_annotations
-from vision.review_keypoints import KeypointStore, ROOT, _version, create_server
-from vision.keypoint_suggestions import valid_points
+from vision.review.review_keypoints import KeypointStore, ROOT, _version, create_server
+from vision.review.keypoint_suggestions import valid_points
 
 
 class KeypointReviewTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = TemporaryDirectory(dir=ROOT / ".cache/tmp")
+        self.temporary = TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.library = self.root / "dataset/vision"

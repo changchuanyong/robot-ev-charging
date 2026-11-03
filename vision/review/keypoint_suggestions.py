@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 from live.python.keypoint_annotations import LABELS
-from .model_config import resolve_model_config
+from ..model_config import resolve_model_config
 from .review_apertures import promote_dark_apertures
 
 

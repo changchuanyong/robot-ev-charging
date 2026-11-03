@@ -20,7 +20,7 @@ from keypoint_annotations import LABELS, normalized_image_key, sha256_file, vali
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
-from vision.photo_sources import resolve_photo
+from vision.library.photo_sources import resolve_photo
 from vision.contracts import intrinsics_signature, validate_camera
 TEMPLATE_PATH = Path(__file__).with_name("keypoint_review.html")
 EDITABLE_FIELDS = {"points", "review_status", "reviewer", "reviewed_at", "notes"}
@@ -350,7 +350,7 @@ def main(argv=None) -> None:
     parser.add_argument("--annotations", type=Path, help="Existing annotation JSON to embed; never overwritten")
     args = parser.parse_args(argv)
     if not any((args.selection, args.manifest, args.batch_report, args.output_dir, args.annotations)):
-        from vision.review_keypoints import main as review_library_keypoints
+        from vision.review.review_keypoints import main as review_library_keypoints
         return review_library_keypoints([])
     if args.manifest is not None:
         if args.batch_report is not None:

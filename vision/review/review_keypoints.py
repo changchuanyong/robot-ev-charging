@@ -15,10 +15,10 @@ import cv2
 import numpy as np
 
 from live.python.keypoint_annotations import LABELS, validate_annotations
-from .contracts import atomic_capture_json
-from .training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries
+from ..contracts import atomic_capture_json
+from ..library.training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "live/python/keypoint_review.html"
 EDITABLE = {"points", "review_status", "reviewer", "reviewed_at", "notes"}
 

@@ -15,8 +15,8 @@ if str(ROOT) not in sys.path:
 
 from vision.contracts import atomic_capture_json
 from vision.model_config import current_model_path
-from vision.training_library import read_entries, register_image
-from vision.photo_sources import resolve_photo
+from vision.library.training_library import read_entries, register_image
+from vision.library.photo_sources import resolve_photo
 
 CAPTURE_ROOTS = (
     "artifacts/captures", "artifacts/d415_preview", "artifacts/d415_sdk_apply",
@@ -104,7 +104,7 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
             if manifest.get("metadata", {}).get("training_library_enabled") is False:
                 opted_out_sessions.add(path.parent.resolve())
                 continue
-            from vision.intake import register_saved
+            from vision.capture.intake import register_saved
             for frame in manifest["frames"]:
                 image = _inside(path.parent, frame["image"])
                 register_saved(path.parent, frame, library)
@@ -148,7 +148,7 @@ def sync_library(root=ROOT, library=None, extra_sources=()):
 
 
 def write_review(library, output, weights=None, review_all=False, session_id=None):
-    from vision.review_library import session_entries, suggested_label
+    from vision.review.review_library import session_entries, suggested_label
 
     library, output = Path(library).resolve(), Path(output).resolve()
     entries = read_entries(library)

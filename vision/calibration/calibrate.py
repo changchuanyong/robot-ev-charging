@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .contracts import atomic_json, rectify_points, validate_camera
+from ..contracts import atomic_json, rectify_points, validate_camera
 
 
 def transform(value) -> np.ndarray:

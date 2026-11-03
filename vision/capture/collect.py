@@ -16,12 +16,12 @@ import time
 import cv2
 import numpy as np
 
-from .contracts import intrinsics_signature, validate_camera
+from ..contracts import intrinsics_signature, validate_camera
 from .rgb_controls import RGBControls, validate_rgb_options
-from .launch import ensure_camera_privilege
+from ..launch import ensure_camera_privilege
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 WINDOW = "RealSense RGB data collection"
 
 
@@ -499,7 +499,7 @@ def print_intake_summary(report, session_path, library_root):
         print(f"本批复核页: {report['review_file']}", flush=True)
     if library_root is not None and report.get("imported"):
         command = subprocess.list2cmdline([sys.executable, "-B", "-X", "utf8", "-m",
-                                         "vision.review_library", "--library", str(library_root),
+                                         "vision.review.review_library", "--library", str(library_root),
                                          "--session", str(session_path)])
         if sys.platform == "win32":
             command = "& " + command

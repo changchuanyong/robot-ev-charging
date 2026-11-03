@@ -12,7 +12,7 @@ import math
 import cv2
 import numpy as np
 
-from .contracts import intrinsics_signature
+from ..contracts import intrinsics_signature
 
 
 # Reproducible diagnostic heuristics, not calibrated insertion/safety limits.

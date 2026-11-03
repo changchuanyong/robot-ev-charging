@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def check_entry_configs(root):
     """Check the files consumed by default preview, collect and run entrypoints."""
     from .model_config import resolve_model_config
-    from .collect import load_capture_config, validate_config, validate_depth_config
+    from .capture.collect import load_capture_config, validate_config, validate_depth_config
 
     defaults = ("d415.json", "geometry_nominal.json", "realsense_config.json")
     configs, errors = {}, []
@@ -63,7 +63,7 @@ def check_entry_configs(root):
 
 
 def check_library(library):
-    from .training_library import calibration_status, depth_status, read_entries, validate_library
+    from .library.training_library import calibration_status, depth_status, read_entries, validate_library
 
     library = Path(library).resolve()
     if not library.is_dir() or not (library / "records").is_dir():

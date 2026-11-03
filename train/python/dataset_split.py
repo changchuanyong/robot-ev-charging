@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from vision.contracts import atomic_capture_json
-from vision.training_library import _lock, read_entries
+from vision.library.training_library import _lock, read_entries
 
 DEFAULT_SPLIT = ROOT / "config/port_dataset_split.json"
 

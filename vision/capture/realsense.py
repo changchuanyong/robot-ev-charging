@@ -10,8 +10,8 @@ import uuid
 
 import numpy as np
 
-from .contracts import FrameClock, FramePacket, intrinsics_signature, validate_camera
-from .launch import ensure_camera_privilege
+from ..contracts import FrameClock, FramePacket, intrinsics_signature, validate_camera
+from ..launch import ensure_camera_privilege
 
 
 def validated_camera_override(sdk_camera: dict, config: dict) -> dict:
@@ -23,7 +23,7 @@ def validated_camera_override(sdk_camera: dict, config: dict) -> dict:
         raise ValueError("intrinsics_override_file_requires_path")
     path = Path(value)
     if not path.is_absolute():
-        path = Path(__file__).resolve().parents[1] / path
+        path = Path(__file__).resolve().parents[2] / path
     fitted = json.loads(path.read_text(encoding="utf-8-sig"))
     if fitted.get("validated") is not True or config.get("intrinsics_validated") is not True:
         raise ValueError("intrinsics_override_requires_explicit_validation")

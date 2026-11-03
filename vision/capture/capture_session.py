@@ -12,13 +12,13 @@ import uuid
 import cv2
 import numpy as np
 
-from .contracts import atomic_capture_json as atomic_json
-from .contracts import intrinsics_signature, validate_camera
-from .model_config import resolve_model_config
+from ..contracts import atomic_capture_json as atomic_json
+from ..contracts import intrinsics_signature, validate_camera
+from ..model_config import resolve_model_config
 
 
 KIND = "realsense_rgb_capture"
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _utc_now() -> str:

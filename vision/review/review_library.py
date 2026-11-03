@@ -12,11 +12,11 @@ import threading
 from urllib.parse import urlsplit
 import webbrowser
 
-from .contracts import atomic_capture_json
-from .training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries, set_annotation
+from ..contracts import atomic_capture_json
+from ..library.training_library import DEFAULT_LIBRARY, _inside, _lock, read_entries, set_annotation
 
 
-TEMPLATE = Path(__file__).resolve().parents[1] / "train/python/port_box_review.html"
+TEMPLATE = Path(__file__).resolve().parents[2] / "train/python/port_box_review.html"
 MAX_BODY = 128 * 1024
 
 

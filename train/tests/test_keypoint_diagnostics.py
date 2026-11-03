@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 
 from train.python.evaluate_library_keypoints import ROOT, compare_reports, point_diagnostic, topology_warnings
-from vision.review_apertures import promote_dark_apertures
+from vision.review.review_apertures import promote_dark_apertures
 
 if str(ROOT / "live/python") not in sys.path:
     sys.path.insert(0, str(ROOT / "live/python"))

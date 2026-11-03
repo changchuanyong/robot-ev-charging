@@ -1,4 +1,4 @@
-"""python -m vision.run --config config/realsense_config.json [--image image.jpg --camera-config camera.json]."""
+"""python -m vision.locate.run --config config/realsense_config.json [--image image.jpg --camera-config camera.json]."""
 from __future__ import annotations
 
 import argparse
@@ -7,8 +7,8 @@ from pathlib import Path
 import time
 import uuid
 
-from .contracts import FramePacket, atomic_json, empty_observation
-from .pipeline import PosePipeline, ROOT
+from ..contracts import FramePacket, atomic_json, empty_observation
+from ..pipeline import PosePipeline, ROOT
 
 
 def main(argv=None) -> int:
@@ -44,7 +44,7 @@ def main(argv=None) -> int:
             print(json.dumps({"valid": result["valid"], "source": "offline", "reason": result["reason"],
                               "output": str(output)}, ensure_ascii=False))
             return 0 if result["valid"] else 2
-        from .realsense import RealSenseCamera
+        from ..capture.realsense import RealSenseCamera
         with RealSenseCamera(config) as camera:
             if args.export_intrinsics:
                 atomic_json(args.export_intrinsics, camera.camera)

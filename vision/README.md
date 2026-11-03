@@ -1,17 +1,17 @@
 # D435 同帧定位与眼在手标定
 
-`vision.run` 在内存中顺序复用现有 YOLO、增强、Canny、孔位筛选、椭圆中心和 PnP 算法。每次调用只处理一张图像，不读取 `latest_roi.jpg` 等共享中间文件。机器人消费 `latest_control_pose.json`；历史图片可使用批量评估和九孔复核工具。
+`vision.locate.run` 在内存中顺序复用现有 YOLO、增强、Canny、孔位筛选、椭圆中心和 PnP 算法。每次调用只处理一张图像，不读取 `latest_roi.jpg` 等共享中间文件。机器人消费 `latest_control_pose.json`；历史图片可使用批量评估和九孔复核工具。
 
 当前检测权重统一由 `config/vision_model.json` 指定，D435 的 `config/realsense_config.json` 与 D415 预览均引用这份记录。启动核对权重文件与 SHA256；训练完整成功后更新记录，已运行的进程需重启才能加载新模型。`config/observed_layout_prior.json` 根据人工复核的 train 图学习孔名关联，仅输出实际内孔口中心；PnP 仍使用原三维模型。共享检测权重不代表实际 D435 图像、几何或位姿已验收。
 
-使用 D415 采集训练图片时，运行独立的 `python -m vision.launch vision.collect`；D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
+使用 D415 采集训练图片时，运行独立的 `python -m vision.launch vision.capture.collect`；D435 定位入口不消费这些采集清单，也不复用 D415 的标定参数。
 
 ## 启动及输出
 
 在项目根目录运行。Windows 非管理员终端每次启动相机都可能弹出 UAC；启动器返回成功仅表示已发起子进程，采集结果需查看新窗口：
 
 ```powershell
-python -m vision.launch vision.run --config config/realsense_config.json
+python -m vision.launch vision.locate.run --config config/realsense_config.json
 ```
 
 首次接设备前，填写 D435 完整序列号。`intrinsics_validated` 初始为 `false`；可在获准采集后用 `--export-intrinsics artifacts/d435_color_intrinsics.json` 保存实际彩色流的参数和 `intrinsics_sha256`。完成该分辨率、设备和工作距离下的独立图像验证后，再填写校准版本、匹配的参数指纹并设置验证状态。改变序列号、分辨率、内参或畸变参数会使旧指纹失效。SDK 工厂内参不自动等同于任务标定已验收。
@@ -19,7 +19,7 @@ python -m vision.launch vision.run --config config/realsense_config.json
 离线单张图像不需要启动器或管理员权限：
 
 ```powershell
-python -m vision.run --image path/to/image.jpg --camera-config path/to/that_camera.json --output artifacts/offline_pose.json
+python -m vision.locate.run --image path/to/image.jpg --camera-config path/to/that_camera.json --output artifacts/offline_pose.json
 ```
 
 离线结果始终标记 `source=offline`，不能作为真机运动输入。缺少 YOLO 权重、目标丢失、畸变模型不支持、图像尺寸不符、过期或未验证标定会产生明确无效结果。新消息以原子替换发布，失败不会保留上一帧的有效标记。实时采集退出后也会发布无效状态。
@@ -66,7 +66,7 @@ max_reprojection_rms_px: 验证域内允许的像素 RMS 上界
 ## 手眼标定
 
 ```powershell
-python -m vision.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
+python -m vision.calibration.calibrate --samples artifacts/handeye_pairs.json --output artifacts/handeye_result.json
 ```
 
 输入 JSON 顶层包含：
