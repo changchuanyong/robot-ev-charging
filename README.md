@@ -23,7 +23,7 @@
 
 本机 Anaconda 安装在 `C:\Users\admin\anaconda3`。可在 Navigator 的 Environments 中查看 `ev-vision`，或在 Anaconda Prompt 中执行 `conda activate ev-vision` 后使用 `python`。旧 `.venv` 保留用于回退；默认启动入口已切换到 Conda。
 
-GPU 自检（本机输出 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`）：
+GPU 自检（历史输出为 `2.14.1+cu132 True` / `NVIDIA GeForce RTX 5080`；当前 Windows 应用控制拦截 CUDA DLL，新旧环境均受影响，GPU 验收暂未通过，见 [迁移记录](environments/MIGRATION.md)）：
 
 ```powershell
 .\run_vision.cmd -c "import torch; print(torch.__version__, torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
