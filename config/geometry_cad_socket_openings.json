@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "version": "socket-cad-opening-rim-v1",
+  "status": "cad_extracted",
+  "validated": false,
+  "units": "mm",
+  "frame": "target",
+  "feature_definition": "Centers of the outward CAD bore opening rims, including chamfers. XY agrees with the existing nominal layout; Z is the measured CAD axial opening level. Optical dark-region centers and actual printed geometry are not independently validated.",
+  "points_mm": {
+    "S_neg": [
+      -12,
+      21,
+      -10.0
+    ],
+    "CC2": [
+      0,
+      21,
+      0.0
+    ],
+    "S_pos": [
+      12,
+      21,
+      -10.0
+    ],
+    "CC1": [
+      0,
+      9,
+      -10.0
+    ],
+    "DC_neg": [
+      -17,
+      -1.2,
+      0.0
+    ],
+    "DC_pos": [
+      17,
+      -1.2,
+      0.0
+    ],
+    "A_neg": [
+      -14.25,
+      -21,
+      -10.0
+    ],
+    "PE": [
+      0,
+      -21,
+      0.0
+    ],
+    "A_pos": [
+      14.25,
+      -21,
+      -10.0
+    ]
+  },
+  "sections": {
+    "S_neg": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
+    "CC2": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
+    "S_pos": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
+    "CC1": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
+    "DC_neg": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
+    "DC_pos": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
+    "A_neg": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
+    "PE": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
+    "A_pos": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat."
+  },
+  "provenance": [
+    {
+      "path": "../模型/插座改.STL",
+      "sha256": "95afd0124efd6532fd5cf5eda703982ccea1c89d81a074b89b0b0370ede4c89f",
+      "kind": "CAD_mesh_mm_interpretation_matches_existing_34mm_main_hole_pitch"
+    },
+    {
+      "path": "config/geometry_nominal.json",
+      "sha256": "cb5e99e0b3de870b2a8cfa93fe58bf772a8511a0dcf30fe939b2a12ac81e75ab",
+      "kind": "existing_XY_label_reference_verified_against_CAD_sections"
+    }
+  ],
+  "cad_to_target": [
+    [
+      1,
+      0,
+      0,
+      -45
+    ],
+    [
+      0,
+      0,
+      -1,
+      45
+    ],
+    [
+      0,
+      1,
+      0,
+      -45.0
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "extraction": {
+    "method": "section circles at CAD Y=12; match existing XY centers within 0.05 mm; inspect bore-side vertices inside the midpoint of inner/outer radii; use maximum axial opening coordinate",
+    "STL_unit_note": "STL has no unit metadata. Millimetres follow the project export convention and existing XY pitch, not a physical measurement.",
+    "holes": {
+      "S_neg": {
+        "matched_center_xz": [
+          33.0,
+          24.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 3.598754664480007,
+        "outer_diameter_mm": 9.386061351130369,
+        "opening_y_mm": 35.0,
+        "throat_y_mm": 34.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0006225043563923348
+      },
+      "CC2": {
+        "matched_center_xz": [
+          45.0,
+          24.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 3.599110669414334,
+        "outer_diameter_mm": 9.414801035469651,
+        "opening_y_mm": 45.0,
+        "throat_y_mm": 44.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0004446701579106745
+      },
+      "S_pos": {
+        "matched_center_xz": [
+          57.0,
+          24.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 3.5987553664360235,
+        "outer_diameter_mm": 9.38606176186036,
+        "opening_y_mm": 35.0,
+        "throat_y_mm": 34.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0006225047223150697
+      },
+      "CC1": {
+        "matched_center_xz": [
+          45.0,
+          36.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 3.598755325175272,
+        "outer_diameter_mm": 9.386060753072966,
+        "opening_y_mm": 35.0,
+        "throat_y_mm": 34.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0006225047861372241
+      },
+      "DC_neg": {
+        "matched_center_xz": [
+          28.0,
+          46.2
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 12.396892096312738,
+        "outer_diameter_mm": 24.900424448212465,
+        "opening_y_mm": 45.0,
+        "throat_y_mm": 44.0,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0015538459920724813
+      },
+      "DC_pos": {
+        "matched_center_xz": [
+          62.0,
+          46.2
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 12.396892438032477,
+        "outer_diameter_mm": 24.90042499061853,
+        "opening_y_mm": 45.0,
+        "throat_y_mm": 44.0,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.001553846416454172
+      },
+      "A_neg": {
+        "matched_center_xz": [
+          30.75,
+          66.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 3.5987554975022946,
+        "outer_diameter_mm": 9.3293125161961,
+        "opening_y_mm": 35.0,
+        "throat_y_mm": 34.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0006225063192234144
+      },
+      "PE": {
+        "matched_center_xz": [
+          45.0,
+          66.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 6.598369854495291,
+        "outer_diameter_mm": 14.994386978646688,
+        "opening_y_mm": 45.0,
+        "throat_y_mm": 44.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0008152275825167429
+      },
+      "A_pos": {
+        "matched_center_xz": [
+          59.25,
+          66.0
+        ],
+        "section_y_mm": 12.0,
+        "inner_diameter_mm": 3.5987556286711153,
+        "outer_diameter_mm": 9.386060377969352,
+        "opening_y_mm": 35.0,
+        "throat_y_mm": 34.5,
+        "opening_vertex_support": 223,
+        "section_radial_rms_mm": 0.0006225062315470564
+      }
+    }
+  }
+}

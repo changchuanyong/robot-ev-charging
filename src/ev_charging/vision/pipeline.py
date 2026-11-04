@@ -108,15 +108,32 @@ def padded_crop(image: np.ndarray, xyxy) -> tuple[np.ndarray, tuple[int, int, in
     return image[y1:y2, x1:x2].copy(), bounds
 
 
-def preprocess_candidates(crop: np.ndarray, *, diagnostics=None, prepare=True, verbose=False):
-    """Share enhancement and measured contour extraction, without choosing hole identities."""
+def preprocess_candidates(
+    crop: np.ndarray, *, diagnostics=None, prepare=True, verbose=False, profile="standard"
+):
+    """Share enhancement and measured contour extraction, without choosing hole identities.
+
+    ``profile="low_contrast"`` skips local contrast boosting and the second
+    CLAHE pass for crops whose apertures differ from their rim by only a few
+    grey levels. ``profile="exposure"`` additionally stretches the object
+    region's own exposure range on dark crops. The default path is unchanged.
+    """
     import cv2
 
     from ev_charging.vision.algorithms import enhance
     from ev_charging.vision.algorithms import latest_candidate_contours as contours
 
-    enhanced = cv2.cvtColor(enhance.preprocess_roi(crop)["final"], cv2.COLOR_GRAY2BGR)
-    *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced)
+    if profile == "low_contrast":
+        enhanced = cv2.cvtColor(enhance.low_contrast_gray(crop), cv2.COLOR_GRAY2BGR)
+        *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced, prepared=True)
+    elif profile == "exposure":
+        enhanced = cv2.cvtColor(enhance.exposure_gray(crop), cv2.COLOR_GRAY2BGR)
+        *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced, prepared=True)
+    elif profile == "standard":
+        enhanced = cv2.cvtColor(enhance.preprocess_roi(crop)["final"], cv2.COLOR_GRAY2BGR)
+        *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced)
+    else:
+        raise ValueError("unknown_preprocess_profile")
     candidates, _, _ = contours.filter_candidate_contours(
         contours.prepare_edges(edges) if prepare else edges,
         enhanced,

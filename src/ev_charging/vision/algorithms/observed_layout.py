@@ -137,7 +137,7 @@ def _prepare(candidates, *, prefitted=False):
     return unique
 
 
-def _anchor_pairs(candidates, points, diameters, *, review_shape=None):
+def _anchor_pairs(candidates, points, diameters, *, review_shape=None, scale_free=False):
     pairs = []
     for first in range(len(candidates)):
         for second in range(first + 1, len(candidates)):
@@ -148,9 +148,18 @@ def _anchor_pairs(candidates, points, diameters, *, review_shape=None):
             if not np.all((sizes / span >= 0.12) & (sizes / span <= 0.75)) or min(sizes) / max(sizes) < 0.55:
                 continue
             if review_shape is not None:
-                extent = min(review_shape[:2])
-                if span < 0.25 * extent or min(sizes) < 0.07 * extent or min(sizes) / max(sizes) < 0.70:
-                    continue
+                if scale_free:
+                    # A loose crop spends most of its extent on background, so the
+                    # absolute gates below cannot hold. Compare the span with the
+                    # measured aperture size instead: holes never overlap and the
+                    # main pair stays a few diameters apart.
+                    mean_size = float(np.mean(sizes))
+                    if min(sizes) / max(sizes) < 0.70 or not 2.0 <= span / mean_size <= 6.0:
+                        continue
+                else:
+                    extent = min(review_shape[:2])
+                    if span < 0.25 * extent or min(sizes) < 0.07 * extent or min(sizes) / max(sizes) < 0.70:
+                        continue
             if not all(getattr(candidates[index], "aperture_diameter_px", None) for index in (first, second)):
                 continue
             size = float(np.mean(sizes))
@@ -224,7 +233,14 @@ def _review_topology(association, points):
 
 
 def select_observed_correspondences(
-    candidates, roi_shape, prior: dict, offset_xy=(0, 0), *, review_mode=False, prefitted=False
+    candidates,
+    roi_shape,
+    prior: dict,
+    offset_xy=(0, 0),
+    *,
+    review_mode=False,
+    prefitted=False,
+    scale_free_anchors=False,
 ) -> dict:
     """Associate observed centers without consulting PnP, filenames or annotations."""
     validate_prior(prior)
@@ -258,6 +274,12 @@ def select_observed_correspondences(
     ]
     proposals = {}
     pairs = _anchor_pairs(fitted, points, diameters, review_shape=roi_shape if review_mode else None)
+    if not pairs and review_mode and scale_free_anchors:
+        # Strict gate found nothing: fall back to a span measured in apertures.
+        pairs = _anchor_pairs(fitted, points, diameters, review_shape=roi_shape, scale_free=True)
+        diagnostics["anchor_gate"] = "scale_free"
+    else:
+        diagnostics["anchor_gate"] = "extent" if review_mode else "standard"
     diagnostics["anchor_pair_count"] = len(pairs)
     for _, first, second in pairs:
         for anchors in ((first, second), (second, first)):

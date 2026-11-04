@@ -9,6 +9,8 @@ import cv2
 import numpy as np
 
 from ev_charging.review.keypoint_annotations import LABELS
+from ev_charging.vision.algorithms.center_fit import fit_ellipse_on_kept_candidates
+from ev_charging.vision.algorithms.observed_layout import _review_topology
 from ev_charging.vision.model_config import resolve_model_config
 from ev_charging.vision.pipeline import padded_crop, preprocess_candidates
 
@@ -34,6 +36,130 @@ def promote_dark_apertures(candidates, crop, contours):
                 }
             )
     return promoted
+
+
+def stable_dark_apertures(crop, contours):
+    """Find measured dark boundaries that persist across several intensity levels."""
+    gray = cv2.GaussianBlur(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY), (5, 5), 1.2)
+    low, high = np.percentile(gray, [2, 40])
+    levels = np.unique(np.linspace(low, high, 32).astype(np.uint8))
+    groups = []
+    for level in levels:
+        _, mask = cv2.threshold(gray, int(level), 255, cv2.THRESH_BINARY_INV)
+        boundaries, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        for boundary in boundaries:
+            area = cv2.contourArea(boundary)
+            if not contours.MIN_CONTOUR_AREA <= area <= crop.shape[0] * crop.shape[1] * 0.22:
+                continue
+            if contours.is_near_border(cv2.boundingRect(boundary), crop.shape, 0.0):
+                continue
+            candidate = contours.compute_candidate_features(boundary, crop.shape)
+            if candidate is None:
+                continue
+            fit_ellipse_on_kept_candidates([candidate], verbose=False)
+            if not candidate.fit_valid:
+                continue
+            contrast = contours.dark_boundary_contrast(gray, candidate)
+            if contrast < contours.DARK_CONTRAST_OFFSET:
+                continue
+            diameter = math.sqrt(np.prod(candidate.ellipse_axes))
+            group = next(
+                (
+                    items
+                    for items in groups
+                    if np.linalg.norm(np.asarray(candidate.fitted_center) - items[0][1].fitted_center)
+                    <= max(3.0, diameter * 0.08)
+                    and 0.7 <= diameter / items[0][2] <= 1.4
+                ),
+                None,
+            )
+            item = (int(level), candidate, diameter, contrast)
+            if group is None:
+                groups.append([item])
+            else:
+                group.append(item)
+    stable = []
+    for group in groups:
+        if len({item[0] for item in group}) < 3:
+            continue
+        median = np.median([item[1].fitted_center for item in group], axis=0)
+        _, candidate, diameter, contrast = min(
+            group, key=lambda item: np.linalg.norm(np.asarray(item[1].fitted_center) - median)
+        )
+        # Select an observed contour's center, never the projected or averaged center.
+        candidate.aperture_center = candidate.fitted_center
+        candidate.aperture_diameter_px = diameter
+        candidate.contour_source = "threshold_dark"
+        candidate.inside_prior, candidate.prior_value = contours.inside_structure_prior(
+            *candidate.fitted_center, crop.shape
+        )
+        stable.append((len(group), contrast, candidate))
+    return [
+        item[2]
+        for item in sorted(stable, key=lambda item: (item[0], item[1], item[2].score), reverse=True)[:20]
+    ]
+
+
+def complete_apertures(selection, candidates, offset):
+    """Complete a supported review layout using unique measured inner apertures."""
+    points = dict(selection["image_points"])
+    diagnostics = selection["diagnostics"]
+    if (
+        not {"DC_neg", "DC_pos", "PE"} <= points.keys()
+        or diagnostics.get("ambiguous")
+        or not diagnostics.get("structural_support_ok")
+    ):
+        return points, []
+    span = float(np.linalg.norm(np.asarray(points["DC_pos"]) - points["DC_neg"]))
+    pe = next(
+        (candidate for candidate in selection["candidates"] if candidate.layout_name == "bottom_mid"), None
+    )
+    if pe is None or not pe.aperture_diameter_px or span <= 0:
+        return points, []
+    added = []
+    for label, predicted in selection.get("association_points", {}).items():
+        if label in points or label in ("DC_neg", "DC_pos", "PE"):
+            continue
+        eligible = []
+        for candidate in candidates:
+            if (
+                not candidate.fit_valid
+                or candidate.aperture_center is None
+                or candidate.review_only_aperture
+                or not candidate.inside_prior
+            ):
+                continue
+            if not 0.04 * span <= candidate.aperture_diameter_px <= pe.aperture_diameter_px / 1.2:
+                continue
+            xy = np.asarray(candidate.aperture_center) + offset
+            if any(np.linalg.norm(xy - np.asarray(point)) < 8 for point in points.values()):
+                continue
+            distance = float(np.linalg.norm(xy - np.asarray(predicted)))
+            if distance <= 0.08 * span:
+                eligible.append((distance, candidate, xy))
+        if not eligible:
+            continue
+        eligible.sort(key=lambda item: item[0])
+        distance, candidate, xy = eligible[0]
+        if any(np.linalg.norm(other - xy) > 4 for _, _, other in eligible[1:]):
+            continue
+        proposal = {**points, label: tuple(xy)}
+        kept, _ = _review_topology(
+            {LABELS.index(name): index for index, name in enumerate(proposal)},
+            np.asarray(list(proposal.values())),
+        )
+        if LABELS.index(label) in kept:
+            points[label] = tuple(xy)
+            added.append(
+                {
+                    "label": label,
+                    "xy": xy.tolist(),
+                    "source": candidate.contour_source,
+                    "distance_to_association_px": distance,
+                    "diameter_px": candidate.aperture_diameter_px,
+                }
+            )
+    return points, added
 
 
 def valid_points(points, width, height):
@@ -76,6 +202,19 @@ class SuggestionEngine:
             self.detector, self.detector_key = detector, key
         return self.detector
 
+    def _associate(self, pool, roi_shape, offset, *, scale_free=False):
+        """One measured association attempt; None when it names no hole at all."""
+        selection = self.modules[1].select_observed_correspondences(
+            pool,
+            roi_shape,
+            self.prior,
+            offset,
+            review_mode=True,
+            prefitted=False,
+            scale_free_anchors=scale_free,
+        )
+        return selection if selection["image_points"] else None
+
     def suggest(self, entry, image, *, model=None, diagnostics=False):
         model = model or self.current_model()
         provenance = {
@@ -116,6 +255,49 @@ class SuggestionEngine:
         selected = layout.select_observed_correspondences(
             candidates, enhanced.shape, self.prior, (x1, y1), review_mode=True, prefitted=True
         )
+        extras = []
+        if (
+            {"DC_neg", "DC_pos", "PE"} <= selected["image_points"].keys()
+            and not selected["diagnostics"].get("ambiguous")
+            and selected["diagnostics"].get("structural_support_ok")
+        ):
+            extras = stable_dark_apertures(crop, contours)
+        # Low-contrast apertures fail the Canny fit gate, so the primary pass can
+        # see texture blocks only. Stable dark boundaries are an independent
+        # measurement, but they are consulted only when the primary pass emitted
+        # nothing, which keeps every existing prediction bit-identical.
+        primary, fallback_source = selected, None
+        if not selected["image_points"]:
+            extras = stable_dark_apertures(crop, contours)
+            if extras:
+                retried = self._associate(candidates + extras, enhanced.shape, (x1, y1))
+                if retried:
+                    selected, fallback_source = retried, "dark_aperture"
+            # Alternates are tried in order and stop at the first association:
+            # the plain profile drops the enhancement that lifts texture to the
+            # aperture scale, the exposure profile also stretches the object
+            # region's own quantisation range.
+            for profile in ("low_contrast", "exposure"):
+                if fallback_source:
+                    break
+                profile_enhanced, profile_candidates, _, _ = preprocess_candidates(crop, profile=profile)
+                if not profile_candidates:
+                    continue
+                retried = self._associate(profile_candidates + extras, profile_enhanced.shape, (x1, y1))
+                if retried:
+                    selected, fallback_source = retried, profile
+            if not fallback_source:
+                # Last attempt: a loose crop cannot satisfy the extent gate, so
+                # let the anchor span be measured in aperture diameters instead.
+                retried = self._associate(candidates + extras, enhanced.shape, (x1, y1), scale_free=True)
+                if retried:
+                    selected, fallback_source = retried, "scale_free_anchors"
+        if fallback_source:
+            # Completion is defined on the primary evidence chain; do not stack
+            # another synthesis step on a weaker fallback association.
+            completed, added = dict(selected["image_points"]), []
+        else:
+            completed, added = complete_apertures(selected, candidates + extras, np.asarray([x1, y1]))
         if diagnostics:
             by_index = {candidate.contour_index: candidate for candidate in candidates}
             for outcome in contour_trace["candidate_trace"]["outcomes"]:
@@ -134,12 +316,19 @@ class SuggestionEngine:
                     name: np.asarray(point).tolist()
                     for name, point in selected.get("association_points", {}).items()
                 },
+                completed_apertures=added,
+                stable_dark_candidate_count=len(extras),
+                fallback_used=fallback_source is not None,
+                fallback_source=fallback_source,
+                primary_layout=None if fallback_source is None else primary["diagnostics"],
             )
-        points = {name: np.asarray(point).tolist() for name, point in selected["image_points"].items()}
+        points = {name: np.asarray(point).tolist() for name, point in completed.items()}
         return {
             **provenance,
             "points": valid_points(points, width, height),
             "quality_ok": selected["diagnostics"]["selection_quality_ok"],
-            "reason": "主孔尺度、孔径比例或朝向证据不足，未输出不确定孔名；请手工补点。",
+            "reason": f"已找到 {len(points)} 个有图像证据的候选，请逐点复核。"
+            if points
+            else "主孔尺度、孔径比例或朝向证据不足，请手工标注。",
             **({"diagnostics": trace} if diagnostics else {}),
         }

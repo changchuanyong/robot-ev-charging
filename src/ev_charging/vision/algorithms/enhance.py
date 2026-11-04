@@ -25,6 +25,13 @@ SHARPEN_AMOUNT_MIN = 0.20
 SHARPEN_AMOUNT_MAX = 0.55
 EDGE_SHARPEN_PCT = 72
 
+# Exposure profile: percentiles are measured inside the central structure region
+# so a bright background cannot consume the dark object's quantisation range.
+EXPOSURE_REGION_RX = 0.48
+EXPOSURE_REGION_RY = 0.42
+EXPOSURE_LOW_PERCENTILE = 2.0
+EXPOSURE_HIGH_PERCENTILE = 85.0
+
 
 # 预处理参数
 CLAHE_CLIP = 2.0
@@ -137,6 +144,67 @@ def limited_unsharp(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
     sharp = cv2.addWeighted(gray, 1.0 + amount, blur, -amount, 0)
     blended = gray.astype(np.float32) * (1.0 - edge_mask) + sharp.astype(np.float32) * edge_mask
     return np.clip(blended, 0, 255).astype(np.uint8), grad_u8, amount
+
+
+def low_contrast_gray(roi_bgr: np.ndarray) -> np.ndarray:
+    """White-balanced illumination normalisation without local contrast boosting.
+
+    Low-contrast apertures are only a few grey levels deep against their rim.
+    CLAHE and edge sharpening raise the surrounding texture to the same
+    magnitude, so this profile keeps the measured gradient scale of the sensor
+    and only removes colour cast and illumination falloff.
+    """
+    pixels = roi_bgr.reshape(-1, 3).astype(np.float32)
+    channel_means = np.maximum(pixels.mean(axis=0), 1e-3)
+    balanced = roi_bgr.astype(np.float32) * (channel_means.mean() / channel_means)
+    gray = cv2.cvtColor(np.clip(balanced, 0, 255).astype(np.uint8), cv2.COLOR_BGR2GRAY)
+
+    gamma = choose_gamma(gray)
+    corrected = gamma_correction(gray, gamma=gamma)
+
+    kernel = odd_kernel_from_shape(corrected.shape)
+    background = cv2.GaussianBlur(corrected, (kernel, kernel), 0)
+    normalized = cv2.divide(corrected, background, scale=128).astype(np.uint8)
+
+    return cv2.bilateralFilter(
+        normalized,
+        d=BILATERAL_D,
+        sigmaColor=BILATERAL_SIGMA_COLOR,
+        sigmaSpace=BILATERAL_SIGMA_SPACE,
+    )
+
+
+def exposure_gray(roi_bgr: np.ndarray) -> np.ndarray:
+    """Stretch the object region's own exposure range instead of the whole crop.
+
+    A dark connector on a bright table spends most of the 0-255 range on the
+    background, so its apertures keep only a few quantisation levels. The
+    percentiles are measured inside the central structure region, where the
+    connector is expected, and the stretch never boosts local contrast.
+    """
+    gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
+    height, width = gray.shape[:2]
+    region = np.zeros((height, width), np.uint8)
+    cv2.ellipse(
+        region,
+        (width // 2, height // 2),
+        (max(1, int(EXPOSURE_REGION_RX * width)), max(1, int(EXPOSURE_REGION_RY * height))),
+        0,
+        0,
+        360,
+        255,
+        -1,
+    )
+    values = gray[region > 0]
+    low, high = np.percentile(values, [EXPOSURE_LOW_PERCENTILE, EXPOSURE_HIGH_PERCENTILE])
+    stretched = (gray.astype(np.float32) - low) * 255.0 / max(float(high - low), 1.0)
+
+    return cv2.bilateralFilter(
+        np.clip(stretched, 0, 255).astype(np.uint8),
+        d=BILATERAL_D,
+        sigmaColor=BILATERAL_SIGMA_COLOR,
+        sigmaSpace=BILATERAL_SIGMA_SPACE,
+    )
 
 
 def preprocess_roi(roi_bgr: np.ndarray) -> dict[str, Any]:
@@ -272,10 +340,14 @@ def morph_gradient_edges(img_gray: np.ndarray) -> tuple[np.ndarray, int]:
     return edges, thresh
 
 
-def adaptive_canny_pipeline(roi_bgr: np.ndarray):
+def adaptive_canny_pipeline(roi_bgr: np.ndarray, *, prepared: bool = False):
+    """Extract edges, optionally from an image that was already enhanced."""
     gray = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2GRAY)
 
-    enhanced, smooth = preprocess(gray)
+    if prepared:
+        enhanced, smooth = gray, gray
+    else:
+        enhanced, smooth = preprocess(gray)
     low, high, grad_mag = compute_adaptive_thresholds(smooth)
 
     canny_edges = cv2.Canny(smooth, threshold1=low, threshold2=high, L2gradient=True)

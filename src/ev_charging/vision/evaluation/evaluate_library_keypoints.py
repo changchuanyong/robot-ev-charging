@@ -17,16 +17,82 @@ from ev_charging.paths import PROJECT_ROOT
 from ev_charging.paths import source_path as package_source
 from ev_charging.review.keypoint_annotations import validate_annotations
 from ev_charging.review.review_keypoints import KeypointStore
+from ev_charging.vision.geometry_reference import load_geometry_reference
+from ev_charging.vision.locate.diagnose import solve_raw_points
 
 ROOT = PROJECT_ROOT
 
 SOURCES = (
+    "src/ev_charging/vision/evaluation/evaluate_library_keypoints.py",
     "src/ev_charging/review/keypoint_suggestions.py",
     "src/ev_charging/vision/algorithms/observed_layout.py",
     "src/ev_charging/vision/algorithms/latest_candidate_contours.py",
     "src/ev_charging/vision/algorithms/center_fit.py",
     "src/ev_charging/vision/algorithms/enhance.py",
+    "src/ev_charging/vision/geometry_reference.py",
+    "src/ev_charging/vision/locate/diagnose.py",
+    "src/ev_charging/vision/algorithms/pnp2.py",
 )
+
+
+def pose_diagnostic(reference, prediction, record, library, geometries):
+    """Use only preserved, hash-bound camera parameters; never substitute approximate intrinsics."""
+    library = Path(library).resolve()
+    references = {
+        item["sha256"]: item
+        for item in record.get("camera_calibrations", [])
+        if item.get("status") == "verified" and item.get("file") and item.get("sha256")
+    }
+    if len(references) != 1:
+        return {"status": "camera_missing_or_ambiguous", "poses": {}, "authorizes_robot_motion": False}
+    expected, binding = next(iter(references.items()))
+    path = (library / binding["file"]).resolve()
+    try:
+        if not path.is_relative_to(library):
+            raise ValueError("camera_path_outside_library")
+        content = path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != expected:
+            raise ValueError("camera_hash_mismatch")
+        camera = json.loads(content)
+        serials = {
+            source["camera_serial"]
+            for source in record.get("sources", [])
+            if source.get("camera_sha256") == expected and source.get("camera_serial")
+        }
+        if serials and camera.get("serial") not in serials:
+            raise ValueError("camera_serial_mismatch")
+        if (camera["image_width"], camera["image_height"]) != (reference["width"], reference["height"]):
+            raise ValueError("camera_resolution_mismatch")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {"status": "invalid_camera", "reason": str(exc), "poses": {}, "authorizes_robot_motion": False}
+    points = {
+        label: point["xy"] for label, point in reference["points"].items() if point["visibility"] == "visible"
+    }
+    return {
+        "status": "evaluated",
+        "authorizes_robot_motion": False,
+        "camera": {
+            "file": binding["file"],
+            "sha256": expected,
+            "byte_hash_verified": True,
+            "independently_validated": camera.get("validated") is True,
+        },
+        "reference_source_counts": dict(
+            Counter(
+                point["source"] for point in reference["points"].values() if point["visibility"] == "visible"
+            )
+        ),
+        "poses": {
+            geometry["version"]: {
+                "geometry_status": geometry["status"],
+                "geometry_validated": geometry["validated"],
+                "geometry_sha256": geometry["source_sha256"],
+                "reviewed_reference": solve_raw_points(points, geometry["points_mm"], camera),
+                "automatic": solve_raw_points(prediction["points"], geometry["points_mm"], camera),
+            }
+            for geometry in geometries
+        },
+    }
 
 
 def topology_warnings(reference):
@@ -251,7 +317,7 @@ def write_overlay(image, row, path):
     path.write_bytes(encoded.tobytes())
 
 
-def evaluate(annotations_path, output_dir, *, tolerance=5.0, root=ROOT):
+def evaluate(annotations_path, output_dir, *, tolerance=5.0, root=ROOT, geometry_paths=()):
     root, output_dir = Path(root).resolve(), Path(output_dir).resolve()
     content = Path(annotations_path).read_bytes()
     annotations = json.loads(content)
@@ -263,6 +329,11 @@ def evaluate(annotations_path, output_dir, *, tolerance=5.0, root=ROOT):
         raise ValueError("no_reviewed_images")
     if not np.isfinite(tolerance) or tolerance <= 0:
         raise ValueError("positive_diagnostic_tolerance_required")
+    geometries = [
+        load_geometry_reference(path if Path(path).is_absolute() else root / path) for path in geometry_paths
+    ]
+    if len({geometry["version"] for geometry in geometries}) != len(geometries):
+        raise ValueError("geometry_versions_must_be_unique")
     store = KeypointStore(root / annotations["provenance"]["library_path"], root=root)
     model = store.suggestion_engine.current_model()
     for row in reviewed:
@@ -304,6 +375,8 @@ def evaluate(annotations_path, output_dir, *, tolerance=5.0, root=ROOT):
             ],
             "overlay": f"overlays/{index:02d}.png",
         }
+        if geometries:
+            row["pose_diagnostic"] = pose_diagnostic(reference, prediction, entry, store.library, geometries)
         rows.append(row)
         write_overlay(image, row, output_dir / row["overlay"])
         print(
@@ -321,6 +394,14 @@ def evaluate(annotations_path, output_dir, *, tolerance=5.0, root=ROOT):
         "summary": summarize(rows, tolerance),
         "rows": rows,
     }
+    if geometries:
+        report["geometries"] = [
+            {key: geometry[key] for key in ("version", "status", "validated", "source_sha256")}
+            for geometry in geometries
+        ]
+        report["summary"]["pose_camera_status"] = dict(
+            Counter(row["pose_diagnostic"]["status"] for row in rows)
+        )
     (output_dir / "report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
     )
@@ -333,6 +414,15 @@ def evaluate(annotations_path, output_dir, *, tolerance=5.0, root=ROOT):
             f"<section><h2>{index}. {html.escape(Path(row['image']).name[:12])}</h2>"
             f'<img src="{row["overlay"]}"><p>{html.escape(stats)}</p></section>'
         )
+        if geometries:
+            diagnostic = row["pose_diagnostic"]
+            cards.append("<p>位姿诊断：" + html.escape(diagnostic["status"]) + "；不授权机器人运动。</p>")
+            for version, poses in diagnostic["poses"].items():
+                reference_pose, automatic = poses["reviewed_reference"], poses["automatic"]
+                cards.append(
+                    f"<p>{html.escape(version)}：已复核参考点 RMS={reference_pose.get('rms_px', '未求解')} px；"
+                    f"自动点 RMS={automatic.get('rms_px', '未求解')} px，点数={automatic['point_count']}。</p>"
+                )
     page = (
         '<!doctype html><meta charset="utf-8"><title>孔位诊断报告</title>'
         "<style>body{font:16px system-ui;margin:32px;background:#f5f7fa;color:#182432}section{background:white;padding:20px;margin:16px 0}img{max-width:100%}pre{white-space:pre-wrap}</style>"
@@ -355,12 +445,21 @@ def main():
     )
     parser.add_argument("--tolerance-px", type=float, default=5.0)
     parser.add_argument(
+        "--geometry",
+        type=Path,
+        action="append",
+        default=[],
+        help="Optional geometry reference; repeat to compare models with preserved camera parameters",
+    )
+    parser.add_argument(
         "--baseline",
         type=Path,
         help="Compare against an earlier report.json using identical annotations and weights",
     )
     args = parser.parse_args()
-    report = evaluate(args.annotations, args.output_dir, tolerance=args.tolerance_px)
+    report = evaluate(
+        args.annotations, args.output_dir, tolerance=args.tolerance_px, geometry_paths=args.geometry
+    )
     if args.baseline:
         before = json.loads(args.baseline.read_text(encoding="utf-8"))
         comparison = compare_reports(before, report)
