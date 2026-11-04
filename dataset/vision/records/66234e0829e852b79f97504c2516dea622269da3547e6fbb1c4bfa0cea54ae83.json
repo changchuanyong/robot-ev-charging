@@ -2,12 +2,12 @@
   "schema_version": 1,
   "image_sha256": "66234e0829e852b79f97504c2516dea622269da3547e6fbb1c4bfa0cea54ae83",
   "image": "images/2026-11-04/66234e0829e852b79f97504c2516dea622269da3547e6fbb1c4bfa0cea54ae83.png",
-  "label": null,
-  "label_sha256": null,
+  "label": "labels/2026-11-04/66234e0829e852b79f97504c2516dea622269da3547e6fbb1c4bfa0cea54ae83.txt",
+  "label_sha256": "b97f44f16a7985800b09b488610a5163e4fb97570bf12a42167b7c05b3ef87fc",
   "width": 1920,
   "height": 1080,
   "date": "2026-11-04",
-  "status": "pending",
+  "status": "ready",
   "sources": [
     {
       "kind": "realsense_rgb_capture",
@@ -109,10 +109,32 @@
     }
   ],
   "created_at": "2026-11-04T05:47:14.368780+00:00",
-  "annotation_source": null,
-  "human_reviewed": false,
-  "label_candidates": [],
-  "annotation_history": [],
+  "annotation_source": "human_local_box_review",
+  "human_reviewed": true,
+  "label_candidates": [
+    {
+      "label_text": "0 0.4541810195 0.6726440995 0.1872604688 0.3264190674\n",
+      "label_sha256": "b97f44f16a7985800b09b488610a5163e4fb97570bf12a42167b7c05b3ef87fc",
+      "sources": [
+        {
+          "annotation_source": "human_local_box_review",
+          "human_reviewed": true
+        }
+      ]
+    }
+  ],
+  "annotation_history": [
+    {
+      "status": "pending",
+      "label_sha256": null,
+      "annotation_source": null,
+      "human_reviewed": false,
+      "exclusion_reason": null,
+      "image_available": true,
+      "label_available": false,
+      "changed_at": "2026-11-04T14:13:57.721365+00:00"
+    }
+  ],
   "box_suggestions": [
     {
       "source": "same_frame_detector",
@@ -239,5 +261,6 @@
       "status": "verified"
     }
   ],
-  "updated_at": "2026-11-04T05:47:14.373280+00:00"
+  "updated_at": "2026-11-04T14:13:57.724367+00:00",
+  "exclusion_reason": null
 }
