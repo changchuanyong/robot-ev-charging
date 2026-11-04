@@ -7,7 +7,7 @@
   "width": 1920,
   "height": 1080,
   "date": "2026-10-31",
-  "status": "ready",
+  "status": "excluded",
   "sources": [
     {
       "kind": "realsense_rgb_capture",
@@ -109,7 +109,7 @@
     }
   ],
   "created_at": "2026-10-31T10:05:59.034656+00:00",
-  "annotation_source": "human_local_box_review",
+  "annotation_source": "user_requested_deletion_20261104",
   "human_reviewed": true,
   "label_candidates": [
     {
@@ -133,6 +133,17 @@
       "image_available": true,
       "label_available": false,
       "changed_at": "2026-10-31T10:24:30.264760+00:00"
+    },
+    {
+      "status": "ready",
+      "label_sha256": "fd618415a53cc1331e9201ff9f1b22b24d277bb2a24b9584b7129f67f0167f4e",
+      "annotation_source": "human_local_box_review",
+      "human_reviewed": true,
+      "exclusion_reason": null,
+      "image_available": true,
+      "label_available": true,
+      "label_text": "0 0.59843158 0.70290247 0.18226068 0.36440118\n",
+      "changed_at": "2026-11-04T05:03:59.518895+00:00"
     }
   ],
   "box_suggestions": [
@@ -261,6 +272,6 @@
       "status": "verified"
     }
   ],
-  "updated_at": "2026-10-31T10:24:30.266764+00:00",
-  "exclusion_reason": null
+  "updated_at": "2026-11-04T05:03:59.518895+00:00",
+  "exclusion_reason": "user_requested_deletion_20261104: black frame, median_gray=1, clip_low=63.9%, no usable target signal"
 }

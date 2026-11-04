@@ -96,6 +96,16 @@
       "session_ids": [
         "20261102T005316Z_46fa4b9ee3934d42890c56429f23ecc6"
       ]
+    },
+    "capture_batch:d415_preview_20261104T054550089234Z": {
+      "split": "train",
+      "description": "Explicit whole-capture assignment",
+      "batch_ids": [
+        "d415_preview_20261104T054550089234Z"
+      ],
+      "session_ids": [
+        "20261104T054553Z_d1e5ba41a7fa40e3a6c4f6ed3417a7b2"
+      ]
     }
   }
 }
