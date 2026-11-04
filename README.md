@@ -82,6 +82,26 @@ python -m ev_charging.vision.launch ev_charging.capture.collect --config config/
 python -m ev_charging.vision.launch ev_charging.vision.locate.run --config config/realsense_config.json
 ```
 
+### 曝光与白平衡标定
+
+相机默认自动曝光对整幅画面测光：亮桌面会把黑色接头的孔口压到 2–10 灰阶，后期无法恢复。采集前用标定工具锁定曝光与增益：
+
+```powershell
+# 查看设备序列号
+python -m ev_charging.capture.exposure_calibration --list-devices
+
+# 扫描曝光 × 增益；--box 圈住接头，--save-frames 保存每个设置的一张图
+python -m ev_charging.capture.exposure_calibration --serial <SN> --box 400,150,900,600 --save-frames
+```
+
+工具按"孔径在该曝光下是否可测"打分（尺度归一的环形匹配滤波 + 截断惩罚，不需要标注），并打印可直接粘贴的配置块，填到 [d415.json](config/d415.json) 的 `profiles.collect.rgb_options`：
+
+```json
+"rgb_options": { "enable_auto_exposure": 0, "exposure": 150.0, "gain": 16.0 }
+```
+
+工具复用采集链路的 `RGBControls`：写入前校验范围与步进、写入后回读、结束时还原原值。固定曝光对环境光和距离敏感，换场地需重标；默认配置仍是自动曝光。完整步骤与边界见 [docs/exposure_calibration.md](docs/exposure_calibration.md)。
+
 ## 目录结构
 
 ```text
@@ -230,11 +250,16 @@ python -m ev_charging.vision.evaluation.evaluate_library_keypoints --annotations
 
 # 历史图片批量诊断
 python -m ev_charging.vision.evaluation.batch_pipeline_eval --max-images 50
+
+# 使用照片保存的相机参数，对比平面模型与 CAD 孔口高度
+python -m ev_charging.vision.evaluation.evaluate_library_keypoints --annotations dataset/vision/keypoint_annotations.json --output-dir artifacts/keypoint_pose_comparison --geometry config/geometry_nominal.json --geometry config/geometry_cad_socket_openings.json
 ```
 
 - 输出目录必须是新目录；报告含逐孔诊断、叠加图和参考来源，对比模式另存比较报告。
 - 默认 `--tolerance-px 5` 是诊断邻域，不是精度验收指标。
 - 历史批量诊断使用 Kinect v2 近似内参，不能用于评价 D415 / D435 的重投影误差。
+- `--geometry` 可重复指定。缺少照片绑定的内参时只评价二维孔位，不补用近似内参计算位姿；CAD 孔口模型未经过打印件实测验收，不自动替换真机定位配置。
+- 九孔复核建议会在已有可靠主孔布局内补充有原图边界证据的孔位，保留原有候选坐标。此次改进、适用范围与剩余问题见 [离线孔位与位姿改进](docs/vision_improvement.md)。
 
 | 其他检查 | 查看参数 |
 | --- | --- |

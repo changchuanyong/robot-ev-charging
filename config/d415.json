@@ -12,7 +12,10 @@
       "height": 720,
       "fps": 15,
       "warmup_frames": 30,
-      "output_root": "artifacts/captures"
+      "output_root": "artifacts/captures",
+      "rgb_options": {
+        "enable_auto_exposure": 1
+      }
     },
     "preview": {
       "width": 1920,

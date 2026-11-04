@@ -28,6 +28,7 @@ ev-check = "ev_charging.vision.check_project:main"
 ev-train-port = "ev_charging.training.train_port:main"
 ev-review-keypoints = "ev_charging.review.review_keypoints:main"
 ev-review-library = "ev_charging.review.review_library:main"
+ev-calibrate-exposure = "ev_charging.capture.exposure_calibration:main"
 ev-control-sim = "ev_charging.control.simulate:main"
 
 [tool.setuptools.packages.find]
