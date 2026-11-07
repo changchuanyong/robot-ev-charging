@@ -29,9 +29,6 @@ from ev_charging.vision.model_config import resolve_model_config
 from ev_charging.vision.pipeline import (
     ROOT,
     PosePipeline,
-    padded_crop,
-    preprocess_candidates,
-    select_detection,
 )
 
 
@@ -118,63 +115,15 @@ class DiagnosticFrontend(PosePipeline):
         }
         try:
             self._load()
-            matrix, coefficients, distortion = validate_camera(camera, image.shape)
-            detections = self._detector(image, conf=float(self.config["confidence"]), verbose=False)
-            boxes = [
-                {"xyxy": [float(x) for x in box.xyxy[0].tolist()], "confidence": float(box.conf.item())}
-                for detection in detections
-                for box in detection.boxes
-                if int(box.cls.item()) == int(self.config["target_class"])
-            ]
-            output["detected_boxes"] = boxes
-            selected = select_detection(boxes, image.shape, self.config.get("target_window"))
-            output["selected_bbox_xyxy"] = list(selected["xyxy"])
-            crop, (x1, y1, x2, y2) = padded_crop(image, selected["xyxy"])
-            output.update(roi_bbox_xyxy=[x1, y1, x2, y2], detection_score=selected["confidence"])
-            if x2 <= x1 or y2 <= y1:
-                raise ValueError("invalid_detection_bbox")
-            diagnostics = {}
-            enhanced_bgr, candidates, _, _ = preprocess_candidates(crop, diagnostics=diagnostics)
-            # Candidate recall is deliberately measured before identity selection and PnP.
-            for candidate in candidates:
-                center = next(
-                    (
-                        value
-                        for value in (candidate.aperture_center, candidate.fitted_center, candidate.center)
-                        if value is not None
-                    ),
-                    None,
-                )
-                if np.asarray(center).shape == (2,) and np.isfinite(center).all():
-                    output["candidate_points_raw_px"].append((np.asarray(center) + [x1, y1]).tolist())
-            output["contour_diagnostics"] = diagnostics
-            selection = self._modules["pose_correspondence"].select_correspondences(
-                candidates,
-                enhanced_bgr.shape,
-                geometry["points_mm"],
-                matrix,
-                np.zeros(5),
-                (x1, y1),
-                point_transform=lambda points: rectify_points(points, matrix, coefficients, distortion),
-                max_mean_error_px=float(self.config["max_reprojection_rms_px"]),
-                min_inlier_count=int(self.config["min_inliers"]),
-                min_correspondence_count=max(6, int(self.config["min_inliers"])),
-                observed_prior=self.observed_prior,
-                prefitted=True,
+            points, _ = self._extract_points(
+                image,
+                projection=validate_camera(camera, image.shape),
+                object_points=geometry["points_mm"],
+                evidence=output,
             )
-            details = selection["diagnostics"]
-            output["correspondence_diagnostics"] = details
-            output["ambiguous"] = bool(details.get("ambiguous", False))
-            output["association_quality_ok"] = bool(
-                details.get("association_quality_ok", details.get("selection_quality_ok"))
-            )
-            if selection["best"] is None:
-                raise ValueError("no_layout_variant")
             output["named_points_raw_px"] = {
-                name: np.asarray(point).tolist() for name, point in selection["best"]["image_points"].items()
+                name: np.asarray(point).tolist() for name, point in points.items()
             }
-            output["selection_quality_ok"] = bool(details.get("selection_quality_ok", False))
-            output["reason"] = selection["best"].get("pnp_error") or "ok"
         except Exception as exc:
             output["reason"] = f"{type(exc).__name__}: {exc}"
         return output

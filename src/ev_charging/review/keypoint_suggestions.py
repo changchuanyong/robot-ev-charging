@@ -202,19 +202,6 @@ class SuggestionEngine:
             self.detector, self.detector_key = detector, key
         return self.detector
 
-    def _associate(self, pool, roi_shape, offset, *, scale_free=False):
-        """One measured association attempt; None when it names no hole at all."""
-        selection = self.modules[1].select_observed_correspondences(
-            pool,
-            roi_shape,
-            self.prior,
-            offset,
-            review_mode=True,
-            prefitted=False,
-            scale_free_anchors=scale_free,
-        )
-        return selection if selection["image_points"] else None
-
     def suggest(self, entry, image, *, model=None, diagnostics=False):
         model = model or self.current_model()
         provenance = {
@@ -262,42 +249,7 @@ class SuggestionEngine:
             and selected["diagnostics"].get("structural_support_ok")
         ):
             extras = stable_dark_apertures(crop, contours)
-        # Low-contrast apertures fail the Canny fit gate, so the primary pass can
-        # see texture blocks only. Stable dark boundaries are an independent
-        # measurement, but they are consulted only when the primary pass emitted
-        # nothing, which keeps every existing prediction bit-identical.
-        primary, fallback_source = selected, None
-        if not selected["image_points"]:
-            extras = stable_dark_apertures(crop, contours)
-            if extras:
-                retried = self._associate(candidates + extras, enhanced.shape, (x1, y1))
-                if retried:
-                    selected, fallback_source = retried, "dark_aperture"
-            # Alternates are tried in order and stop at the first association:
-            # the plain profile drops the enhancement that lifts texture to the
-            # aperture scale, the exposure profile also stretches the object
-            # region's own quantisation range.
-            for profile in ("low_contrast", "exposure"):
-                if fallback_source:
-                    break
-                profile_enhanced, profile_candidates, _, _ = preprocess_candidates(crop, profile=profile)
-                if not profile_candidates:
-                    continue
-                retried = self._associate(profile_candidates + extras, profile_enhanced.shape, (x1, y1))
-                if retried:
-                    selected, fallback_source = retried, profile
-            if not fallback_source:
-                # Last attempt: a loose crop cannot satisfy the extent gate, so
-                # let the anchor span be measured in aperture diameters instead.
-                retried = self._associate(candidates + extras, enhanced.shape, (x1, y1), scale_free=True)
-                if retried:
-                    selected, fallback_source = retried, "scale_free_anchors"
-        if fallback_source:
-            # Completion is defined on the primary evidence chain; do not stack
-            # another synthesis step on a weaker fallback association.
-            completed, added = dict(selected["image_points"]), []
-        else:
-            completed, added = complete_apertures(selected, candidates + extras, np.asarray([x1, y1]))
+        completed, added = complete_apertures(selected, candidates + extras, np.asarray([x1, y1]))
         if diagnostics:
             by_index = {candidate.contour_index: candidate for candidate in candidates}
             for outcome in contour_trace["candidate_trace"]["outcomes"]:
@@ -318,9 +270,6 @@ class SuggestionEngine:
                 },
                 completed_apertures=added,
                 stable_dark_candidate_count=len(extras),
-                fallback_used=fallback_source is not None,
-                fallback_source=fallback_source,
-                primary_layout=None if fallback_source is None else primary["diagnostics"],
             )
         points = {name: np.asarray(point).tolist() for name, point in completed.items()}
         return {

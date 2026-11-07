@@ -47,6 +47,8 @@ def build_annotations(library: str | Path, *, root: str | Path = ROOT) -> dict:
     }
     names = {"ready": "已确认", "pending": "待复核", "conflict": "有冲突", "excluded": "已排除"}
     for entry in entries:
+        if entry["status"] == "excluded":
+            continue
         path = _inside(library, entry["image"])
         splits = {source.get("original_split") for source in entry["sources"]} & {"train", "val", "test"}
         result["images"].append(

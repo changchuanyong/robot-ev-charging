@@ -108,32 +108,15 @@ def padded_crop(image: np.ndarray, xyxy) -> tuple[np.ndarray, tuple[int, int, in
     return image[y1:y2, x1:x2].copy(), bounds
 
 
-def preprocess_candidates(
-    crop: np.ndarray, *, diagnostics=None, prepare=True, verbose=False, profile="standard"
-):
-    """Share enhancement and measured contour extraction, without choosing hole identities.
-
-    ``profile="low_contrast"`` skips local contrast boosting and the second
-    CLAHE pass for crops whose apertures differ from their rim by only a few
-    grey levels. ``profile="exposure"`` additionally stretches the object
-    region's own exposure range on dark crops. The default path is unchanged.
-    """
+def preprocess_candidates(crop: np.ndarray, *, diagnostics=None, prepare=True, verbose=False):
+    """Share enhancement and measured contour extraction, without choosing hole identities."""
     import cv2
 
     from ev_charging.vision.algorithms import enhance
     from ev_charging.vision.algorithms import latest_candidate_contours as contours
 
-    if profile == "low_contrast":
-        enhanced = cv2.cvtColor(enhance.low_contrast_gray(crop), cv2.COLOR_GRAY2BGR)
-        *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced, prepared=True)
-    elif profile == "exposure":
-        enhanced = cv2.cvtColor(enhance.exposure_gray(crop), cv2.COLOR_GRAY2BGR)
-        *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced, prepared=True)
-    elif profile == "standard":
-        enhanced = cv2.cvtColor(enhance.preprocess_roi(crop)["final"], cv2.COLOR_GRAY2BGR)
-        *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced)
-    else:
-        raise ValueError("unknown_preprocess_profile")
+    enhanced = cv2.cvtColor(enhance.preprocess_roi(crop)["final"], cv2.COLOR_GRAY2BGR)
+    *_, edges, low, high, morph_threshold = enhance.adaptive_canny_pipeline(enhanced)
     candidates, _, _ = contours.filter_candidate_contours(
         contours.prepare_edges(edges) if prepare else edges,
         enhanced,
@@ -210,31 +193,50 @@ class PosePipeline:
             self.observed_prior = load_prior(prior_path)
         self._modules, self._detector = modules, detector
 
-    def _extract_points(self, image: np.ndarray, *, projection: tuple) -> tuple[dict, dict]:
-
+    def _extract_points(
+        self, image: np.ndarray, *, projection: tuple, object_points=None, evidence=None
+    ) -> tuple[dict, dict]:
+        """Shared online extraction; diagnostics retain evidence from this same pass."""
         self._load()
         result = self._detector(image, conf=float(self.config["confidence"]), verbose=False)
-        boxes = []
-        if result:
-            for box in result[0].boxes:
-                if int(box.cls.item()) == int(self.config["target_class"]):
-                    boxes.append(
-                        {
-                            "xyxy": [float(x) for x in box.xyxy[0].tolist()],
-                            "confidence": float(box.conf.item()),
-                        }
-                    )
+        boxes = [
+            {"xyxy": [float(x) for x in box.xyxy[0].tolist()], "confidence": float(box.conf.item())}
+            for detection in result
+            for box in detection.boxes
+            if int(box.cls.item()) == int(self.config["target_class"])
+        ]
+        if evidence is not None:
+            evidence["detected_boxes"] = boxes
         selected = select_detection(boxes, image.shape, self.config.get("target_window"))
         crop, (x1, y1, x2, y2) = padded_crop(image, selected["xyxy"])
+        if evidence is not None:
+            evidence.update(
+                selected_bbox_xyxy=list(selected["xyxy"]),
+                roi_bbox_xyxy=[x1, y1, x2, y2],
+                detection_score=selected["confidence"],
+            )
         if x2 <= x1 or y2 <= y1:
             raise ValueError("invalid_detection_bbox")
         diagnostics = {}
         enhanced_bgr, candidates, _, _ = preprocess_candidates(crop, diagnostics=diagnostics)
+        if evidence is not None:
+            for candidate in candidates:
+                center = next(
+                    (
+                        value
+                        for value in (candidate.aperture_center, candidate.fitted_center, candidate.center)
+                        if value is not None
+                    ),
+                    None,
+                )
+                if np.asarray(center).shape == (2,) and np.isfinite(center).all():
+                    evidence["candidate_points_raw_px"].append((np.asarray(center) + [x1, y1]).tolist())
+            evidence["contour_diagnostics"] = diagnostics
         matrix, coefficients, distortion_model = projection
         selection = self._modules["pose_correspondence"].select_correspondences(
             candidates,
             enhanced_bgr.shape,
-            self.model,
+            self.model if object_points is None else object_points,
             matrix,
             np.zeros(5),
             (x1, y1),
@@ -245,13 +247,27 @@ class PosePipeline:
             observed_prior=self.observed_prior,
             prefitted=True,
         )
+        details = selection["diagnostics"]
+        if evidence is not None:
+            evidence.update(
+                correspondence_diagnostics=details,
+                ambiguous=bool(details.get("ambiguous", False)),
+                association_quality_ok=bool(
+                    details.get("association_quality_ok", details.get("selection_quality_ok"))
+                ),
+            )
         if selection["best"] is None:
             raise ValueError("no_layout_variant")
+        if evidence is not None:
+            evidence.update(
+                selection_quality_ok=bool(details.get("selection_quality_ok", False)),
+                reason=selection["best"].get("pnp_error") or "ok",
+            )
         return selection["best"]["image_points"], {
             "detection_score": selected["confidence"],
             "crop_xyxy": [x1, y1, x2, y2],
             "contour_diagnostics": diagnostics,
-            "correspondence_diagnostics": selection["diagnostics"],
+            "correspondence_diagnostics": details,
         }
 
     def process(self, packet: FramePacket, now: float | None = None) -> dict:
