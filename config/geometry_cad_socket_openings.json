@@ -1,70 +1,76 @@
 {
   "schema_version": 1,
-  "version": "socket-cad-opening-rim-v1",
-  "status": "cad_extracted",
+  "version": "socket-user-confirmed-mouth-planes-v3",
+  "status": "nominal_reference",
+  "geometry_basis": "user_confirmed_hole_mouth_planes",
   "validated": false,
   "units": "mm",
   "frame": "target",
-  "feature_definition": "Centers of the outward CAD bore opening rims, including chamfers. XY agrees with the existing nominal layout; Z is the measured CAD axial opening level. Optical dark-region centers and actual printed geometry are not independently validated.",
+  "feature_definition": "Centers of the hole-mouth annular faces confirmed by the user on 2026-11-05. Coplanar inner and outer boundaries share the same center plane; deeper chamfer bottoms or internal steps are excluded. XY retains the nominal layout. Z=0 is the uppermost socket plane and +Z points outward; Z is the negative user-provided depth. Image center correspondence and printed geometry are not independently validated.",
   "points_mm": {
     "S_neg": [
       -12,
       21,
-      -10.0
+      -17.5
     ],
     "CC2": [
       0,
       21,
-      0.0
+      -12.5
     ],
     "S_pos": [
       12,
       21,
-      -10.0
+      -17.5
     ],
     "CC1": [
       0,
       9,
-      -10.0
+      -17.5
     ],
     "DC_neg": [
       -17,
       -1.2,
-      0.0
+      -7.5
     ],
     "DC_pos": [
       17,
       -1.2,
-      0.0
+      -7.5
     ],
     "A_neg": [
       -14.25,
       -21,
-      -10.0
+      -17.5
     ],
     "PE": [
       0,
       -21,
-      0.0
+      -7.5
     ],
     "A_pos": [
       14.25,
       -21,
-      -10.0
+      -17.5
     ]
   },
   "sections": {
-    "S_neg": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
-    "CC2": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
-    "S_pos": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
-    "CC1": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
-    "DC_neg": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
-    "DC_pos": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
-    "A_neg": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat.",
-    "PE": "Outward bore opening at CAD Y=45 mm; target Z=0 mm. Not the deeper inner throat.",
-    "A_pos": "Outward bore opening at CAD Y=35 mm; target Z=-10 mm. Not the deeper inner throat."
+    "S_neg": "User-confirmed hole-mouth plane, 17.5 mm inward from the uppermost plane; Z=-17.5 mm.",
+    "CC2": "User-confirmed hole-mouth plane, 12.5 mm inward from the uppermost plane; Z=-12.5 mm.",
+    "S_pos": "User-confirmed hole-mouth plane, 17.5 mm inward from the uppermost plane; Z=-17.5 mm.",
+    "CC1": "User-corrected hole-mouth plane, 17.5 mm inward from the uppermost plane; Z=-17.5 mm.",
+    "DC_neg": "User-confirmed hole-mouth plane, 7.5 mm inward from the uppermost plane; Z=-7.5 mm.",
+    "DC_pos": "User-confirmed hole-mouth plane, 7.5 mm inward from the uppermost plane; Z=-7.5 mm.",
+    "A_neg": "User-confirmed hole-mouth plane, 17.5 mm inward from the uppermost plane; Z=-17.5 mm.",
+    "PE": "User-confirmed hole-mouth plane, 7.5 mm inward from the uppermost plane; Z=-7.5 mm.",
+    "A_pos": "User-confirmed hole-mouth plane, 17.5 mm inward from the uppermost plane; Z=-17.5 mm."
   },
   "provenance": [
+    {
+      "path": "docs/online_workflow.md",
+      "sha256": "965e92e790092c2691edb7a0126522fa17ad248953c407e7e6a33450a1805ec7",
+      "kind": "user_confirmed_depths_and_hole_mouth_plane_definition_2026-11-05"
+    },
     {
       "path": "../模型/插座改.STL",
       "sha256": "95afd0124efd6532fd5cf5eda703982ccea1c89d81a074b89b0b0370ede4c89f",
@@ -93,7 +99,7 @@
       0,
       1,
       0,
-      -45.0
+      -52.5
     ],
     [
       0,
@@ -102,7 +108,9 @@
       1
     ]
   ],
-  "extraction": {
+  "previous_cad_extraction": {
+    "applies_to_version": "socket-cad-opening-rim-v1",
+    "note": "Historical automatic extraction only; these axial levels are superseded by the user-confirmed points_mm. The old target Z was CAD Y minus 45 mm; current target Z uses the uppermost CAD Y=52.5 mm plane.",
     "method": "section circles at CAD Y=12; match existing XY centers within 0.05 mm; inspect bore-side vertices inside the midpoint of inner/outer radii; use maximum axial opening coordinate",
     "STL_unit_note": "STL has no unit metadata. Millimetres follow the project export convention and existing XY pitch, not a physical measurement.",
     "holes": {
