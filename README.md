@@ -2,9 +2,11 @@
 
 基于 **RealSense、YOLOv8n 和 RM75 六维力机械臂**的充电口检测、九孔定位与插装研究项目。
 
-**D415 采集 → 人工复核 → 模型训练 → 九孔 / PnP 诊断 → D435 定位与控制**
+**D415 / D435 采集与曝光 → 共享九孔识别与 PnP → 连续发布带时效和质量状态的位姿 → 控制侧验收**
 
-[快速开始](#快速开始) · [设备与配置](#设备与配置) · [目录结构](#目录结构) · [进阶用法](#进阶用法) · [项目约定](#项目约定) · [代码规范](docs/code_style.md)
+历史图片用于标注、训练和复现在线缺陷，不维护另一套多级识别流程。
+
+[快速开始](#快速开始) · [设备与配置](#设备与配置) · [目录结构](#目录结构) · [进阶用法](#进阶用法) · [项目约定](#项目约定) · [代码规范](docs/architecture.md#代码风格与精简原则)
 
 ## 快速开始
 
@@ -29,7 +31,7 @@ python -m pip install --no-deps --no-build-isolation -e .
 
 统一使用 `ev-charging` 环境，包含视觉、训练、设备 SDK 和 MuJoCo。NumPy 固定为 2.4.3；旧的 `ev-vision`、`ev-sim` 环境保留用于回退。本工程提供控制状态机的软件仿真，未包含其他工程副本中的 MuJoCo 场景代码。
 
-源码采用 `src` 布局，首次创建环境后需要执行上面的可编辑安装；随后源码修改直接生效。环境与包安装说明见 [环境说明](docs/environment.md)。
+源码采用 `src` 布局，首次创建环境后需要执行上面的可编辑安装；随后源码修改直接生效。环境与包安装说明见 [环境说明](docs/architecture.md#统一开发环境)。
 
 </details>
 
@@ -65,7 +67,7 @@ python -m pip install --no-deps --no-build-isolation -e .
 | --- | --- | --- |
 | D415 采集与预览 | [d415.json](config/d415.json) | 型号、序列号、RGB / 深度流、视觉参数 |
 | D435 数据采集 | [data_capture_d435.json](config/data_capture_d435.json) | 独立 RGB 采集，启动时填写序列号 |
-| D435 定位 | [realsense_config.json](config/realsense_config.json) | 定位参数与标定信息 |
+| D415 / D435 定位 | [realsense_config.json](config/realsense_config.json) | 定位参数与标定信息 |
 | 模型训练 | [train_config.json](config/train_config.json) | 默认 40 轮、batch 32、workers 4、AMP |
 | 当前检测器 | [vision_model.json](config/vision_model.json) | 权重、训练报告及 SHA256 |
 | 数据分组 | [port_dataset_split.json](config/port_dataset_split.json) | 固定 train / val 分组 |
@@ -82,25 +84,24 @@ python -m ev_charging.vision.launch ev_charging.capture.collect --config config/
 python -m ev_charging.vision.launch ev_charging.vision.locate.run --config config/realsense_config.json
 ```
 
-### 曝光与白平衡标定
+### 曝光直接在采集预览中调整
 
-相机默认自动曝光对整幅画面测光：亮桌面会把黑色接头的孔口压到 2–10 灰阶，后期无法恢复。采集前用标定工具锁定曝光与增益：
+预览窗口中按 **A** 切换自动/手动曝光，**[ / ]** 调曝光，**- / =** 调增益，**Z** 放大目标查看孔口。使用当前画面的孔位、质量状态和误差判断效果；曝光不足且细节已经丢失的帧应重拍。
+
+采集和正式定位共用 `RGBControls`：校验设备范围与步进、写后回读，退出时还原设备设置；保存帧保留曝光元数据。固定工作环境可把确认过的 `rgb_options` 写入所用相机配置，不能把其他场景的曝光值直接套用。已撤下独立曝光扫描与自动评分脚本。
+
+### 两种相机共用定位流程
+
+在 [realsense_config.json](config/realsense_config.json) 中设置 `device_model` 为 `D415` 或 `D435`，填写匹配的 `serial`、分辨率、曝光和独立验证的标定信息。同一份平铺配置可用于预览和连续位姿发布：
 
 ```powershell
-# 查看设备序列号
-python -m ev_charging.capture.exposure_calibration --list-devices
-
-# 扫描曝光 × 增益；--box 圈住接头，--save-frames 保存每个设置的一张图
-python -m ev_charging.capture.exposure_calibration --serial <SN> --box 400,150,900,600 --save-frames
+python -m ev_charging.vision.launch ev_charging.capture.preview --config config/realsense_config.json --no-library
+python -m ev_charging.vision.launch ev_charging.vision.locate.run --config config/realsense_config.json
 ```
 
-工具按"孔径在该曝光下是否可测"打分（尺度归一的环形匹配滤波 + 截断惩罚，不需要标注），并打印可直接粘贴的配置块，填到 [d415.json](config/d415.json) 的 `profiles.collect.rgb_options`：
+两个命令先后运行，避免争用相机。预览可交互调曝光；定位入口持续原子更新 `dataset/live/latest_control_pose.json`，带帧号、主机单调时间、坐标系、米制变换和质量状态。错误帧及停止时发布无效状态。相机序列号和标定尚需实际填写，不能用诊断输出冒充经过验收的控制输入。
 
-```json
-"rgb_options": { "enable_auto_exposure": 0, "exposure": 150.0, "gain": 16.0 }
-```
-
-工具复用采集链路的 `RGBControls`：写入前校验范围与步进、写入后回读、结束时还原原值。固定曝光对环境光和距离敏感，换场地需重标；默认配置仍是自动曝光。完整步骤与边界见 [docs/exposure_calibration.md](docs/exposure_calibration.md)。
+当前控制器在视觉阶段接收位姿，进入预对准后冻结目标；连续位姿发布不代表已经实现运动中的视觉跟踪。具体实施与验证见 [流程收敛记录](docs/online_workflow.md)。
 
 ## 目录结构
 
@@ -259,7 +260,7 @@ python -m ev_charging.vision.evaluation.evaluate_library_keypoints --annotations
 - 默认 `--tolerance-px 5` 是诊断邻域，不是精度验收指标。
 - 历史批量诊断使用 Kinect v2 近似内参，不能用于评价 D415 / D435 的重投影误差。
 - `--geometry` 可重复指定。缺少照片绑定的内参时只评价二维孔位，不补用近似内参计算位姿；CAD 孔口模型未经过打印件实测验收，不自动替换真机定位配置。
-- 九孔复核建议会在已有可靠主孔布局内补充有原图边界证据的孔位，保留原有候选坐标。此次改进、适用范围与剩余问题见 [离线孔位与位姿改进](docs/vision_improvement.md)。
+- 九孔复核建议会在已有可靠主孔布局内补充有原图边界证据的孔位，保留原有候选坐标。此次改进、适用范围与剩余问题见 [离线孔位与位姿改进](docs/online_workflow.md#现有图片的孔位与位姿改进)。
 
 | 其他检查 | 查看参数 |
 | --- | --- |
