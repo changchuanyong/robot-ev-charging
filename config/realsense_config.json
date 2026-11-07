@@ -1,10 +1,15 @@
 {
-  "description": "D435 eye-in-hand RGB pipeline. Set exact serial and validate calibration before robot use. Pixel gates are provisional analysis settings.",
+  "description": "D415/D435 eye-in-hand RGB pipeline. Select the exact device model and serial, then validate calibration before robot use. Pixel gates are provisional analysis settings.",
+  "device_model": "D435",
   "serial": null,
   "width": 1280,
   "height": 720,
   "fps": 30,
   "timeout_ms": 2000,
+  "warmup_frames": 0,
+  "rgb_options": {
+    "enable_auto_exposure": 1
+  },
   "max_frame_age_s": 0.5,
   "intrinsics_validated": false,
   "intrinsics_sha256": null,

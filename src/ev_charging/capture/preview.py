@@ -1,4 +1,4 @@
-"""D415 visual diagnostics: python -m ev_charging.capture.preview (F5 saves, F6 pauses, Esc exits)."""
+"""RealSense visual diagnostics: python -m ev_charging.capture.preview (F5 saves, F6 pauses, Esc exits)."""
 
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ from ev_charging.vision.geometry_reference import load_geometry_reference
 from ev_charging.vision.locate.diagnose import DiagnosticFrontend, solve_raw_points
 from ev_charging.vision.pipeline import ROOT
 
-WINDOW = "D415 Visual Diagnostics"
-DEPTH_WINDOW = "D415 Depth Diagnostics"
+WINDOW = "RealSense Visual Diagnostics"
+DEPTH_WINDOW = "RealSense Depth Diagnostics"
 SAVE_KEYS = (32, ord("s"), ord("S"), 0x740000, 0xFFC2)  # Windows / X11 F5
 PAUSE_KEYS = (ord("p"), ord("P"), 0x750000, 0xFFC3)  # Windows / X11 F6
 
@@ -150,6 +150,8 @@ def _reason(value, chinese):
     text = str(value)
     translations = {
         "processing": "等待当前帧分析完成",
+        "frame_expired": "结果已过期，仅保留历史帧诊断",
+        "frame_age_unknown": "无法确认帧时效，仅保留诊断",
         "target_not_detected": "未检测到充电口",
         "ambiguous_complete_target_use_target_window": "检测到多个目标，无法确定对象",
         "no_layout_variant": "孔位不足或无法完成孔名对应",
@@ -248,7 +250,7 @@ def render_preview(
         text = _fit_text(draw, text, selected_font, right - x, ellipsis="…" if chinese else "...")
         draw.text((x, y), text, font=selected_font, fill=fill)
 
-    line(caption("D415 实时视觉诊断", "D415 visual diagnostics"), 17, selected_font=title_font)
+    line(caption("RealSense 实时视觉诊断", "RealSense visual diagnostics"), 17, selected_font=title_font)
     camera = diagnostic.get("camera", {})
     line(
         f"{camera.get('serial', '--')}  |  {camera.get('image_width', width)} x "
@@ -266,13 +268,14 @@ def render_preview(
     )
     assessment = diagnostic.get("assessment", {})
     status = assessment.get("status", "no_pose")
-    if not pose.get("solved") and status != "processing":
+    if not pose.get("solved") and status not in ("processing", "stale"):
         status = "no_pose"
     statuses = {
         "estimated": (caption("位姿估计", "Pose estimated"), (132, 198, 235)),
         "warning": (caption("质量告警", "Quality warning"), (246, 189, 87)),
         "no_pose": (caption("暂无位姿", "No pose"), (239, 135, 128)),
         "processing": (caption("正在分析", "Processing"), (132, 198, 235)),
+        "stale": (caption("结果已过期 / 时效未确认", "Expired / freshness unknown"), (246, 189, 87)),
     }
     label, color = statuses.get(status, statuses["no_pose"])
     if paused:
@@ -464,8 +467,8 @@ def render_depth(packet, diagnostic, *, paused=False, saved_count=0, message="")
         draw.text((x - left, y - top), value, font=chosen, fill=fill)
 
     text(
-        "D415 深度辅助诊断" + (" · 已暂停" if paused else ""),
-        "D415 depth diagnostics" + (" | Paused" if paused else ""),
+        "RealSense 深度辅助诊断" + (" · 已暂停" if paused else ""),
+        "RealSense depth diagnostics" + (" | Paused" if paused else ""),
         20,
         16,
         title=True,
@@ -689,11 +692,38 @@ def assess_preview(frontend, pose, config):
     return {"status": "warning" if reasons else "estimated", "reasons": reasons}
 
 
+def frame_age_s(frame):
+    """Host receipt age, not exposure age; monotonic stamps are live-process only."""
+    try:
+        if "received_monotonic_s" in frame:
+            age = time.monotonic() - float(frame["received_monotonic_s"])
+        else:
+            received = datetime.fromisoformat(frame["received_at_utc"])
+            age = (datetime.now(timezone.utc) - received).total_seconds()
+        return age if math.isfinite(age) and age >= 0 else None
+    except (KeyError, ValueError, TypeError, OverflowError):
+        return None
+
+
+def refresh_preview_freshness(result, config):
+    """Expire completed results again while displayed, including while paused."""
+    age = frame_age_s(result["frame"])
+    reason = (
+        "frame_age_unknown" if age is None else "frame_expired" if age > config["max_frame_age_s"] else None
+    )
+    assessment = result["image_assessment"]
+    result["frame_age_ms"] = None if age is None else age * 1000
+    result["assessment"] = (
+        {"status": "stale", "reasons": [*assessment["reasons"], reason]} if reason else dict(assessment)
+    )
+
+
 def process_frame(frontend, image, camera, frame, geometry, config, *, depth_sample=None):
     started = time.monotonic()
     validate_camera(camera, image.shape)
     features = frontend.extract(image, camera, geometry)
     pose = solve_raw_points(features["named_points_raw_px"], geometry["points_mm"], camera)
+    assessment = assess_preview(features, pose, config)
     result = {
         "schema_version": 1,
         "kind": "d415_visual_diagnostic",
@@ -705,13 +735,13 @@ def process_frame(frontend, image, camera, frame, geometry, config, *, depth_sam
         "image_pixels_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
         "frontend": features,
         "pose": pose,
-        "assessment": assess_preview(features, pose, config),
-        "processing_ms": (time.monotonic() - started) * 1000,
+        "image_assessment": assessment,
     }
     if depth_sample is not None:
         result["schema_version"] = 2
         result["depth"] = analyze_depth(depth_sample, frame, camera, features, pose, geometry)
-        result["processing_ms"] = (time.monotonic() - started) * 1000
+    result["processing_ms"] = (time.monotonic() - started) * 1000
+    refresh_preview_freshness(result, config)
     return result
 
 
@@ -743,12 +773,17 @@ def run_preview(
             if intake_report.get("last_message") and intake_report["last_message"] != last_intake_message:
                 message = last_intake_message = intake_report["last_message"]
                 print(message, flush=True)
-            if use_depth:
-                image, metadata, depth_sample = camera.read_rgbd()
-            else:
-                image, metadata = camera.read()
-                depth_sample = None
-            read_rate.tick()
+            sample = (
+                camera.poll()
+                if isinstance(camera, PreviewCapture)
+                else camera.read_rgbd()
+                if use_depth
+                else camera.read()
+            )
+            image, metadata = sample[:2] if sample is not None else (None, {})
+            depth_sample = sample[2] if sample is not None and use_depth else None
+            if sample is not None:
+                read_rate.tick()
             controls = getattr(camera, "control_message", "")
             if controls and controls != last_controls:
                 message = last_controls = controls
@@ -766,7 +801,9 @@ def run_preview(
                 save_requested = save_first and processed == 1
             if displayed is None:
                 displayed = (
-                    image.copy(),
+                    image.copy()
+                    if image is not None
+                    else np.zeros((camera.camera["image_height"], camera.camera["image_width"], 3), np.uint8),
                     {
                         "frontend": {},
                         "pose": {"solved": False, "reason": "processing"},
@@ -778,22 +815,19 @@ def run_preview(
                     None,
                 )
             shown_image, diagnostic, shown_depth = displayed
+            if "image_assessment" in diagnostic:
+                refresh_preview_freshness(diagnostic, config)
             capture_stats = (
                 camera.capture_stats()
                 if callable(getattr(camera, "capture_stats", None))
                 else {"capture_fps": read_rate.fps()}
             )
-            frame_age = None
-            try:
-                received = datetime.fromisoformat(diagnostic["frame"]["received_at_utc"])
-                frame_age = max(0.0, (datetime.now(timezone.utc) - received).total_seconds() * 1000)
-            except (KeyError, ValueError, TypeError):
-                pass
+            age = frame_age_s(diagnostic["frame"])
             runtime = {
                 **capture_stats,
                 "analysis_fps": 0.0 if paused else analysis_rate.fps(),
                 "render_fps": 0.0 if paused else render_rate.fps(),
-                "frame_age_ms": frame_age,
+                "frame_age_ms": None if age is None else age * 1000,
                 "target_zoom": zoom,
                 "display_image_width": 1280,
                 "intake": intake_report,
@@ -808,6 +842,7 @@ def run_preview(
                 intake_report["saved"],
                 zoom,
                 int(time.monotonic() * 2),
+                diagnostic["assessment"]["status"],
             )
             if key_now != rendered_key:
                 overlay = render_preview(
@@ -879,7 +914,7 @@ def run_preview(
                     print(message, flush=True)
             if frames and processed >= frames:
                 break
-            if pending is None and not paused and not stale_color:
+            if pending is None and not paused and not stale_color and image is not None:
                 snapshot, frame_info = image.copy(), dict(metadata)
                 depth_snapshot = deepcopy(depth_sample)
 
@@ -929,7 +964,7 @@ def main(argv=None):
         dest="capture_config",
         type=Path,
         default=ROOT / "config/d415.json",
-        help="D415 capture, depth and vision configuration",
+        help="RealSense capture, depth and vision configuration",
     )
     parser.add_argument(
         "--quality",
@@ -946,8 +981,8 @@ def main(argv=None):
     parser.add_argument(
         "--vision-config", type=Path, help="Detector and PnP settings only; no control output is written"
     )
-    parser.add_argument("--geometry", type=Path, default=ROOT / "config/geometry_nominal.json")
-    parser.add_argument("--serial", help="Explicit D415 serial; otherwise use capture configuration")
+    parser.add_argument("--geometry", type=Path, help="Override the configured geometry reference")
+    parser.add_argument("--serial", help="Explicit camera serial; otherwise use capture configuration")
     parser.add_argument("--batch", help="Capture batch; defaults to a unique diagnostic batch")
     parser.add_argument(
         "--split",
@@ -957,7 +992,7 @@ def main(argv=None):
     )
     parser.add_argument("--specimen")
     parser.add_argument("--printing-batch")
-    parser.add_argument("--notes", default="D415 SDK visual diagnostics; unreviewed images")
+    parser.add_argument("--notes", default="RealSense SDK visual diagnostics; unreviewed images")
     parser.add_argument("--output-root", type=Path, help="Override the preview profile's output_root")
     library_group = parser.add_mutually_exclusive_group()
     library_group.add_argument(
@@ -989,6 +1024,8 @@ def main(argv=None):
         capture_config, options = load_capture_config(args.capture_config, "preview")
         if not options:
             _, options = load_capture_config(ROOT / "config/d415.json", "preview")
+            if "model_registry" in capture_config or "weights" in capture_config:
+                options["vision"] = capture_config
         if args.serial:
             capture_config["serial"] = args.serial
         capture_config = configure_capture(
@@ -998,9 +1035,7 @@ def main(argv=None):
             exposure=args.exposure,
             gain=args.gain,
         )
-        if capture_config["device_model"] != "D415":
-            raise ValueError("D415 preview requires an explicit D415 capture configuration")
-        output = args.output_root or Path(capture_config.get("output_root", "artifacts/d415_preview"))
+        output = args.output_root or Path(capture_config.get("output_root", "artifacts/realsense_preview"))
         output = (output if output.is_absolute() else ROOT / output).resolve()
         if not output.is_relative_to(ROOT):
             raise ValueError("Preview output must be within the project for annotation review")
@@ -1009,7 +1044,7 @@ def main(argv=None):
             if args.no_library
             else (args.library if args.library.is_absolute() else ROOT / args.library).resolve()
         )
-        batch = args.batch or "d415_preview_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        batch = args.batch or "realsense_preview_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         metadata = {
             "specimen_id": args.specimen,
             "printing_batch_id": args.printing_batch,
@@ -1022,17 +1057,21 @@ def main(argv=None):
             from ev_charging.datasets.vision.dataset_split import check_capture_split
 
             check_capture_split(library_root, batch, args.split, metadata)
-        geometry = load_geometry_reference(args.geometry)
-        if geometry["status"] == "measured_print" and (
-            geometry["specimen_id"] != args.specimen or geometry["printing_batch_id"] != args.printing_batch
-        ):
-            raise ValueError("Measured geometry requires matching --specimen and --printing-batch")
         config = (
             json.loads(args.vision_config.read_text(encoding="utf-8-sig"))
             if args.vision_config
             else options["vision"]
         )
-        config["geometry_reference"] = str(args.geometry.resolve())
+        geometry_path = args.geometry or Path(
+            config.get("geometry_reference") or "config/geometry_nominal.json"
+        )
+        geometry_path = geometry_path if geometry_path.is_absolute() else ROOT / geometry_path
+        geometry = load_geometry_reference(geometry_path)
+        if geometry["status"] == "measured_print" and (
+            geometry["specimen_id"] != args.specimen or geometry["printing_batch_id"] != args.printing_batch
+        ):
+            raise ValueError("Measured geometry requires matching --specimen and --printing-batch")
+        config["geometry_reference"] = str(geometry_path.resolve())
         frontend = DiagnosticFrontend(config)
         print("正在加载检测模型和几何…", flush=True)
         frontend._load()

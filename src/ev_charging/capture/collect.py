@@ -18,8 +18,8 @@ from threading import Condition, Event, RLock, Thread
 import cv2
 import numpy as np
 
-from ev_charging.hardware.realsense import stream_camera as _stream_camera
 from ev_charging.paths import PROJECT_ROOT
+from ev_charging.vision.contracts import intrinsics_signature, validate_camera
 from ev_charging.vision.launch import ensure_camera_privilege
 
 ROOT = PROJECT_ROOT
@@ -275,6 +275,42 @@ def load_capture_config(path, profile):
     ):
         raise ValueError("invalid_capture_profiles_config")
     return {**config["device"], **config["profiles"][profile]}, config
+
+
+def _stream_camera(
+    profile, stream, serial, name, model=None, *, expected=None, profile_error="stream_profile_mismatch"
+):
+    """Build original SDK metadata; calibration acceptance remains the caller's responsibility."""
+    intrinsics = profile.get_intrinsics()
+    if (
+        expected is not None
+        and (intrinsics.width, intrinsics.height, profile.fps(), profile.format()) != expected
+    ):
+        raise ValueError(profile_error)
+    camera = {
+        "stream": stream,
+        "serial": serial,
+        "device_name": name,
+        "device_model": model,
+        "image_width": intrinsics.width,
+        "image_height": intrinsics.height,
+        "fps": profile.fps(),
+        "pixel_format": "bgr8" if stream == "color" else "z16",
+        "camera_matrix": [[intrinsics.fx, 0, intrinsics.ppx], [0, intrinsics.fy, intrinsics.ppy], [0, 0, 1]],
+        "dist_coeffs": list(intrinsics.coeffs),
+        "distortion_model": intrinsics.model.name,
+        "source": f"device_{stream}_stream",
+        "validated": False,
+        "version": None,
+        "is_placeholder": False,
+        "is_approximate": False,
+    }
+    if model is None:
+        camera.pop("device_model")
+    # Validate matrix and distortion without claiming depth is an RGB stream.
+    validate_camera({**camera, "stream": "color"}, (intrinsics.height, intrinsics.width, 3))
+    camera["intrinsics_sha256"] = intrinsics_signature(camera)
+    return camera
 
 
 def list_devices(rs=None) -> list[dict]:
@@ -655,6 +691,21 @@ class PreviewCapture:
                 now = time.monotonic()
                 identity = (sample[1].get("frame_number"), sample[1].get("device_timestamp_ms"))
                 with self._condition:
+                    received = (
+                        self._latest[1]["received_monotonic_s"]
+                        if self._latest is not None and identity == self._previous_frame
+                        else now
+                    )
+                    sample = (sample[0], {**sample[1], "received_monotonic_s": received}, *sample[2:])
+                    if self._has_depth:
+                        packet = sample[2]
+                        sample = (
+                            *sample[:2],
+                            {
+                                **packet,
+                                "color_frame": {**packet["color_frame"], "received_monotonic_s": received},
+                            },
+                        )
                     self._latest = sample
                     self._version += 1
                     if identity != self._previous_frame:
@@ -669,8 +720,8 @@ class PreviewCapture:
                 self._error = exc
                 self._condition.notify_all()
 
-    def _next(self):
-        timeout = self.source.config.get("timeout_ms", 5000) / 1000 + 1
+    def _next(self, timeout_s=None):
+        timeout = self.source.config.get("timeout_ms", 5000) / 1000 + 1 if timeout_s is None else timeout_s
         with self._condition:
             ready = self._condition.wait_for(
                 lambda: self._error is not None or self._version > self._consumed or self._stop.is_set(),
@@ -679,7 +730,9 @@ class PreviewCapture:
             if self._error is not None:
                 raise self._error
             if not ready or self._version <= self._consumed:
-                raise RuntimeError("D415 acquisition did not return a new frame")
+                if timeout_s is not None:
+                    return None
+                raise RuntimeError("RealSense acquisition did not return a new frame")
             self._consumed = self._version
             return self._latest
 
@@ -688,6 +741,10 @@ class PreviewCapture:
 
     def read_rgbd(self):
         return self._next()
+
+    def poll(self, timeout_s=0.05):
+        """Let the UI expire results and handle keys even when the stream stalls."""
+        return self._next(timeout_s)
 
     def capture_stats(self):
         with self._condition:
@@ -733,7 +790,7 @@ class PreviewCapture:
         if self._thread is not None:
             self._thread.join(timeout=self.source.config.get("timeout_ms", 5000) / 1000 + 2)
             if self._thread.is_alive():
-                raise RuntimeError("D415 acquisition thread did not stop before camera cleanup")
+                raise RuntimeError("RealSense acquisition thread did not stop before camera cleanup")
 
 
 def intake_status(report):
